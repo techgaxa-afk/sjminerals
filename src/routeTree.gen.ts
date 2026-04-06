@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as JcbRouteImport } from './routes/jcb'
 import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as BillsRouteImport } from './routes/bills'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as IndexRouteImport } from './routes/index'
@@ -29,6 +30,11 @@ const JcbRoute = JcbRouteImport.update({
 const ExpensesRoute = ExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomersRoute = CustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BillsRoute = BillsRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
+  '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
   '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
+  '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
   '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
@@ -68,20 +76,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
+  '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
   '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/billing' | '/bills' | '/expenses' | '/jcb' | '/products'
+  fullPaths:
+    | '/'
+    | '/billing'
+    | '/bills'
+    | '/customers'
+    | '/expenses'
+    | '/jcb'
+    | '/products'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/billing' | '/bills' | '/expenses' | '/jcb' | '/products'
+  to:
+    | '/'
+    | '/billing'
+    | '/bills'
+    | '/customers'
+    | '/expenses'
+    | '/jcb'
+    | '/products'
   id:
     | '__root__'
     | '/'
     | '/billing'
     | '/bills'
+    | '/customers'
     | '/expenses'
     | '/jcb'
     | '/products'
@@ -91,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BillingRoute: typeof BillingRoute
   BillsRoute: typeof BillsRoute
+  CustomersRoute: typeof CustomersRoute
   ExpensesRoute: typeof ExpensesRoute
   JcbRoute: typeof JcbRoute
   ProductsRoute: typeof ProductsRoute
@@ -117,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/expenses'
       fullPath: '/expenses'
       preLoaderRoute: typeof ExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customers': {
+      id: '/customers'
+      path: '/customers'
+      fullPath: '/customers'
+      preLoaderRoute: typeof CustomersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bills': {
@@ -147,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillingRoute: BillingRoute,
   BillsRoute: BillsRoute,
+  CustomersRoute: CustomersRoute,
   ExpensesRoute: ExpensesRoute,
   JcbRoute: JcbRoute,
   ProductsRoute: ProductsRoute,

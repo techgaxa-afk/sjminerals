@@ -6,6 +6,15 @@ export interface Product {
   createdAt: string;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  companyName: string;
+  phone: string;
+  address: string;
+  createdAt: string;
+}
+
 export interface BillItem {
   productId: string;
   productName: string;
@@ -20,6 +29,10 @@ export interface Bill {
   totalAmount: number;
   paymentMode: "cash" | "upi";
   customerName: string;
+  companyName: string;
+  vehicleNumber: string;
+  vehicleCapacity: string;
+  customerId?: string;
   createdAt: string;
 }
 
@@ -82,6 +95,25 @@ export function deleteProduct(id: string): void {
   setStore("pos_products", getProducts().filter((p) => p.id !== id));
 }
 
+// Customers
+export function getCustomers(): Customer[] {
+  return getStore<Customer>("pos_customers");
+}
+export function saveCustomer(c: Omit<Customer, "id" | "createdAt">): Customer {
+  const customers = getCustomers();
+  const customer: Customer = { ...c, id: generateId(), createdAt: new Date().toISOString() };
+  customers.push(customer);
+  setStore("pos_customers", customers);
+  return customer;
+}
+export function updateCustomer(id: string, updates: Partial<Customer>): void {
+  const customers = getCustomers().map((c) => (c.id === id ? { ...c, ...updates } : c));
+  setStore("pos_customers", customers);
+}
+export function deleteCustomer(id: string): void {
+  setStore("pos_customers", getCustomers().filter((c) => c.id !== id));
+}
+
 // Bills
 export function getBills(): Bill[] {
   return getStore<Bill>("pos_bills");
@@ -92,6 +124,9 @@ export function saveBill(b: Omit<Bill, "id" | "createdAt">): Bill {
   bills.push(bill);
   setStore("pos_bills", bills);
   return bill;
+}
+export function getBillsByCustomer(customerId: string): Bill[] {
+  return getBills().filter((b) => b.customerId === customerId);
 }
 
 // JCB Logs
@@ -134,6 +169,7 @@ export function exportData(): string {
     bills: getBills(),
     jcbLogs: getJCBLogs(),
     expenses: getExpenses(),
+    customers: getCustomers(),
     exportedAt: new Date().toISOString(),
   });
 }
@@ -144,4 +180,5 @@ export function importData(json: string): void {
   if (data.bills) setStore("pos_bills", data.bills);
   if (data.jcbLogs) setStore("pos_jcb_logs", data.jcbLogs);
   if (data.expenses) setStore("pos_expenses", data.expenses);
+  if (data.customers) setStore("pos_customers", data.customers);
 }

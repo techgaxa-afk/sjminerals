@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState } from "react";
-import { getProducts, saveBill, type BillItem } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check } from "lucide-react";
+import { getProducts, getCustomers, saveCustomer, saveBill, type BillItem, type Customer } from "../lib/store";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, UserPlus, X } from "lucide-react";
 
 export const Route = createFileRoute("/billing")({
   component: BillingPage,
@@ -10,14 +10,42 @@ export const Route = createFileRoute("/billing")({
 
 function BillingPage() {
   const products = getProducts();
+  const [customers, setCustomers] = useState(getCustomers);
   const [items, setItems] = useState<BillItem[]>([]);
   const [customerName, setCustomerName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [vehicleCapacity, setVehicleCapacity] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi">("cash");
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCust, setNewCust] = useState({ name: "", companyName: "", phone: "", address: "" });
+  const [customerSearch, setCustomerSearch] = useState("");
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
   const total = items.reduce((s, i) => s + i.total, 0);
+
+  const filteredCustomers = customers.filter(
+    (c) => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.companyName.toLowerCase().includes(customerSearch.toLowerCase())
+  );
+
+  const selectCustomer = (c: Customer) => {
+    setSelectedCustomerId(c.id);
+    setCustomerName(c.name);
+    setCompanyName(c.companyName);
+    setCustomerSearch("");
+  };
+
+  const handleAddCustomer = () => {
+    if (!newCust.name.trim()) return;
+    const c = saveCustomer(newCust);
+    setCustomers(getCustomers());
+    selectCustomer(c);
+    setNewCust({ name: "", companyName: "", phone: "", address: "" });
+    setShowNewCustomer(false);
+  };
 
   const addItem = (productId: string) => {
     const product = products.find((p) => p.id === productId);
@@ -40,11 +68,24 @@ function BillingPage() {
 
   const handleSave = () => {
     if (items.length === 0) return;
-    saveBill({ items, totalAmount: total, paymentMode, customerName: customerName.trim() || "Walk-in" });
+    saveBill({
+      items,
+      totalAmount: total,
+      paymentMode,
+      customerName: customerName.trim() || "Walk-in",
+      companyName: companyName.trim(),
+      vehicleNumber: vehicleNumber.trim(),
+      vehicleCapacity: vehicleCapacity.trim(),
+      customerId: selectedCustomerId || undefined,
+    });
     setSaved(true);
     setTimeout(() => {
       setItems([]);
       setCustomerName("");
+      setCompanyName("");
+      setVehicleNumber("");
+      setVehicleCapacity("");
+      setSelectedCustomerId("");
       setSaved(false);
     }, 2000);
   };
@@ -54,10 +95,57 @@ function BillingPage() {
       <div className="space-y-4">
         <h1 className="module-header">New Bill</h1>
 
-        {/* Customer */}
-        <div>
-          <label className="field-label">Customer Name</label>
-          <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Walk-in customer" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+        {/* Customer selection */}
+        <div className="stat-card space-y-3">
+          <h3 className="text-sm font-semibold text-foreground">Customer Details</h3>
+          <div>
+            <label className="field-label">Select Customer</label>
+            <input value={customerSearch || customerName} onChange={(e) => { setCustomerSearch(e.target.value); setCustomerName(e.target.value); setSelectedCustomerId(""); setCompanyName(""); }} placeholder="Search or type customer name..." className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            {customerSearch && filteredCustomers.length > 0 && (
+              <div className="mt-1 rounded-md border border-border bg-card max-h-40 overflow-y-auto">
+                {filteredCustomers.map((c) => (
+                  <button key={c.id} onClick={() => selectCustomer(c)} className="w-full text-left px-3 py-2 text-sm hover:bg-secondary text-foreground">
+                    <span className="font-medium">{c.name}</span>
+                    {c.companyName && <span className="text-muted-foreground"> — {c.companyName}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowNewCustomer(!showNewCustomer)} className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline">
+              <UserPlus className="h-3 w-3" /> Quick add new customer
+            </button>
+          </div>
+
+          {showNewCustomer && (
+            <div className="rounded-md border border-border bg-secondary/50 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-foreground">New Customer</span>
+                <button onClick={() => setShowNewCustomer(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+              </div>
+              <input value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} placeholder="Name *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input value={newCust.companyName} onChange={(e) => setNewCust({ ...newCust, companyName: e.target.value })} placeholder="Company" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} placeholder="Phone" className="rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input value={newCust.address} onChange={(e) => setNewCust({ ...newCust, address: e.target.value })} placeholder="Address" className="rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <button onClick={handleAddCustomer} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Save & Select</button>
+            </div>
+          )}
+
+          <div>
+            <label className="field-label">Company Name</label>
+            <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company name" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="field-label">Vehicle Number</label>
+              <input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="e.g. MH-12-AB-1234" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="field-label">Vehicle Capacity</label>
+              <input value={vehicleCapacity} onChange={(e) => setVehicleCapacity(e.target.value)} placeholder="e.g. 10 tons" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+          </div>
         </div>
 
         {/* Product picker */}
