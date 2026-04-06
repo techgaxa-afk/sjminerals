@@ -31,16 +31,18 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
+      { title: "Mine POS" },
       { name: "description", content: "Lovable Generated Project" },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
+      { property: "og:title", content: "Mine POS" },
       { property: "og:description", content: "Lovable Generated Project" },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "https://lovable.dev/opengraph-image-p98pqg.png" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c25ed03d-7ec1-437f-8767-32778c826ba3/id-preview-2959c42b--db750020-2338-4dda-bbef-9e7414002eee.lovable.app-1775465098061.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:image", content: "https://lovable.dev/opengraph-image-p98pqg.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c25ed03d-7ec1-437f-8767-32778c826ba3/id-preview-2959c42b--db750020-2338-4dda-bbef-9e7414002eee.lovable.app-1775465098061.png" },
+      { name: "twitter:title", content: "Mine POS" },
+      { name: "twitter:description", content: "Lovable Generated Project" },
     ],
     links: [
       {
