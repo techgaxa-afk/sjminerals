@@ -19,6 +19,7 @@ function createPDFWindow(title: string, content: string) {
   th { background: #fef3c7; color: #92400e; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
   td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
   .total-row { background: #fffbeb; font-weight: bold; font-size: 15px; }
+  .credit-badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
   .footer { text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #999; }
   @media print { body { padding: 20px; } .no-print { display: none; } }
   .print-btn { background: #d97706; color: white; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-bottom: 20px; }
@@ -35,6 +36,13 @@ export function exportInvoicePDF(bill: Bill) {
     `<tr><td>${item.productName}</td><td style="text-align:center">${item.quantity}</td><td style="text-align:right">₹${item.price.toLocaleString()}</td><td style="text-align:right">₹${item.total.toLocaleString()}</td></tr>`
   ).join("");
 
+  const creditInfo = bill.paymentMode === "credit" ? `
+    <tr><td colspan="3" style="text-align:right;font-size:13px">Paid Amount</td><td style="text-align:right;font-size:13px;color:#16a34a">₹${(bill.paidAmount || 0).toLocaleString()}</td></tr>
+    <tr><td colspan="3" style="text-align:right;font-size:13px">Outstanding</td><td style="text-align:right;font-size:13px;color:#dc2626;font-weight:bold">₹${(bill.outstandingAmount || 0).toLocaleString()}</td></tr>
+  ` : "";
+
+  const tipsRow = bill.tipsAmount > 0 ? `<tr><td colspan="3" style="text-align:right;font-size:12px;color:#666">Tips (₹${bill.tipsPerUnit}/unit)</td><td style="text-align:right;font-size:12px;color:#666">₹${bill.tipsAmount.toLocaleString()}</td></tr>` : "";
+
   const content = `
     <div class="header">
       <h1>MinePOS</h1>
@@ -45,14 +53,17 @@ export function exportInvoicePDF(bill: Bill) {
       <div class="info-item"><div class="label">Date & Time</div><div class="value">${dateStr}</div></div>
       <div class="info-item"><div class="label">Customer</div><div class="value">${bill.customerName}</div></div>
       <div class="info-item"><div class="label">Company</div><div class="value">${bill.companyName || "—"}</div></div>
-      <div class="info-item"><div class="label">Vehicle Number</div><div class="value">${bill.vehicleNumber || "—"}</div></div>
-      <div class="info-item"><div class="label">Vehicle Capacity</div><div class="value">${bill.vehicleCapacity || "—"}</div></div>
-      <div class="info-item"><div class="label">Payment Mode</div><div class="value">${bill.paymentMode.toUpperCase()}</div></div>
+      <div class="info-item"><div class="label">Driver</div><div class="value">${bill.driverName || "—"}</div></div>
+      <div class="info-item"><div class="label">Vehicle</div><div class="value">${bill.vehicleNumber || "—"} ${bill.vehicleCapacity ? `(${bill.vehicleCapacity})` : ""}</div></div>
+      <div class="info-item"><div class="label">Payment Mode</div><div class="value">${bill.paymentMode.toUpperCase()} ${bill.paymentMode === "credit" ? '<span class="credit-badge">CREDIT</span>' : ""}</div></div>
     </div>
     <table>
       <thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Total</th></tr></thead>
       <tbody>${itemsHtml}
-      <tr class="total-row"><td colspan="3" style="text-align:right">Grand Total</td><td style="text-align:right">₹${bill.totalAmount.toLocaleString()}</td></tr></tbody>
+      ${tipsRow}
+      <tr class="total-row"><td colspan="3" style="text-align:right">Grand Total</td><td style="text-align:right">₹${bill.totalAmount.toLocaleString()}</td></tr>
+      ${creditInfo}
+      </tbody>
     </table>
     <div class="footer">Thank you for your business! — MinePOS</div>
   `;

@@ -9,14 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as JcbRouteImport } from './routes/jcb'
+import { Route as HitachiRouteImport } from './routes/hitachi'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as CustomersRouteImport } from './routes/customers'
+import { Route as CompaniesRouteImport } from './routes/companies'
 import { Route as BillsRouteImport } from './routes/bills'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductsRoute = ProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -27,6 +35,11 @@ const JcbRoute = JcbRouteImport.update({
   path: '/jcb',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HitachiRoute = HitachiRouteImport.update({
+  id: '/hitachi',
+  path: '/hitachi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpensesRoute = ExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
@@ -35,6 +48,11 @@ const ExpensesRoute = ExpensesRouteImport.update({
 const CustomersRoute = CustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompaniesRoute = CompaniesRouteImport.update({
+  id: '/companies',
+  path: '/companies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BillsRoute = BillsRouteImport.update({
@@ -57,29 +75,38 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
+  '/companies': typeof CompaniesRoute
   '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
+  '/hitachi': typeof HitachiRoute
   '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
+  '/reports': typeof ReportsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
+  '/companies': typeof CompaniesRoute
   '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
+  '/hitachi': typeof HitachiRoute
   '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
+  '/reports': typeof ReportsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
+  '/companies': typeof CompaniesRoute
   '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
+  '/hitachi': typeof HitachiRoute
   '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
+  '/reports': typeof ReportsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,42 +114,61 @@ export interface FileRouteTypes {
     | '/'
     | '/billing'
     | '/bills'
+    | '/companies'
     | '/customers'
     | '/expenses'
+    | '/hitachi'
     | '/jcb'
     | '/products'
+    | '/reports'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/billing'
     | '/bills'
+    | '/companies'
     | '/customers'
     | '/expenses'
+    | '/hitachi'
     | '/jcb'
     | '/products'
+    | '/reports'
   id:
     | '__root__'
     | '/'
     | '/billing'
     | '/bills'
+    | '/companies'
     | '/customers'
     | '/expenses'
+    | '/hitachi'
     | '/jcb'
     | '/products'
+    | '/reports'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BillingRoute: typeof BillingRoute
   BillsRoute: typeof BillsRoute
+  CompaniesRoute: typeof CompaniesRoute
   CustomersRoute: typeof CustomersRoute
   ExpensesRoute: typeof ExpensesRoute
+  HitachiRoute: typeof HitachiRoute
   JcbRoute: typeof JcbRoute
   ProductsRoute: typeof ProductsRoute
+  ReportsRoute: typeof ReportsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/products': {
       id: '/products'
       path: '/products'
@@ -137,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JcbRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/hitachi': {
+      id: '/hitachi'
+      path: '/hitachi'
+      fullPath: '/hitachi'
+      preLoaderRoute: typeof HitachiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expenses': {
       id: '/expenses'
       path: '/expenses'
@@ -149,6 +202,13 @@ declare module '@tanstack/react-router' {
       path: '/customers'
       fullPath: '/customers'
       preLoaderRoute: typeof CustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/companies': {
+      id: '/companies'
+      path: '/companies'
+      fullPath: '/companies'
+      preLoaderRoute: typeof CompaniesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bills': {
@@ -179,10 +239,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillingRoute: BillingRoute,
   BillsRoute: BillsRoute,
+  CompaniesRoute: CompaniesRoute,
   CustomersRoute: CustomersRoute,
   ExpensesRoute: ExpensesRoute,
+  HitachiRoute: HitachiRoute,
   JcbRoute: JcbRoute,
   ProductsRoute: ProductsRoute,
+  ReportsRoute: ReportsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
