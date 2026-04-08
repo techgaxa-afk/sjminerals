@@ -1,15 +1,17 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Users } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Users, Building2, Settings, BarChart3 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/companies", label: "Companies", icon: Building2 },
   { to: "/products", label: "Products", icon: Package },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/billing", label: "New Bill", icon: Receipt },
-  { to: "/bills", label: "Bill History", icon: Receipt },
-  { to: "/jcb", label: "JCB Tracker", icon: Truck },
+  { to: "/bills", label: "Bills", icon: Receipt },
+  { to: "/hitachi", label: "Hitachi", icon: Settings },
   { to: "/expenses", label: "Expenses", icon: Wallet },
+  { to: "/reports", label: "Reports", icon: BarChart3 },
 ] as const;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
