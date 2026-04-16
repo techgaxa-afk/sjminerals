@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState } from "react";
-import { getBills, savePayment, getPaymentsByBill, type Bill } from "../lib/store";
-import { Search, Banknote, CreditCard, FileDown, Truck, Building2, AlertTriangle, X } from "lucide-react";
+import { getBills, updateBill, savePayment, getPaymentsByBill, type Bill } from "../lib/store";
+import { Search, Banknote, CreditCard, FileDown, Truck, Building2, AlertTriangle, X, Pencil, Check } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { exportInvoicePDF } from "../lib/pdf";
 
@@ -16,21 +16,33 @@ function BillsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [payBillId, setPayBillId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState("");
+  const [editBillId, setEditBillId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ companyName: "", driverName: "", vehicleNumber: "", vehicleCapacity: "" });
+
+  const refresh = () => setBills(getBills().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
 
   const filtered = bills.filter(
-    (b) => b.customerName.toLowerCase().includes(search.toLowerCase()) ||
+    (b) => (b.companyName || "").toLowerCase().includes(search.toLowerCase()) ||
       b.id.includes(search) ||
       (b.vehicleNumber || "").toLowerCase().includes(search.toLowerCase()) ||
-      (b.companyName || "").toLowerCase().includes(search.toLowerCase()) ||
       (b.driverName || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const handlePayment = (billId: string, companyId?: string) => {
     if (!payAmount.trim() || Number(payAmount) <= 0) return;
-    savePayment({ billId, companyId, amount: Number(payAmount), date: new Date().toISOString().split("T")[0], notes: "Payment" });
-    setBills(getBills().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    setPayBillId(null);
-    setPayAmount("");
+    savePayment({ billId, companyId: companyId || "", amount: Number(payAmount), date: new Date().toISOString().split("T")[0], notes: "Payment" });
+    refresh(); setPayBillId(null); setPayAmount("");
+  };
+
+  const startEditBill = (b: Bill) => {
+    setEditBillId(b.id);
+    setEditForm({ companyName: b.companyName, driverName: b.driverName, vehicleNumber: b.vehicleNumber, vehicleCapacity: String(b.vehicleCapacity) });
+  };
+
+  const saveEditBill = () => {
+    if (!editBillId) return;
+    updateBill(editBillId, { ...editForm, vehicleCapacity: Number(editForm.vehicleCapacity) || 0 });
+    refresh(); setEditBillId(null);
   };
 
   return (
@@ -39,7 +51,7 @@ function BillsPage() {
         <h1 className="module-header">Bill History</h1>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by customer, company, driver, vehicle..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by company, driver, vehicle..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
         </div>
 
         <div className="space-y-2">
@@ -48,10 +60,9 @@ function BillsPage() {
               <div className="cursor-pointer" onClick={() => setExpandedId(expandedId === bill.id ? null : bill.id)}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-foreground">{bill.customerName}</p>
-                    {bill.companyName && <p className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> {bill.companyName}</p>}
+                    <p className="font-medium text-foreground">{bill.companyName || "Walk-in"}</p>
                     {bill.driverName && <p className="text-xs text-muted-foreground">Driver: {bill.driverName}</p>}
-                    {bill.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {bill.vehicleNumber} {bill.vehicleCapacity && `(${bill.vehicleCapacity})`}</p>}
+                    {bill.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {bill.vehicleNumber} {bill.vehicleCapacity > 0 && `(${bill.vehicleCapacity} tons)`}</p>}
                     <p className="text-xs text-muted-foreground">{format(parseISO(bill.createdAt), "dd MMM yyyy, hh:mm a")}</p>
                   </div>
                   <div className="text-right">
@@ -74,10 +85,29 @@ function BillsPage() {
                     </div>
                   ))}
                   {bill.tipsAmount > 0 && (
-                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tips (₹{bill.tipsPerUnit}/unit)</span><span className="text-warning">₹{bill.tipsAmount.toLocaleString()}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tips</span><span className="text-warning">₹{bill.tipsAmount.toLocaleString()}</span></div>
                   )}
 
-                  {/* Payment history for credit bills */}
+                  {/* Edit bill details */}
+                  {editBillId === bill.id ? (
+                    <div className="rounded-md border border-border bg-secondary/50 p-2 space-y-2 mt-2">
+                      <p className="text-xs font-medium text-foreground">Edit Details</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={editForm.companyName} onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })} placeholder="Company" className="rounded border border-input bg-secondary px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                        <input value={editForm.driverName} onChange={(e) => setEditForm({ ...editForm, driverName: e.target.value })} placeholder="Driver" className="rounded border border-input bg-secondary px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                        <input value={editForm.vehicleNumber} onChange={(e) => setEditForm({ ...editForm, vehicleNumber: e.target.value })} placeholder="Vehicle" className="rounded border border-input bg-secondary px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                        <input value={editForm.vehicleCapacity} onChange={(e) => setEditForm({ ...editForm, vehicleCapacity: e.target.value })} placeholder="Capacity" className="rounded border border-input bg-secondary px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={saveEditBill} className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground"><Check className="h-3 w-3" /></button>
+                        <button onClick={() => setEditBillId(null)} className="rounded bg-secondary px-2 py-1 text-xs text-muted-foreground"><X className="h-3 w-3" /></button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => startEditBill(bill)} className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"><Pencil className="h-3 w-3" /> Edit Details</button>
+                  )}
+
+                  {/* Payment history */}
                   {bill.paymentMode === "credit" && (
                     <div className="mt-2 pt-2 border-t border-border/50">
                       <p className="text-xs font-medium text-muted-foreground mb-1">Payments</p>

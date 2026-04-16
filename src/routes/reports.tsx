@@ -2,17 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
-  getBills, getCompanies, getDrivers, getVehicles, getDateRange,
+  getBills, getCompanies, getDateRange,
   getHitachiEntries, getHitachiFuel, getOperators,
 } from "../lib/store";
-import { Building2, Users, Truck, Settings, Search, Calendar } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { Building2, Users, Settings, Search } from "lucide-react";
 
 export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-type ReportType = "company" | "driver" | "vehicle" | "hitachi" | "operator";
+type ReportType = "company" | "vehicle" | "hitachi" | "operator";
 type FilterType = "daily" | "weekly" | "monthly";
 
 function ReportsPage() {
@@ -24,8 +23,6 @@ function ReportsPage() {
   const data = useMemo(() => {
     const bills = getBills().filter((b) => new Date(b.createdAt) >= start);
     const companies = getCompanies();
-    const drivers = getDrivers();
-    const vehicles = getVehicles();
     const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
     const hitachiFuel = getHitachiFuel().filter((f) => new Date(f.createdAt) >= start);
     const ops = getOperators();
@@ -34,84 +31,63 @@ function ReportsPage() {
       return companies.map((c) => {
         const cBills = bills.filter((b) => b.companyId === c.id);
         return {
-          id: c.id,
-          name: c.name,
+          id: c.id, name: c.name, sub: c.vehicleNumber,
           trips: cBills.length,
           revenue: cBills.reduce((s, b) => s + b.totalAmount, 0),
-          outstanding: cBills.filter((b) => b.paymentMode === "credit").reduce((s, b) => s + (b.outstandingAmount || 0), 0),
-        };
-      }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
-    }
-
-    if (reportType === "driver") {
-      return drivers.map((d) => {
-        const dBills = bills.filter((b) => b.driverId === d.id);
-        return {
-          id: d.id,
-          name: d.name,
-          trips: dBills.length,
-          revenue: dBills.reduce((s, b) => s + b.totalAmount, 0),
-          outstanding: dBills.filter((b) => b.paymentMode === "credit").reduce((s, b) => s + (b.outstandingAmount || 0), 0),
+          outstanding: cBills.reduce((s, b) => s + (b.outstandingAmount || 0), 0),
         };
       }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
     }
 
     if (reportType === "vehicle") {
-      return vehicles.map((v) => {
-        const vBills = bills.filter((b) => b.vehicleId === v.id);
-        return {
-          id: v.id,
-          name: `${v.number} (${v.capacity})`,
-          trips: vBills.length,
-          revenue: vBills.reduce((s, b) => s + b.totalAmount, 0),
-          outstanding: vBills.filter((b) => b.paymentMode === "credit").reduce((s, b) => s + (b.outstandingAmount || 0), 0),
-        };
-      }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
+      const vehicleMap = new Map<string, { name: string; trips: number; revenue: number; outstanding: number }>();
+      bills.forEach((b) => {
+        if (!b.vehicleNumber) return;
+        const existing = vehicleMap.get(b.vehicleNumber) || { name: `${b.vehicleNumber} (${b.vehicleCapacity})`, trips: 0, revenue: 0, outstanding: 0 };
+        existing.trips += 1;
+        existing.revenue += b.totalAmount;
+        existing.outstanding += b.outstandingAmount || 0;
+        vehicleMap.set(b.vehicleNumber, existing);
+      });
+      return Array.from(vehicleMap.entries()).map(([id, d]) => ({
+        id, name: d.name, sub: "", trips: d.trips, revenue: d.revenue, outstanding: d.outstanding,
+      })).filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
     }
 
     if (reportType === "hitachi") {
-      const machineMap = new Map<string, { name: string; totalKM: number; totalFuel: number; entries: number }>();
+      const machineMap = new Map<string, { name: string; totalHrs: number; totalRev: number; totalFuel: number; entries: number }>();
       hitachiEntries.forEach((e) => {
-        const existing = machineMap.get(e.machineId) || { name: e.machineName, totalKM: 0, totalFuel: 0, entries: 0 };
-        existing.totalKM += e.totalKM;
+        const existing = machineMap.get(e.machineId) || { name: e.machineName, totalHrs: 0, totalRev: 0, totalFuel: 0, entries: 0 };
+        existing.totalHrs += e.totalHours;
+        existing.totalRev += e.machineRevenue;
         existing.entries += 1;
         machineMap.set(e.machineId, existing);
       });
       hitachiFuel.forEach((f) => {
-        const existing = machineMap.get(f.machineId) || { name: f.machineName, totalKM: 0, totalFuel: 0, entries: 0 };
+        const existing = machineMap.get(f.machineId) || { name: f.machineName, totalHrs: 0, totalRev: 0, totalFuel: 0, entries: 0 };
         existing.totalFuel += f.liters;
         machineMap.set(f.machineId, existing);
       });
       return Array.from(machineMap.entries()).map(([id, d]) => ({
-        id,
-        name: d.name,
-        trips: d.entries,
-        revenue: d.totalKM,
-        outstanding: d.totalFuel,
-        isHitachi: true,
+        id, name: d.name, sub: "", trips: d.entries, revenue: d.totalRev, outstanding: d.totalFuel, isHitachi: true,
       }));
     }
 
     // operator
     return ops.map((o) => {
       const oEntries = hitachiEntries.filter((e) => e.operatorId === o.id);
-      const machineSet = new Set(oEntries.map((e) => e.machineName));
+      const totalHrs = oEntries.reduce((s, e) => s + e.totalHours, 0);
+      const totalSalary = oEntries.reduce((s, e) => s + e.operatorSalary, 0);
       return {
-        id: o.id,
-        name: o.name,
-        trips: oEntries.length,
-        revenue: 0,
-        outstanding: 0,
-        machines: Array.from(machineSet).join(", "),
-        isOperator: true,
+        id: o.id, name: o.name, sub: `₹${o.hourlySalaryRate}/hr`,
+        trips: oEntries.length, revenue: totalHrs, outstanding: totalSalary, isOperator: true,
       };
     }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
   }, [reportType, filter, start, search]);
 
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
-    { id: "driver", label: "Driver", icon: Users },
-    { id: "vehicle", label: "Vehicle", icon: Truck },
+    { id: "vehicle", label: "Vehicle", icon: Building2 },
     { id: "hitachi", label: "Hitachi", icon: Settings },
     { id: "operator", label: "Operator", icon: Users },
   ];
@@ -141,32 +117,32 @@ function ReportsPage() {
           </div>
         </div>
 
-        {/* Report Table */}
         <div className="space-y-2">
-          {/* Header */}
           <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
             <span>Name</span>
             <span className="text-center">{reportType === "hitachi" ? "Entries" : reportType === "operator" ? "Shifts" : "Trips"}</span>
-            <span className="text-right">{reportType === "hitachi" ? "Total KM" : reportType === "operator" ? "—" : "Revenue"}</span>
-            <span className="text-right">{reportType === "hitachi" ? "Fuel (L)" : reportType === "operator" ? "Machines" : "Outstanding"}</span>
+            <span className="text-right">{reportType === "hitachi" ? "Revenue" : reportType === "operator" ? "Total HRs" : "Revenue"}</span>
+            <span className="text-right">{reportType === "hitachi" ? "Fuel (L)" : reportType === "operator" ? "Total Salary" : "Outstanding"}</span>
           </div>
 
           {(data as any[]).map((r: any) => (
             <div key={r.id} className="stat-card grid grid-cols-4 gap-2 items-center">
-              <span className="font-medium text-sm text-foreground truncate">{r.name}</span>
+              <div>
+                <span className="font-medium text-sm text-foreground truncate block">{r.name}</span>
+                {r.sub && <span className="text-xs text-muted-foreground">{r.sub}</span>}
+              </div>
               <span className="text-center text-sm text-foreground">{r.trips}</span>
               <span className="text-right text-sm font-medium text-foreground">
-                {r.isOperator ? "—" : r.isHitachi ? r.revenue.toLocaleString() : `₹${r.revenue.toLocaleString()}`}
+                {r.isOperator ? r.revenue : r.isHitachi ? `₹${r.revenue.toLocaleString()}` : `₹${r.revenue.toLocaleString()}`}
               </span>
-              <span className={`text-right text-sm font-medium ${r.isHitachi || r.isOperator ? "text-foreground" : r.outstanding > 0 ? "text-warning" : "text-success"}`}>
-                {r.isOperator ? (r.machines || "—") : r.isHitachi ? `${r.outstanding}L` : `₹${r.outstanding.toLocaleString()}`}
+              <span className={`text-right text-sm font-medium ${!r.isHitachi && !r.isOperator && r.outstanding > 0 ? "text-warning" : "text-foreground"}`}>
+                {r.isOperator ? `₹${r.outstanding.toLocaleString()}` : r.isHitachi ? `${r.outstanding}L` : `₹${r.outstanding.toLocaleString()}`}
               </span>
             </div>
           ))}
 
           {data.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No data for this period.</p>}
 
-          {/* Totals for non-hitachi */}
           {data.length > 0 && !["hitachi", "operator"].includes(reportType) && (
             <div className="stat-card grid grid-cols-4 gap-2 items-center border-primary/30">
               <span className="font-bold text-sm text-foreground">Total</span>

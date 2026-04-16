@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState } from "react";
-import { getExpenses, saveExpense, type Expense, type ExpenseCategory } from "../lib/store";
-import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins } from "lucide-react";
+import { getExpenses, saveExpense, updateExpense, deleteExpense, type Expense, type ExpenseCategory } from "../lib/store";
+import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, Check } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/expenses")({
@@ -20,6 +20,7 @@ const CATEGORIES: { value: ExpenseCategory; label: string; icon: typeof Fuel }[]
 function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>(getExpenses);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<ExpenseCategory | "all">("all");
   const [category, setCategory] = useState<ExpenseCategory>("fuel");
@@ -34,14 +35,22 @@ function ExpensesPage() {
     return matchSearch && matchCat;
   });
 
+  const resetForm = () => { setShowForm(false); setEditingId(null); setAmount(""); setNotes(""); setCategory("fuel"); };
+
   const handleSave = () => {
     if (!amount.trim()) return;
-    saveExpense({ category, amount: Number(amount), date, notes: notes.trim() });
+    if (editingId) updateExpense(editingId, { category, amount: Number(amount), date, notes: notes.trim() });
+    else saveExpense({ category, amount: Number(amount), date, notes: notes.trim() });
     setExpenses(getExpenses());
-    setShowForm(false);
-    setAmount("");
-    setNotes("");
+    resetForm();
   };
+
+  const startEdit = (e: Expense) => {
+    setEditingId(e.id); setCategory(e.category); setAmount(String(e.amount)); setDate(e.date); setNotes(e.notes);
+    setShowForm(true);
+  };
+
+  const handleDelete = (id: string) => { deleteExpense(id); setExpenses(getExpenses()); };
 
   const getCatIcon = (cat: ExpenseCategory) => {
     const c = CATEGORIES.find((c) => c.value === cat);
@@ -53,12 +62,12 @@ function ExpensesPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="module-header mb-0">Expenses</h1>
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> Add</button>
+          <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> Add</button>
         </div>
 
         {showForm && (
           <div className="stat-card space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">New Expense</h3>
+            <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editingId ? "Edit" : "New"} Expense</h3><button onClick={resetForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
             <div>
               <label className="field-label">Category</label>
               <div className="grid grid-cols-5 gap-2">
@@ -76,7 +85,7 @@ function ExpensesPage() {
             <div><label className="field-label">Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
             <div className="flex gap-2">
               <button onClick={handleSave} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Save</button>
-              <button onClick={() => setShowForm(false)} className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-muted transition-colors">Cancel</button>
+              <button onClick={resetForm} className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-muted transition-colors">Cancel</button>
             </div>
           </div>
         )}
@@ -104,7 +113,11 @@ function ExpensesPage() {
                     <p className="text-xs text-muted-foreground">{format(parseISO(exp.date + "T00:00:00"), "dd MMM yyyy")}{exp.notes ? ` · ${exp.notes}` : ""}</p>
                   </div>
                 </div>
-                <p className="font-bold text-destructive">-₹{exp.amount.toLocaleString()}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-destructive">-₹{exp.amount.toLocaleString()}</p>
+                  <button onClick={() => startEdit(exp)} className="rounded-md p-1 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => handleDelete(exp.id)} className="rounded-md p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
               </div>
             );
           })}

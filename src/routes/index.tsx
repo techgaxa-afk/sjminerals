@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getHitachiFuel, getDateRange, getCompanies, getCompanyOutstanding } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle } from "lucide-react";
@@ -24,7 +24,7 @@ function DashboardPage() {
 
     const totalRevenue = bills.reduce((s, b) => s + b.totalAmount, 0);
     const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalOutstanding = bills.filter((b) => b.paymentMode === "credit").reduce((s, b) => s + (b.outstandingAmount || 0), 0);
+    const totalOutstanding = bills.reduce((s, b) => s + (b.outstandingAmount || 0), 0);
     const totalTips = bills.reduce((s, b) => s + (b.tipsAmount || 0), 0);
 
     const expenseByCategory = expenses.reduce((acc, e) => {
@@ -38,25 +38,19 @@ function DashboardPage() {
       revenueByDay[day] = (revenueByDay[day] || 0) + b.totalAmount;
     });
 
-    // Top companies by outstanding
     const companies = getCompanies();
     const companyOutstandings = companies.map((c) => ({
-      name: c.name,
+      name: c.name, vehicle: c.vehicleNumber,
       outstanding: getCompanyOutstanding(c.id),
     })).filter((c) => c.outstanding > 0).sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
 
     return {
-      totalRevenue,
-      totalExpenses,
-      netProfit: totalRevenue - totalExpenses,
-      billCount: bills.length,
-      totalOutstanding,
-      totalTips,
-      hitachiEntries: hitachiEntries.length,
-      expenseByCategory,
+      totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses,
+      billCount: bills.length, totalOutstanding, totalTips,
+      hitachiEntries: hitachiEntries.length, expenseByCategory,
       revenueChart: Object.entries(revenueByDay).map(([name, value]) => ({ name, value })),
       companyOutstandings,
-      bills: bills.map((b) => ({ customerName: b.customerName, totalAmount: b.totalAmount, createdAt: b.createdAt })),
+      bills: bills.map((b) => ({ customerName: b.companyName || "Walk-in", totalAmount: b.totalAmount, createdAt: b.createdAt })),
       expenses: expenses.map((e) => ({ category: e.category, amount: e.amount, date: e.date, notes: e.notes })),
     };
   }, [filter, start]);
@@ -101,13 +95,12 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* Company Outstandings */}
         {stats.companyOutstandings.length > 0 && (
           <div className="stat-card">
             <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /> Top Outstanding Companies</h3>
             {stats.companyOutstandings.map((c) => (
               <div key={c.name} className="flex justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
-                <span className="text-foreground">{c.name}</span>
+                <span className="text-foreground">{c.name} <span className="text-xs text-muted-foreground">{c.vehicle}</span></span>
                 <span className="font-bold text-warning">₹{c.outstanding.toLocaleString()}</span>
               </div>
             ))}

@@ -2,11 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState } from "react";
 import {
-  getProducts, getCustomers, getCompanies, getDriversByCompany, getVehiclesByCompany,
-  saveCustomer, saveCompany, saveDriver, saveVehicle, saveBill, saveExpense,
-  type BillItem, type Customer, type Company, type Driver, type Vehicle,
+  getProducts, getCompanies, getCompanyByVehicle, saveCompany, saveBill, saveExpense,
+  type BillItem, type Company,
 } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, UserPlus, X, Building2, Truck, Coins } from "lucide-react";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search } from "lucide-react";
 
 export const Route = createFileRoute("/billing")({
   component: BillingPage,
@@ -14,131 +13,107 @@ export const Route = createFileRoute("/billing")({
 
 function BillingPage() {
   const products = getProducts();
-  const [customers, setCustomers] = useState(getCustomers);
-  const [companies, setCompanies] = useState(getCompanies);
   const [items, setItems] = useState<BillItem[]>([]);
-  const [customerName, setCustomerName] = useState("");
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [companyName, setCompanyName] = useState("");
-  const [selectedCompanyId, setSelectedCompanyId] = useState("");
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [selectedDriverId, setSelectedDriverId] = useState("");
   const [driverName, setDriverName] = useState("");
-  const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
-  const [vehicleCapacity, setVehicleCapacity] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [vehicleCapacity, setVehicleCapacity] = useState<number>(0);
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi" | "credit">("cash");
   const [paidAmount, setPaidAmount] = useState("");
-  const [tipsPerUnit, setTipsPerUnit] = useState("");
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
-  const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [showNewCompany, setShowNewCompany] = useState(false);
-  const [showNewDriver, setShowNewDriver] = useState(false);
-  const [showNewVehicle, setShowNewVehicle] = useState(false);
-  const [newCust, setNewCust] = useState({ name: "", companyName: "", phone: "", address: "" });
-  const [newComp, setNewComp] = useState({ name: "", contactDetails: "", address: "" });
-  const [newDriver, setNewDriver] = useState({ name: "", phone: "" });
-  const [newVehicle, setNewVehicle] = useState({ number: "", capacity: "" });
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [companySearch, setCompanySearch] = useState("");
+  const [newComp, setNewComp] = useState({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
+  const [suggestions, setSuggestions] = useState<Company[]>([]);
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
   const total = items.reduce((s, i) => s + i.total, 0);
-  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-  const tipsAmount = Number(tipsPerUnit || 0) * totalQty;
+  const totalTips = items.reduce((s, i) => s + i.tipsAmount, 0);
   const grandTotal = total;
   const paid = paymentMode === "credit" ? Number(paidAmount || 0) : grandTotal;
   const outstanding = Math.max(0, grandTotal - paid);
 
-  const filteredCustomers = customers.filter(
-    (c) => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.companyName.toLowerCase().includes(customerSearch.toLowerCase())
-  );
-  const filteredCompanies = companies.filter(
-    (c) => c.name.toLowerCase().includes(companySearch.toLowerCase())
-  );
-
-  const selectCompany = (c: Company) => {
-    setSelectedCompanyId(c.id);
-    setCompanyName(c.name);
-    setCompanySearch("");
-    setDrivers(getDriversByCompany(c.id));
-    setVehicles(getVehiclesByCompany(c.id));
-    setSelectedDriverId("");
-    setDriverName("");
-    setSelectedVehicleId("");
-    setVehicleNumber("");
-    setVehicleCapacity("");
-  };
-
-  const selectCustomer = (c: Customer) => {
-    setSelectedCustomerId(c.id);
-    setCustomerName(c.name);
-    setCustomerSearch("");
-    if (c.companyName) {
-      setCompanyName(c.companyName);
-      const comp = companies.find((co) => co.name.toLowerCase() === c.companyName.toLowerCase());
-      if (comp) selectCompany(comp);
+  const handleVehicleSearch = (value: string) => {
+    setVehicleSearch(value);
+    setVehicleNumber(value);
+    if (value.length >= 2) {
+      const companies = getCompanies();
+      const matches = companies.filter((c) => c.vehicleNumber.toLowerCase().includes(value.toLowerCase()));
+      setSuggestions(matches);
+      // Exact match auto-fill
+      const exact = companies.find((c) => c.vehicleNumber.toLowerCase() === value.toLowerCase());
+      if (exact) selectCompany(exact);
+    } else {
+      setSuggestions([]);
     }
   };
 
-  const handleAddCustomer = () => {
-    if (!newCust.name.trim()) return;
-    const c = saveCustomer(newCust);
-    setCustomers(getCustomers());
-    selectCustomer(c);
-    setNewCust({ name: "", companyName: "", phone: "", address: "" });
-    setShowNewCustomer(false);
+  const selectCompany = (c: Company) => {
+    setSelectedCompany(c);
+    setCompanyName(c.name);
+    setDriverName(c.driverName);
+    setVehicleNumber(c.vehicleNumber);
+    setVehicleCapacity(c.vehicleCapacity);
+    setVehicleSearch(c.vehicleNumber);
+    setSuggestions([]);
+    // Auto-set quantity for existing items
+    if (c.vehicleCapacity > 0) {
+      setItems((prev) => prev.map((i) => ({
+        ...i,
+        quantity: c.vehicleCapacity,
+        total: c.vehicleCapacity * i.price,
+        tipsAmount: i.tipsRate * c.vehicleCapacity,
+      })));
+    }
   };
 
   const handleAddCompany = () => {
-    if (!newComp.name.trim()) return;
-    const c = saveCompany(newComp);
-    setCompanies(getCompanies());
+    if (!newComp.name.trim() || !newComp.vehicleNumber.trim()) return;
+    const c = saveCompany({ ...newComp, vehicleCapacity: Number(newComp.vehicleCapacity) || 0 });
     selectCompany(c);
-    setNewComp({ name: "", contactDetails: "", address: "" });
+    setNewComp({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
     setShowNewCompany(false);
-  };
-
-  const handleAddDriver = () => {
-    if (!newDriver.name.trim() || !selectedCompanyId) return;
-    const d = saveDriver({ ...newDriver, companyId: selectedCompanyId });
-    setDrivers(getDriversByCompany(selectedCompanyId));
-    setSelectedDriverId(d.id);
-    setDriverName(d.name);
-    setNewDriver({ name: "", phone: "" });
-    setShowNewDriver(false);
-  };
-
-  const handleAddVehicle = () => {
-    if (!newVehicle.number.trim() || !selectedCompanyId) return;
-    const v = saveVehicle({ ...newVehicle, companyId: selectedCompanyId });
-    setVehicles(getVehiclesByCompany(selectedCompanyId));
-    setSelectedVehicleId(v.id);
-    setVehicleNumber(v.number);
-    setVehicleCapacity(v.capacity);
-    setNewVehicle({ number: "", capacity: "" });
-    setShowNewVehicle(false);
   };
 
   const addItem = (productId: string) => {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
     const existing = items.find((i) => i.productId === productId);
+    const qty = vehicleCapacity > 0 ? vehicleCapacity : 1;
     if (existing) {
-      setItems(items.map((i) => i.productId === productId ? { ...i, quantity: i.quantity + 1, total: (i.quantity + 1) * i.price } : i));
+      const newQty = existing.quantity + 1;
+      setItems(items.map((i) => i.productId === productId ? {
+        ...i, quantity: newQty, total: newQty * i.price,
+        tipsAmount: i.tipsRate * newQty,
+      } : i));
     } else {
-      setItems([...items, { productId, productName: product.name, price: product.price, quantity: 1, total: product.price }]);
+      setItems([...items, {
+        productId, productName: product.name, price: product.price,
+        quantity: qty, total: product.price * qty,
+        tipsRate: product.tipsEnabled ? product.tipsRate : 0,
+        tipsAmount: product.tipsEnabled ? product.tipsRate * qty : 0,
+      }]);
     }
   };
 
-  const updateQty = (productId: string, delta: number) => {
+  const updateQty = (productId: string, newQty: number) => {
+    if (newQty <= 0) {
+      setItems(items.filter((i) => i.productId !== productId));
+      return;
+    }
     setItems(items.map((i) => {
       if (i.productId !== productId) return i;
-      const qty = Math.max(0, i.quantity + delta);
-      return { ...i, quantity: qty, total: qty * i.price };
-    }).filter((i) => i.quantity > 0));
+      return { ...i, quantity: newQty, total: newQty * i.price, tipsAmount: i.tipsRate * newQty };
+    }));
+  };
+
+  const updateItemTipsRate = (productId: string, rate: number) => {
+    setItems(items.map((i) => {
+      if (i.productId !== productId) return i;
+      return { ...i, tipsRate: rate, tipsAmount: rate * i.quantity };
+    }));
   };
 
   const handleSave = () => {
@@ -149,37 +124,29 @@ function BillingPage() {
       paymentMode,
       paidAmount: paid,
       outstandingAmount: outstanding,
-      customerName: customerName.trim() || "Walk-in",
+      companyId: selectedCompany?.id || "",
       companyName: companyName.trim(),
-      companyId: selectedCompanyId || undefined,
-      driverId: selectedDriverId || undefined,
-      driverName: driverName.trim() || undefined,
-      vehicleId: selectedVehicleId || undefined,
+      driverName: driverName.trim(),
       vehicleNumber: vehicleNumber.trim(),
-      vehicleCapacity: vehicleCapacity.trim(),
-      customerId: selectedCustomerId || undefined,
-      tipsAmount,
-      tipsPerUnit: Number(tipsPerUnit || 0),
+      vehicleCapacity,
+      tipsAmount: totalTips,
     });
-    // Save tips as expense if applicable
-    if (tipsAmount > 0) {
+    // Save tips as expense
+    if (totalTips > 0) {
       saveExpense({
         category: "tips",
-        amount: tipsAmount,
+        amount: totalTips,
         date: new Date().toISOString().split("T")[0],
-        notes: `Tips for ${customerName.trim() || "Walk-in"} - Bill #${bill.id}`,
+        notes: `Tips - ${companyName.trim() || vehicleNumber.trim() || "Walk-in"} - Bill #${bill.id}`,
         linkedBillId: bill.id,
-        linkedCompanyId: selectedCompanyId || undefined,
+        linkedCompanyId: selectedCompany?.id,
       });
     }
     setSaved(true);
     setTimeout(() => {
-      setItems([]);
-      setCustomerName(""); setCompanyName(""); setVehicleNumber(""); setVehicleCapacity("");
-      setSelectedCustomerId(""); setSelectedCompanyId(""); setSelectedDriverId(""); setSelectedVehicleId("");
-      setDriverName(""); setPaidAmount(""); setTipsPerUnit("");
-      setPaymentMode("cash"); setSaved(false);
-      setDrivers([]); setVehicles([]);
+      setItems([]); setCompanyName(""); setDriverName(""); setVehicleNumber(""); setVehicleCapacity(0);
+      setSelectedCompany(null); setPaidAmount(""); setPaymentMode("cash"); setSaved(false);
+      setVehicleSearch(""); setSuggestions([]);
     }, 2000);
   };
 
@@ -188,101 +155,51 @@ function BillingPage() {
       <div className="space-y-4">
         <h1 className="module-header">New Bill</h1>
 
-        {/* Company selection */}
+        {/* Vehicle Number Lookup - Primary Input */}
         <div className="stat-card space-y-3">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company & Customer</h3>
-
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Truck className="h-4 w-4 text-primary" /> Vehicle Lookup</h3>
           <div>
-            <label className="field-label">Company</label>
-            <input value={companySearch || companyName} onChange={(e) => { setCompanySearch(e.target.value); setCompanyName(e.target.value); setSelectedCompanyId(""); }} placeholder="Search company..." className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            {companySearch && filteredCompanies.length > 0 && (
-              <div className="mt-1 rounded-md border border-border bg-card max-h-32 overflow-y-auto">
-                {filteredCompanies.map((c) => (
-                  <button key={c.id} onClick={() => selectCompany(c)} className="w-full text-left px-3 py-2 text-sm hover:bg-secondary text-foreground">{c.name}</button>
+            <label className="field-label">Vehicle Number (Primary Key)</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input value={vehicleSearch} onChange={(e) => handleVehicleSearch(e.target.value)} placeholder="Enter vehicle number e.g. MH-12-AB-1234" className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" autoFocus />
+            </div>
+            {suggestions.length > 0 && !selectedCompany && (
+              <div className="mt-1 rounded-md border border-border bg-card max-h-40 overflow-y-auto">
+                {suggestions.map((c) => (
+                  <button key={c.id} onClick={() => selectCompany(c)} className="w-full text-left px-3 py-2 text-sm hover:bg-secondary text-foreground">
+                    <span className="font-medium">{c.vehicleNumber}</span> — {c.name} {c.driverName && `(${c.driverName})`}
+                  </button>
                 ))}
               </div>
             )}
-            <button onClick={() => setShowNewCompany(!showNewCompany)} className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"><Plus className="h-3 w-3" /> Add Company</button>
+            <button onClick={() => setShowNewCompany(!showNewCompany)} className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"><Plus className="h-3 w-3" /> Add New Company</button>
           </div>
 
           {showNewCompany && (
             <div className="rounded-md border border-border bg-secondary/50 p-3 space-y-2">
               <div className="flex items-center justify-between"><span className="text-xs font-medium text-foreground">New Company</span><button onClick={() => setShowNewCompany(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button></div>
               <input value={newComp.name} onChange={(e) => setNewComp({ ...newComp, name: e.target.value })} placeholder="Company Name *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <input value={newComp.contactDetails} onChange={(e) => setNewComp({ ...newComp, contactDetails: e.target.value })} placeholder="Contact Details" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <input value={newComp.address} onChange={(e) => setNewComp({ ...newComp, address: e.target.value })} placeholder="Address" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input value={newComp.driverName} onChange={(e) => setNewComp({ ...newComp, driverName: e.target.value })} placeholder="Driver Name" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={newComp.vehicleNumber} onChange={(e) => setNewComp({ ...newComp, vehicleNumber: e.target.value })} placeholder="Vehicle Number *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="number" value={newComp.vehicleCapacity} onChange={(e) => setNewComp({ ...newComp, vehicleCapacity: e.target.value })} placeholder="Capacity (tons)" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <input value={newComp.contactNumber} onChange={(e) => setNewComp({ ...newComp, contactNumber: e.target.value })} placeholder="Contact Number" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
               <button onClick={handleAddCompany} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Save & Select</button>
             </div>
           )}
 
-          {/* Driver selection */}
-          {selectedCompanyId && (
-            <div>
-              <label className="field-label">Driver</label>
-              <select value={selectedDriverId} onChange={(e) => { setSelectedDriverId(e.target.value); const d = drivers.find((dr) => dr.id === e.target.value); setDriverName(d?.name || ""); }} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">Select driver...</option>
-                {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-              <button onClick={() => setShowNewDriver(!showNewDriver)} className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"><Plus className="h-3 w-3" /> Add Driver</button>
-              {showNewDriver && (
-                <div className="mt-2 rounded-md border border-border bg-secondary/50 p-3 space-y-2">
-                  <input value={newDriver.name} onChange={(e) => setNewDriver({ ...newDriver, name: e.target.value })} placeholder="Driver Name *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                  <input value={newDriver.phone} onChange={(e) => setNewDriver({ ...newDriver, phone: e.target.value })} placeholder="Phone" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                  <button onClick={handleAddDriver} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Save Driver</button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Vehicle selection */}
-          {selectedCompanyId && (
-            <div>
-              <label className="field-label">Vehicle</label>
-              <select value={selectedVehicleId} onChange={(e) => { setSelectedVehicleId(e.target.value); const v = vehicles.find((vh) => vh.id === e.target.value); setVehicleNumber(v?.number || ""); setVehicleCapacity(v?.capacity || ""); }} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">Select vehicle...</option>
-                {vehicles.map((v) => <option key={v.id} value={v.id}>{v.number} ({v.capacity})</option>)}
-              </select>
-              <button onClick={() => setShowNewVehicle(!showNewVehicle)} className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"><Plus className="h-3 w-3" /> Add Vehicle</button>
-              {showNewVehicle && (
-                <div className="mt-2 rounded-md border border-border bg-secondary/50 p-3 space-y-2">
-                  <input value={newVehicle.number} onChange={(e) => setNewVehicle({ ...newVehicle, number: e.target.value })} placeholder="Vehicle Number *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                  <input value={newVehicle.capacity} onChange={(e) => setNewVehicle({ ...newVehicle, capacity: e.target.value })} placeholder="Capacity (e.g. 10 tons)" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                  <button onClick={handleAddVehicle} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Save Vehicle</button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Manual vehicle if no company */}
-          {!selectedCompanyId && (
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="field-label">Vehicle Number</label><input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="MH-12-AB-1234" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-              <div><label className="field-label">Vehicle Capacity</label><input value={vehicleCapacity} onChange={(e) => setVehicleCapacity(e.target.value)} placeholder="10 tons" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-            </div>
-          )}
-
-          {/* Customer */}
-          <div>
-            <label className="field-label">Customer Name</label>
-            <input value={customerSearch || customerName} onChange={(e) => { setCustomerSearch(e.target.value); setCustomerName(e.target.value); setSelectedCustomerId(""); }} placeholder="Search or type customer..." className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            {customerSearch && filteredCustomers.length > 0 && (
-              <div className="mt-1 rounded-md border border-border bg-card max-h-32 overflow-y-auto">
-                {filteredCustomers.map((c) => (
-                  <button key={c.id} onClick={() => selectCustomer(c)} className="w-full text-left px-3 py-2 text-sm hover:bg-secondary text-foreground">
-                    <span className="font-medium">{c.name}</span>{c.companyName && <span className="text-muted-foreground"> — {c.companyName}</span>}
-                  </button>
-                ))}
+          {/* Auto-filled details */}
+          {(companyName || driverName) && (
+            <div className="rounded-md bg-primary/5 border border-primary/20 p-3 space-y-1">
+              <p className="text-xs text-muted-foreground">Auto-filled Details <span className="text-primary">(editable)</span></p>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-xs text-muted-foreground">Company</label><input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full rounded border border-input bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+                <div><label className="text-xs text-muted-foreground">Driver</label><input value={driverName} onChange={(e) => setDriverName(e.target.value)} className="w-full rounded border border-input bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+                <div><label className="text-xs text-muted-foreground">Vehicle</label><input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} className="w-full rounded border border-input bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+                <div><label className="text-xs text-muted-foreground">Capacity</label><input type="number" value={vehicleCapacity || ""} onChange={(e) => setVehicleCapacity(Number(e.target.value) || 0)} className="w-full rounded border border-input bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
               </div>
-            )}
-            <button onClick={() => setShowNewCustomer(!showNewCustomer)} className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"><UserPlus className="h-3 w-3" /> Quick add customer</button>
-          </div>
-
-          {showNewCustomer && (
-            <div className="rounded-md border border-border bg-secondary/50 p-3 space-y-2">
-              <div className="flex items-center justify-between"><span className="text-xs font-medium text-foreground">New Customer</span><button onClick={() => setShowNewCustomer(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button></div>
-              <input value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} placeholder="Name *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <input value={newCust.companyName} onChange={(e) => setNewCust({ ...newCust, companyName: e.target.value })} placeholder="Company" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <button onClick={handleAddCustomer} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Save & Select</button>
             </div>
           )}
         </div>
@@ -296,6 +213,7 @@ function BillingPage() {
               <button key={p.id} onClick={() => addItem(p.id)} className="stat-card text-left hover:border-primary/50 transition-colors">
                 <p className="font-medium text-sm text-foreground">{p.name}</p>
                 <p className="text-xs text-muted-foreground">₹{p.price}/{p.unit}</p>
+                {p.tipsEnabled && <p className="text-xs text-warning">Tips: ₹{p.tipsRate}/unit</p>}
               </button>
             ))}
             {filtered.length === 0 && <p className="col-span-full text-sm text-muted-foreground text-center py-4">No products found.</p>}
@@ -307,25 +225,34 @@ function BillingPage() {
           <div className="stat-card space-y-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Bill Items</h3>
             {items.map((item) => (
-              <div key={item.productId} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{item.productName}</p>
-                  <p className="text-xs text-muted-foreground">₹{item.price} × {item.quantity} = ₹{item.total.toLocaleString()}</p>
+              <div key={item.productId} className="space-y-1 border-b border-border/50 pb-2 last:border-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{item.productName}</p>
+                    <p className="text-xs text-muted-foreground">₹{item.price} × {item.quantity} = ₹{item.total.toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => updateQty(item.productId, item.quantity - 1)} className="rounded-md bg-secondary p-1 text-muted-foreground hover:text-foreground"><Minus className="h-4 w-4" /></button>
+                    <input type="number" value={item.quantity} onChange={(e) => updateQty(item.productId, Number(e.target.value) || 0)} className="w-14 text-center rounded border border-input bg-secondary px-1 py-0.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                    <button onClick={() => updateQty(item.productId, item.quantity + 1)} className="rounded-md bg-secondary p-1 text-muted-foreground hover:text-foreground"><Plus className="h-4 w-4" /></button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => updateQty(item.productId, -1)} className="rounded-md bg-secondary p-1 text-muted-foreground hover:text-foreground"><Minus className="h-4 w-4" /></button>
-                  <span className="text-sm font-medium w-6 text-center text-foreground">{item.quantity}</span>
-                  <button onClick={() => updateQty(item.productId, 1)} className="rounded-md bg-secondary p-1 text-muted-foreground hover:text-foreground"><Plus className="h-4 w-4" /></button>
+                {/* Per-product tips */}
+                <div className="flex items-center gap-2 pl-1">
+                  <Coins className="h-3 w-3 text-warning" />
+                  <span className="text-xs text-muted-foreground">Tips/unit:</span>
+                  <input type="number" value={item.tipsRate || ""} onChange={(e) => updateItemTipsRate(item.productId, Number(e.target.value) || 0)} placeholder="0" className="w-16 rounded border border-input bg-secondary px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  {item.tipsAmount > 0 && <span className="text-xs text-warning font-medium">= ₹{item.tipsAmount.toLocaleString()}</span>}
                 </div>
               </div>
             ))}
 
-            {/* Tips */}
-            <div className="border-t border-border pt-3">
-              <label className="field-label flex items-center gap-1"><Coins className="h-3 w-3" /> Tips per unit (₹)</label>
-              <input type="number" value={tipsPerUnit} onChange={(e) => setTipsPerUnit(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              {tipsAmount > 0 && <p className="text-xs text-muted-foreground mt-1">Tips: ₹{tipsPerUnit} × {totalQty} units = <span className="text-warning font-semibold">₹{tipsAmount.toLocaleString()}</span> (added as expense)</p>}
-            </div>
+            {totalTips > 0 && (
+              <div className="rounded-md bg-warning/10 border border-warning/20 px-3 py-2 flex justify-between text-sm">
+                <span className="text-warning font-medium">Total Tips</span>
+                <span className="text-warning font-bold">₹{totalTips.toLocaleString()}</span>
+              </div>
+            )}
 
             <div className="border-t border-border pt-3 flex items-center justify-between">
               <span className="font-bold text-foreground">Total</span>

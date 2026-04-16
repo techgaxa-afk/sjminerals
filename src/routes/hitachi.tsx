@@ -3,12 +3,13 @@ import AppLayout from "../components/AppLayout";
 import { useState } from "react";
 import {
   getHitachiMachines, saveHitachiMachine, updateHitachiMachine, deleteHitachiMachine,
-  getHitachiEntries, saveHitachiEntry, getHitachiEntriesByMachine,
+  getHitachiEntries, saveHitachiEntry, updateHitachiEntry, deleteHitachiEntry, getHitachiEntriesByMachine,
   getHitachiFuel, saveHitachiFuel,
-  getOperators, saveOperator, deleteOperator,
+  getOperators, saveOperator, updateOperator, deleteOperator,
+  saveExpense,
   type HitachiMachine, type HitachiEntry, type HitachiFuel, type Operator,
 } from "../lib/store";
-import { Plus, Search, Settings, Fuel, Users, Clock, Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Search, Settings, Fuel, Users, Clock, Trash2, Pencil, X, ChevronDown, ChevronUp } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/hitachi")({
@@ -27,16 +28,18 @@ function HitachiPage() {
 
   // Entry form
   const [showEntryForm, setShowEntryForm] = useState(false);
+  const [editEntryId, setEditEntryId] = useState<string | null>(null);
   const [entryMachineId, setEntryMachineId] = useState("");
   const [entryDate, setEntryDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [startKM, setStartKM] = useState("");
-  const [endKM, setEndKM] = useState("");
+  const [startHrs, setStartHrs] = useState("");
+  const [endHrs, setEndHrs] = useState("");
   const [entryOperatorId, setEntryOperatorId] = useState("");
-  const [entryShift, setEntryShift] = useState<"day" | "night">("day");
+  const [entryShift, setEntryShift] = useState<"A" | "B">("A");
   const [entryNotes, setEntryNotes] = useState("");
 
   // Machine form
   const [showMachineForm, setShowMachineForm] = useState(false);
+  const [editMachineId, setEditMachineId] = useState<string | null>(null);
   const [machineName, setMachineName] = useState("");
   const [machineRate, setMachineRate] = useState("");
 
@@ -44,63 +47,97 @@ function HitachiPage() {
   const [showFuelForm, setShowFuelForm] = useState(false);
   const [fuelMachineId, setFuelMachineId] = useState("");
   const [fuelLiters, setFuelLiters] = useState("");
-  const [fuelKM, setFuelKM] = useState("");
+  const [fuelHrs, setFuelHrs] = useState("");
   const [fuelDate, setFuelDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   // Operator form
   const [showOperatorForm, setShowOperatorForm] = useState(false);
+  const [editOpId, setEditOpId] = useState<string | null>(null);
   const [opName, setOpName] = useState("");
   const [opPhone, setOpPhone] = useState("");
+  const [opSalaryRate, setOpSalaryRate] = useState("");
 
-  // Expanded machine
   const [expandedMachine, setExpandedMachine] = useState<string | null>(null);
 
-  const totalKM = Number(endKM || 0) - Number(startKM || 0);
+  const totalHours = Math.max(0, Number(endHrs || 0) - Number(startHrs || 0));
+  const selectedMachine = machines.find((m) => m.id === entryMachineId);
+  const selectedOperator = operators.find((o) => o.id === entryOperatorId);
+  const machineRevenue = totalHours * (selectedMachine?.hourlyRate || 0);
+  const operatorSalary = totalHours * (selectedOperator?.hourlySalaryRate || 0);
+
+  const resetEntryForm = () => { setShowEntryForm(false); setEditEntryId(null); setStartHrs(""); setEndHrs(""); setEntryNotes(""); setEntryMachineId(""); setEntryOperatorId(""); };
 
   const handleSaveEntry = () => {
-    if (!entryMachineId || !startKM || !endKM || totalKM <= 0) return;
+    if (!entryMachineId || !startHrs || !endHrs || totalHours <= 0) return;
     const machine = machines.find((m) => m.id === entryMachineId);
     const operator = operators.find((o) => o.id === entryOperatorId);
-    saveHitachiEntry({
-      machineId: entryMachineId,
-      machineName: machine?.name || "",
-      date: entryDate,
-      startingKM: Number(startKM),
-      endingKM: Number(endKM),
-      totalKM,
-      operatorId: entryOperatorId,
-      operatorName: operator?.name || "",
-      shift: entryShift,
-      notes: entryNotes.trim(),
-    });
+    const data = {
+      machineId: entryMachineId, machineName: machine?.name || "", date: entryDate,
+      startingHours: Number(startHrs), endingHours: Number(endHrs), totalHours,
+      operatorId: entryOperatorId, operatorName: operator?.name || "",
+      shift: entryShift, machineRevenue, operatorSalary, notes: entryNotes.trim(),
+    };
+    if (editEntryId) {
+      updateHitachiEntry(editEntryId, data);
+    } else {
+      const entry = saveHitachiEntry(data);
+      // Auto-add operator salary as expense
+      if (operatorSalary > 0) {
+        saveExpense({
+          category: "salary",
+          amount: operatorSalary,
+          date: entryDate,
+          notes: `Operator ${operator?.name || ""} - ${machine?.name || ""} - ${totalHours}hrs`,
+          linkedOperatorId: entryOperatorId,
+          linkedMachineId: entryMachineId,
+        });
+      }
+    }
     setEntries(getHitachiEntries());
-    setShowEntryForm(false);
-    setStartKM(""); setEndKM(""); setEntryNotes("");
+    resetEntryForm();
   };
+
+  const startEditEntry = (e: HitachiEntry) => {
+    setEditEntryId(e.id); setEntryMachineId(e.machineId); setEntryDate(e.date);
+    setStartHrs(String(e.startingHours)); setEndHrs(String(e.endingHours));
+    setEntryOperatorId(e.operatorId); setEntryShift(e.shift); setEntryNotes(e.notes);
+    setShowEntryForm(true);
+  };
+
+  const resetMachineForm = () => { setShowMachineForm(false); setEditMachineId(null); setMachineName(""); setMachineRate(""); };
 
   const handleSaveMachine = () => {
     if (!machineName.trim()) return;
-    saveHitachiMachine({ name: machineName.trim(), hourlyRate: Number(machineRate || 0) });
+    if (editMachineId) updateHitachiMachine(editMachineId, { name: machineName.trim(), hourlyRate: Number(machineRate || 0) });
+    else saveHitachiMachine({ name: machineName.trim(), hourlyRate: Number(machineRate || 0) });
     setMachines(getHitachiMachines());
-    setShowMachineForm(false);
-    setMachineName(""); setMachineRate("");
+    resetMachineForm();
+  };
+
+  const startEditMachine = (m: HitachiMachine) => {
+    setEditMachineId(m.id); setMachineName(m.name); setMachineRate(String(m.hourlyRate)); setShowMachineForm(true);
   };
 
   const handleSaveFuel = () => {
     if (!fuelMachineId || !fuelLiters) return;
     const machine = machines.find((m) => m.id === fuelMachineId);
-    saveHitachiFuel({ machineId: fuelMachineId, machineName: machine?.name || "", liters: Number(fuelLiters), kmReading: Number(fuelKM || 0), date: fuelDate });
+    saveHitachiFuel({ machineId: fuelMachineId, machineName: machine?.name || "", liters: Number(fuelLiters), hourReading: Number(fuelHrs || 0), date: fuelDate });
     setFuels(getHitachiFuel());
-    setShowFuelForm(false);
-    setFuelLiters(""); setFuelKM("");
+    setShowFuelForm(false); setFuelLiters(""); setFuelHrs("");
   };
+
+  const resetOpForm = () => { setShowOperatorForm(false); setEditOpId(null); setOpName(""); setOpPhone(""); setOpSalaryRate(""); };
 
   const handleSaveOperator = () => {
     if (!opName.trim()) return;
-    saveOperator({ name: opName.trim(), phone: opPhone.trim() });
+    if (editOpId) updateOperator(editOpId, { name: opName.trim(), phone: opPhone.trim(), hourlySalaryRate: Number(opSalaryRate || 0) });
+    else saveOperator({ name: opName.trim(), phone: opPhone.trim(), hourlySalaryRate: Number(opSalaryRate || 0) });
     setOperators(getOperators());
-    setShowOperatorForm(false);
-    setOpName(""); setOpPhone("");
+    resetOpForm();
+  };
+
+  const startEditOp = (o: Operator) => {
+    setEditOpId(o.id); setOpName(o.name); setOpPhone(o.phone); setOpSalaryRate(String(o.hourlySalaryRate || "")); setShowOperatorForm(true);
   };
 
   const sortedEntries = [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -118,7 +155,6 @@ function HitachiPage() {
       <div className="space-y-4">
         <h1 className="module-header">Hitachi Module</h1>
 
-        {/* Tabs */}
         <div className="flex gap-1 rounded-md bg-secondary p-1 overflow-x-auto">
           {tabs.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
@@ -127,7 +163,7 @@ function HitachiPage() {
           ))}
         </div>
 
-        {/* Daily Entries Tab */}
+        {/* Daily Entries */}
         {tab === "entries" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -135,71 +171,91 @@ function HitachiPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search entries..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
-              <button onClick={() => setShowEntryForm(!showEntryForm)} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4" /> Log</button>
+              <button onClick={() => { resetEntryForm(); setShowEntryForm(true); }} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4" /> Log</button>
             </div>
 
             {showEntryForm && (
               <div className="stat-card space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">New Daily Entry</h3>
+                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editEntryId ? "Edit" : "New"} Daily Entry</h3><button onClick={resetEntryForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="field-label">Machine *</label>
                     <select value={entryMachineId} onChange={(e) => setEntryMachineId(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                       <option value="">Select...</option>
-                      {machines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      {machines.map((m) => <option key={m.id} value={m.id}>{m.name} (₹{m.hourlyRate}/hr)</option>)}
                     </select>
                   </div>
                   <div><label className="field-label">Date</label><input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
-                  <div><label className="field-label">Start KM</label><input type="number" value={startKM} onChange={(e) => setStartKM(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-                  <div><label className="field-label">End KM</label><input type="number" value={endKM} onChange={(e) => setEndKM(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-                  <div><label className="field-label">Total KM</label><div className="rounded-md bg-primary/10 border border-primary/20 px-3 py-2 text-sm font-bold text-primary">{totalKM > 0 ? totalKM : "—"}</div></div>
+                  <div><label className="field-label">Start HRs</label><input type="number" value={startHrs} onChange={(e) => setStartHrs(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  <div><label className="field-label">End HRs</label><input type="number" value={endHrs} onChange={(e) => setEndHrs(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  <div><label className="field-label">Total HRs</label><div className="rounded-md bg-primary/10 border border-primary/20 px-3 py-2 text-sm font-bold text-primary">{totalHours > 0 ? totalHours : "—"}</div></div>
                 </div>
+                {/* Auto calculations */}
+                {totalHours > 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-md bg-success/10 border border-success/20 p-2 text-center">
+                      <p className="text-xs text-muted-foreground">Machine Revenue</p>
+                      <p className="font-bold text-sm text-success">₹{machineRevenue.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-md bg-warning/10 border border-warning/20 p-2 text-center">
+                      <p className="text-xs text-muted-foreground">Operator Salary</p>
+                      <p className="font-bold text-sm text-warning">₹{operatorSalary.toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="field-label">Operator</label>
                     <select value={entryOperatorId} onChange={(e) => setEntryOperatorId(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                       <option value="">Select...</option>
-                      {operators.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                      {operators.map((o) => <option key={o.id} value={o.id}>{o.name} (₹{o.hourlySalaryRate}/hr)</option>)}
                     </select>
                   </div>
                   <div><label className="field-label">Shift</label>
                     <div className="flex gap-2">
-                      <button onClick={() => setEntryShift("day")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShift === "day" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Day</button>
-                      <button onClick={() => setEntryShift("night")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShift === "night" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Night</button>
+                      <button onClick={() => setEntryShift("A")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShift === "A" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Shift A</button>
+                      <button onClick={() => setEntryShift("B")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShift === "B" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Shift B</button>
                     </div>
                   </div>
                 </div>
                 <div><label className="field-label">Notes</label><input value={entryNotes} onChange={(e) => setEntryNotes(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <div className="flex gap-2">
                   <button onClick={handleSaveEntry} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
-                  <button onClick={() => setShowEntryForm(false)} className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-muted">Cancel</button>
+                  <button onClick={resetEntryForm} className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-muted">Cancel</button>
                 </div>
               </div>
             )}
 
             {filteredEntries.map((e) => (
-              <div key={e.id} className="stat-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-foreground">{e.machineName}</p>
-                  <p className="text-xs text-muted-foreground">{format(parseISO(e.date + "T00:00:00"), "dd MMM yyyy")} · {e.shift === "day" ? "☀️" : "🌙"} {e.shift} shift</p>
-                  <p className="text-xs text-muted-foreground">{e.startingKM} → {e.endingKM} KM · Operator: {e.operatorName || "—"}</p>
-                  {e.notes && <p className="text-xs text-muted-foreground mt-0.5">{e.notes}</p>}
+              <div key={e.id} className="stat-card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">{e.machineName}</p>
+                    <p className="text-xs text-muted-foreground">{format(parseISO(e.date + "T00:00:00"), "dd MMM yyyy")} · Shift {e.shift} · {e.operatorName || "—"}</p>
+                    <p className="text-xs text-muted-foreground">{e.startingHours} → {e.endingHours} HRs</p>
+                    {e.machineRevenue > 0 && <p className="text-xs text-success">Revenue: ₹{e.machineRevenue.toLocaleString()}</p>}
+                    {e.operatorSalary > 0 && <p className="text-xs text-warning">Salary: ₹{e.operatorSalary.toLocaleString()}</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-primary">{e.totalHours} HRs</p>
+                    <button onClick={() => startEditEntry(e)} className="rounded-md p-1 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => { deleteHitachiEntry(e.id); setEntries(getHitachiEntries()); }} className="rounded-md p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </div>
                 </div>
-                <p className="font-bold text-primary">{e.totalKM} KM</p>
               </div>
             ))}
             {filteredEntries.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No entries yet.</p>}
           </div>
         )}
 
-        {/* Machines Tab */}
+        {/* Machines */}
         {tab === "machines" && (
           <div className="space-y-3">
-            <button onClick={() => setShowMachineForm(!showMachineForm)} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4" /> Add Machine</button>
+            <button onClick={() => { resetMachineForm(); setShowMachineForm(true); }} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4" /> Add Machine</button>
 
             {showMachineForm && (
               <div className="stat-card space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">New Machine</h3>
+                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editMachineId ? "Edit" : "New"} Machine</h3><button onClick={resetMachineForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
                 <input value={machineName} onChange={(e) => setMachineName(e.target.value)} placeholder="Machine Name/ID *" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 <input type="number" value={machineRate} onChange={(e) => setMachineRate(e.target.value)} placeholder="Hourly Rate (₹)" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 <button onClick={handleSaveMachine} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
@@ -210,7 +266,8 @@ function HitachiPage() {
               const isExp = expandedMachine === m.id;
               const mEntries = isExp ? getHitachiEntriesByMachine(m.id) : [];
               const mFuels = isExp ? fuels.filter((f) => f.machineId === m.id) : [];
-              const totalKM = mEntries.reduce((s, e) => s + e.totalKM, 0);
+              const totalHrs = mEntries.reduce((s, e) => s + e.totalHours, 0);
+              const totalRev = mEntries.reduce((s, e) => s + e.machineRevenue, 0);
               const totalFuel = mFuels.reduce((s, f) => s + f.liters, 0);
               return (
                 <div key={m.id} className="stat-card">
@@ -220,15 +277,16 @@ function HitachiPage() {
                       <p className="text-xs text-muted-foreground">₹{m.hourlyRate}/hr</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={(e) => { e.stopPropagation(); deleteHitachiMachine(m.id); setMachines(getHitachiMachines()); }} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={(ev) => { ev.stopPropagation(); startEditMachine(m); }} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4" /></button>
+                      <button onClick={(ev) => { ev.stopPropagation(); deleteHitachiMachine(m.id); setMachines(getHitachiMachines()); }} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                       {isExp ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </div>
                   {isExp && (
                     <div className="mt-3 border-t border-border pt-3 grid grid-cols-3 gap-2">
-                      <div className="rounded-md bg-secondary p-2 text-center"><p className="text-xs text-muted-foreground">Total KM</p><p className="font-bold text-sm text-foreground">{totalKM}</p></div>
-                      <div className="rounded-md bg-secondary p-2 text-center"><p className="text-xs text-muted-foreground">Fuel Used</p><p className="font-bold text-sm text-foreground">{totalFuel}L</p></div>
-                      <div className="rounded-md bg-secondary p-2 text-center"><p className="text-xs text-muted-foreground">Entries</p><p className="font-bold text-sm text-foreground">{mEntries.length}</p></div>
+                      <div className="rounded-md bg-secondary p-2 text-center"><p className="text-xs text-muted-foreground">Total HRs</p><p className="font-bold text-sm text-foreground">{totalHrs}</p></div>
+                      <div className="rounded-md bg-secondary p-2 text-center"><p className="text-xs text-muted-foreground">Revenue</p><p className="font-bold text-sm text-success">₹{totalRev.toLocaleString()}</p></div>
+                      <div className="rounded-md bg-secondary p-2 text-center"><p className="text-xs text-muted-foreground">Fuel</p><p className="font-bold text-sm text-foreground">{totalFuel}L</p></div>
                     </div>
                   )}
                 </div>
@@ -238,7 +296,7 @@ function HitachiPage() {
           </div>
         )}
 
-        {/* Fuel Tab */}
+        {/* Fuel */}
         {tab === "fuel" && (
           <div className="space-y-3">
             <button onClick={() => setShowFuelForm(!showFuelForm)} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4" /> Add Fuel</button>
@@ -252,7 +310,7 @@ function HitachiPage() {
                 </select>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="field-label">Liters</label><input type="number" value={fuelLiters} onChange={(e) => setFuelLiters(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-                  <div><label className="field-label">KM Reading</label><input type="number" value={fuelKM} onChange={(e) => setFuelKM(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  <div><label className="field-label">Hour Reading</label><input type="number" value={fuelHrs} onChange={(e) => setFuelHrs(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 </div>
                 <div><label className="field-label">Date</label><input type="date" value={fuelDate} onChange={(e) => setFuelDate(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <button onClick={handleSaveFuel} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
@@ -263,7 +321,7 @@ function HitachiPage() {
               <div key={f.id} className="stat-card flex items-center justify-between">
                 <div>
                   <p className="font-medium text-foreground flex items-center gap-2"><Fuel className="h-4 w-4 text-chart-3" /> {f.machineName}</p>
-                  <p className="text-xs text-muted-foreground">{format(parseISO(f.date + "T00:00:00"), "dd MMM yyyy")} · KM: {f.kmReading}</p>
+                  <p className="text-xs text-muted-foreground">{format(parseISO(f.date + "T00:00:00"), "dd MMM yyyy")} · HR: {f.hourReading}</p>
                 </div>
                 <p className="font-bold text-foreground">{f.liters}L</p>
               </div>
@@ -272,29 +330,35 @@ function HitachiPage() {
           </div>
         )}
 
-        {/* Operators Tab */}
+        {/* Operators */}
         {tab === "operators" && (
           <div className="space-y-3">
-            <button onClick={() => setShowOperatorForm(!showOperatorForm)} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4" /> Add Operator</button>
+            <button onClick={() => { resetOpForm(); setShowOperatorForm(true); }} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-4 w-4" /> Add Operator</button>
 
             {showOperatorForm && (
               <div className="stat-card space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">New Operator</h3>
+                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editOpId ? "Edit" : "New"} Operator</h3><button onClick={resetOpForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
                 <input value={opName} onChange={(e) => setOpName(e.target.value)} placeholder="Operator Name *" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 <input value={opPhone} onChange={(e) => setOpPhone(e.target.value)} placeholder="Phone" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="number" value={opSalaryRate} onChange={(e) => setOpSalaryRate(e.target.value)} placeholder="Hourly Salary Rate (₹)" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 <button onClick={handleSaveOperator} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
               </div>
             )}
 
             {operators.map((o) => {
               const shifts = entries.filter((e) => e.operatorId === o.id);
+              const totalSalary = shifts.reduce((s, e) => s + e.operatorSalary, 0);
               return (
                 <div key={o.id} className="stat-card flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground">{o.name}</p>
-                    <p className="text-xs text-muted-foreground">{o.phone || "No phone"} · {shifts.length} shifts</p>
+                    <p className="text-xs text-muted-foreground">{o.phone || "No phone"} · ₹{o.hourlySalaryRate}/hr · {shifts.length} shifts</p>
+                    {totalSalary > 0 && <p className="text-xs text-warning">Total Salary: ₹{totalSalary.toLocaleString()}</p>}
                   </div>
-                  <button onClick={() => { deleteOperator(o.id); setOperators(getOperators()); }} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  <div className="flex gap-1">
+                    <button onClick={() => startEditOp(o)} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => { deleteOperator(o.id); setOperators(getOperators()); }} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  </div>
                 </div>
               );
             })}
