@@ -11,10 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProductsRouteImport } from './routes/products'
-import { Route as JcbRouteImport } from './routes/jcb'
 import { Route as HitachiRouteImport } from './routes/hitachi'
 import { Route as ExpensesRouteImport } from './routes/expenses'
-import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as CompaniesRouteImport } from './routes/companies'
 import { Route as BillsRouteImport } from './routes/bills'
 import { Route as BillingRouteImport } from './routes/billing'
@@ -30,11 +28,6 @@ const ProductsRoute = ProductsRouteImport.update({
   path: '/products',
   getParentRoute: () => rootRouteImport,
 } as any)
-const JcbRoute = JcbRouteImport.update({
-  id: '/jcb',
-  path: '/jcb',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const HitachiRoute = HitachiRouteImport.update({
   id: '/hitachi',
   path: '/hitachi',
@@ -43,11 +36,6 @@ const HitachiRoute = HitachiRouteImport.update({
 const ExpensesRoute = ExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomersRoute = CustomersRouteImport.update({
-  id: '/customers',
-  path: '/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompaniesRoute = CompaniesRouteImport.update({
@@ -76,10 +64,8 @@ export interface FileRoutesByFullPath {
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
   '/companies': typeof CompaniesRoute
-  '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
   '/hitachi': typeof HitachiRoute
-  '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
   '/reports': typeof ReportsRoute
 }
@@ -88,10 +74,8 @@ export interface FileRoutesByTo {
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
   '/companies': typeof CompaniesRoute
-  '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
   '/hitachi': typeof HitachiRoute
-  '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
   '/reports': typeof ReportsRoute
 }
@@ -101,10 +85,8 @@ export interface FileRoutesById {
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
   '/companies': typeof CompaniesRoute
-  '/customers': typeof CustomersRoute
   '/expenses': typeof ExpensesRoute
   '/hitachi': typeof HitachiRoute
-  '/jcb': typeof JcbRoute
   '/products': typeof ProductsRoute
   '/reports': typeof ReportsRoute
 }
@@ -115,10 +97,8 @@ export interface FileRouteTypes {
     | '/billing'
     | '/bills'
     | '/companies'
-    | '/customers'
     | '/expenses'
     | '/hitachi'
-    | '/jcb'
     | '/products'
     | '/reports'
   fileRoutesByTo: FileRoutesByTo
@@ -127,10 +107,8 @@ export interface FileRouteTypes {
     | '/billing'
     | '/bills'
     | '/companies'
-    | '/customers'
     | '/expenses'
     | '/hitachi'
-    | '/jcb'
     | '/products'
     | '/reports'
   id:
@@ -139,10 +117,8 @@ export interface FileRouteTypes {
     | '/billing'
     | '/bills'
     | '/companies'
-    | '/customers'
     | '/expenses'
     | '/hitachi'
-    | '/jcb'
     | '/products'
     | '/reports'
   fileRoutesById: FileRoutesById
@@ -152,10 +128,8 @@ export interface RootRouteChildren {
   BillingRoute: typeof BillingRoute
   BillsRoute: typeof BillsRoute
   CompaniesRoute: typeof CompaniesRoute
-  CustomersRoute: typeof CustomersRoute
   ExpensesRoute: typeof ExpensesRoute
   HitachiRoute: typeof HitachiRoute
-  JcbRoute: typeof JcbRoute
   ProductsRoute: typeof ProductsRoute
   ReportsRoute: typeof ReportsRoute
 }
@@ -176,13 +150,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/jcb': {
-      id: '/jcb'
-      path: '/jcb'
-      fullPath: '/jcb'
-      preLoaderRoute: typeof JcbRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/hitachi': {
       id: '/hitachi'
       path: '/hitachi'
@@ -195,13 +162,6 @@ declare module '@tanstack/react-router' {
       path: '/expenses'
       fullPath: '/expenses'
       preLoaderRoute: typeof ExpensesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/customers': {
-      id: '/customers'
-      path: '/customers'
-      fullPath: '/customers'
-      preLoaderRoute: typeof CustomersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/companies': {
@@ -240,10 +200,8 @@ const rootRouteChildren: RootRouteChildren = {
   BillingRoute: BillingRoute,
   BillsRoute: BillsRoute,
   CompaniesRoute: CompaniesRoute,
-  CustomersRoute: CustomersRoute,
   ExpensesRoute: ExpensesRoute,
   HitachiRoute: HitachiRoute,
-  JcbRoute: JcbRoute,
   ProductsRoute: ProductsRoute,
   ReportsRoute: ReportsRoute,
 }

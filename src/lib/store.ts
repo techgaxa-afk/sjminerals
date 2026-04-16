@@ -3,39 +3,18 @@ export interface Product {
   name: string;
   price: number;
   unit: string;
+  tipsEnabled: boolean;
+  tipsRate: number; // tips per unit
   createdAt: string;
 }
 
 export interface Company {
   id: string;
   name: string;
-  contactDetails: string;
-  address: string;
-  createdAt: string;
-}
-
-export interface Driver {
-  id: string;
-  companyId: string;
-  name: string;
-  phone: string;
-  createdAt: string;
-}
-
-export interface Vehicle {
-  id: string;
-  companyId: string;
-  number: string;
-  capacity: string;
-  createdAt: string;
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  companyName: string;
-  phone: string;
-  address: string;
+  driverName: string;
+  vehicleNumber: string; // UNIQUE identifier
+  vehicleCapacity: number; // in tons/units
+  contactNumber: string;
   createdAt: string;
 }
 
@@ -45,6 +24,8 @@ export interface BillItem {
   price: number;
   quantity: number;
   total: number;
+  tipsRate: number;
+  tipsAmount: number;
 }
 
 export interface Bill {
@@ -54,24 +35,19 @@ export interface Bill {
   paymentMode: "cash" | "upi" | "credit";
   paidAmount: number;
   outstandingAmount: number;
-  customerName: string;
+  companyId: string;
   companyName: string;
-  companyId?: string;
-  driverId?: string;
-  driverName?: string;
-  vehicleId?: string;
+  driverName: string;
   vehicleNumber: string;
-  vehicleCapacity: string;
-  customerId?: string;
+  vehicleCapacity: number;
   tipsAmount: number;
-  tipsPerUnit: number;
   createdAt: string;
 }
 
 export interface Payment {
   id: string;
   billId: string;
-  companyId?: string;
+  companyId: string;
   amount: number;
   date: string;
   notes: string;
@@ -81,7 +57,15 @@ export interface Payment {
 export interface HitachiMachine {
   id: string;
   name: string;
-  hourlyRate: number;
+  hourlyRate: number; // earning rate
+  createdAt: string;
+}
+
+export interface Operator {
+  id: string;
+  name: string;
+  phone: string;
+  hourlySalaryRate: number;
   createdAt: string;
 }
 
@@ -90,12 +74,14 @@ export interface HitachiEntry {
   machineId: string;
   machineName: string;
   date: string;
-  startingKM: number;
-  endingKM: number;
-  totalKM: number;
+  startingHours: number;
+  endingHours: number;
+  totalHours: number;
   operatorId: string;
   operatorName: string;
-  shift: "day" | "night";
+  shift: "A" | "B";
+  machineRevenue: number;
+  operatorSalary: number;
   notes: string;
   createdAt: string;
 }
@@ -105,15 +91,8 @@ export interface HitachiFuel {
   machineId: string;
   machineName: string;
   liters: number;
-  kmReading: number;
+  hourReading: number;
   date: string;
-  createdAt: string;
-}
-
-export interface Operator {
-  id: string;
-  name: string;
-  phone: string;
   createdAt: string;
 }
 
@@ -127,20 +106,15 @@ export interface Expense {
   notes: string;
   linkedBillId?: string;
   linkedCompanyId?: string;
+  linkedOperatorId?: string;
+  linkedMachineId?: string;
   createdAt: string;
 }
 
-// Legacy JCB (kept for backward compat)
+// Legacy kept for backward compat
 export interface JCBLog {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  totalHours: number;
-  hourlyRate: number;
-  totalCost: number;
-  notes: string;
-  createdAt: string;
+  id: string; date: string; startTime: string; endTime: string;
+  totalHours: number; hourlyRate: number; totalCost: number; notes: string; createdAt: string;
 }
 
 function generateId(): string {
@@ -151,9 +125,7 @@ function getStore<T>(key: string): T[] {
   try {
     const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 function setStore<T>(key: string, data: T[]): void {
@@ -161,7 +133,13 @@ function setStore<T>(key: string, data: T[]): void {
 }
 
 // Products
-export function getProducts(): Product[] { return getStore<Product>("pos_products"); }
+export function getProducts(): Product[] {
+  return getStore<Product>("pos_products").map((p) => ({
+    ...p,
+    tipsEnabled: p.tipsEnabled ?? false,
+    tipsRate: p.tipsRate ?? 0,
+  }));
+}
 export function saveProduct(p: Omit<Product, "id" | "createdAt">): Product {
   const products = getProducts();
   const product: Product = { ...p, id: generateId(), createdAt: new Date().toISOString() };
@@ -176,8 +154,16 @@ export function deleteProduct(id: string): void {
   setStore("pos_products", getProducts().filter((p) => p.id !== id));
 }
 
-// Companies
-export function getCompanies(): Company[] { return getStore<Company>("pos_companies"); }
+// Companies (flat: name, driverName, vehicleNumber, vehicleCapacity, contactNumber)
+export function getCompanies(): Company[] {
+  return getStore<Company>("pos_companies").map((c) => ({
+    ...c,
+    vehicleCapacity: Number(c.vehicleCapacity) || 0,
+    driverName: c.driverName ?? "",
+    vehicleNumber: c.vehicleNumber ?? "",
+    contactNumber: c.contactNumber ?? (c as any).contactDetails ?? "",
+  }));
+}
 export function saveCompany(c: Omit<Company, "id" | "createdAt">): Company {
   const companies = getCompanies();
   const company: Company = { ...c, id: generateId(), createdAt: new Date().toISOString() };
@@ -191,55 +177,8 @@ export function updateCompany(id: string, updates: Partial<Company>): void {
 export function deleteCompany(id: string): void {
   setStore("pos_companies", getCompanies().filter((c) => c.id !== id));
 }
-
-// Drivers
-export function getDrivers(): Driver[] { return getStore<Driver>("pos_drivers"); }
-export function getDriversByCompany(companyId: string): Driver[] { return getDrivers().filter((d) => d.companyId === companyId); }
-export function saveDriver(d: Omit<Driver, "id" | "createdAt">): Driver {
-  const drivers = getDrivers();
-  const driver: Driver = { ...d, id: generateId(), createdAt: new Date().toISOString() };
-  drivers.push(driver);
-  setStore("pos_drivers", drivers);
-  return driver;
-}
-export function updateDriver(id: string, updates: Partial<Driver>): void {
-  setStore("pos_drivers", getDrivers().map((d) => (d.id === id ? { ...d, ...updates } : d)));
-}
-export function deleteDriver(id: string): void {
-  setStore("pos_drivers", getDrivers().filter((d) => d.id !== id));
-}
-
-// Vehicles
-export function getVehicles(): Vehicle[] { return getStore<Vehicle>("pos_vehicles"); }
-export function getVehiclesByCompany(companyId: string): Vehicle[] { return getVehicles().filter((v) => v.companyId === companyId); }
-export function saveVehicle(v: Omit<Vehicle, "id" | "createdAt">): Vehicle {
-  const vehicles = getVehicles();
-  const vehicle: Vehicle = { ...v, id: generateId(), createdAt: new Date().toISOString() };
-  vehicles.push(vehicle);
-  setStore("pos_vehicles", vehicles);
-  return vehicle;
-}
-export function updateVehicle(id: string, updates: Partial<Vehicle>): void {
-  setStore("pos_vehicles", getVehicles().map((v) => (v.id === id ? { ...v, ...updates } : v)));
-}
-export function deleteVehicle(id: string): void {
-  setStore("pos_vehicles", getVehicles().filter((v) => v.id !== id));
-}
-
-// Customers
-export function getCustomers(): Customer[] { return getStore<Customer>("pos_customers"); }
-export function saveCustomer(c: Omit<Customer, "id" | "createdAt">): Customer {
-  const customers = getCustomers();
-  const customer: Customer = { ...c, id: generateId(), createdAt: new Date().toISOString() };
-  customers.push(customer);
-  setStore("pos_customers", customers);
-  return customer;
-}
-export function updateCustomer(id: string, updates: Partial<Customer>): void {
-  setStore("pos_customers", getCustomers().map((c) => (c.id === id ? { ...c, ...updates } : c)));
-}
-export function deleteCustomer(id: string): void {
-  setStore("pos_customers", getCustomers().filter((c) => c.id !== id));
+export function getCompanyByVehicle(vehicleNumber: string): Company | undefined {
+  return getCompanies().find((c) => c.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
 }
 
 // Bills
@@ -249,7 +188,7 @@ export function getBills(): Bill[] {
     paidAmount: b.paidAmount ?? b.totalAmount,
     outstandingAmount: b.outstandingAmount ?? 0,
     tipsAmount: b.tipsAmount ?? 0,
-    tipsPerUnit: b.tipsPerUnit ?? 0,
+    vehicleCapacity: Number(b.vehicleCapacity) || 0,
   }));
 }
 export function saveBill(b: Omit<Bill, "id" | "createdAt">): Bill {
@@ -262,9 +201,6 @@ export function saveBill(b: Omit<Bill, "id" | "createdAt">): Bill {
 export function updateBill(id: string, updates: Partial<Bill>): void {
   setStore("pos_bills", getStore<Bill>("pos_bills").map((b) => (b.id === id ? { ...b, ...updates } : b)));
 }
-export function getBillsByCustomer(customerId: string): Bill[] {
-  return getBills().filter((b) => b.customerId === customerId);
-}
 export function getBillsByCompany(companyId: string): Bill[] {
   return getBills().filter((b) => b.companyId === companyId);
 }
@@ -276,7 +212,6 @@ export function savePayment(p: Omit<Payment, "id" | "createdAt">): Payment {
   const payment: Payment = { ...p, id: generateId(), createdAt: new Date().toISOString() };
   payments.push(payment);
   setStore("pos_payments", payments);
-  // Update the bill's outstanding
   const bills = getStore<Bill>("pos_bills");
   const bill = bills.find((b) => b.id === p.billId);
   if (bill) {
@@ -309,8 +244,18 @@ export function deleteHitachiMachine(id: string): void {
   setStore("pos_hitachi_machines", getHitachiMachines().filter((m) => m.id !== id));
 }
 
-// Hitachi Daily Entries
-export function getHitachiEntries(): HitachiEntry[] { return getStore<HitachiEntry>("pos_hitachi_entries"); }
+// Hitachi Entries (Hours-based)
+export function getHitachiEntries(): HitachiEntry[] {
+  return getStore<HitachiEntry>("pos_hitachi_entries").map((e) => ({
+    ...e,
+    startingHours: e.startingHours ?? (e as any).startingKM ?? 0,
+    endingHours: e.endingHours ?? (e as any).endingKM ?? 0,
+    totalHours: e.totalHours ?? (e as any).totalKM ?? 0,
+    machineRevenue: e.machineRevenue ?? 0,
+    operatorSalary: e.operatorSalary ?? 0,
+    shift: ((e as any).shift === "day" || (e as any).shift === "A") ? "A" as const : "B" as const,
+  }));
+}
 export function saveHitachiEntry(e: Omit<HitachiEntry, "id" | "createdAt">): HitachiEntry {
   const entries = getHitachiEntries();
   const entry: HitachiEntry = { ...e, id: generateId(), createdAt: new Date().toISOString() };
@@ -318,12 +263,23 @@ export function saveHitachiEntry(e: Omit<HitachiEntry, "id" | "createdAt">): Hit
   setStore("pos_hitachi_entries", entries);
   return entry;
 }
+export function updateHitachiEntry(id: string, updates: Partial<HitachiEntry>): void {
+  setStore("pos_hitachi_entries", getHitachiEntries().map((e) => (e.id === id ? { ...e, ...updates } : e)));
+}
+export function deleteHitachiEntry(id: string): void {
+  setStore("pos_hitachi_entries", getHitachiEntries().filter((e) => e.id !== id));
+}
 export function getHitachiEntriesByMachine(machineId: string): HitachiEntry[] {
   return getHitachiEntries().filter((e) => e.machineId === machineId);
 }
 
 // Hitachi Fuel
-export function getHitachiFuel(): HitachiFuel[] { return getStore<HitachiFuel>("pos_hitachi_fuel"); }
+export function getHitachiFuel(): HitachiFuel[] {
+  return getStore<HitachiFuel>("pos_hitachi_fuel").map((f) => ({
+    ...f,
+    hourReading: f.hourReading ?? (f as any).kmReading ?? 0,
+  }));
+}
 export function saveHitachiFuel(f: Omit<HitachiFuel, "id" | "createdAt">): HitachiFuel {
   const fuels = getHitachiFuel();
   const fuel: HitachiFuel = { ...f, id: generateId(), createdAt: new Date().toISOString() };
@@ -333,7 +289,12 @@ export function saveHitachiFuel(f: Omit<HitachiFuel, "id" | "createdAt">): Hitac
 }
 
 // Operators
-export function getOperators(): Operator[] { return getStore<Operator>("pos_operators"); }
+export function getOperators(): Operator[] {
+  return getStore<Operator>("pos_operators").map((o) => ({
+    ...o,
+    hourlySalaryRate: o.hourlySalaryRate ?? 0,
+  }));
+}
 export function saveOperator(o: Omit<Operator, "id" | "createdAt">): Operator {
   const operators = getOperators();
   const operator: Operator = { ...o, id: generateId(), createdAt: new Date().toISOString() };
@@ -357,15 +318,11 @@ export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
   setStore("pos_expenses", expenses);
   return expense;
 }
-
-// Legacy JCB
-export function getJCBLogs(): JCBLog[] { return getStore<JCBLog>("pos_jcb_logs"); }
-export function saveJCBLog(l: Omit<JCBLog, "id" | "createdAt">): JCBLog {
-  const logs = getJCBLogs();
-  const log: JCBLog = { ...l, id: generateId(), createdAt: new Date().toISOString() };
-  logs.push(log);
-  setStore("pos_jcb_logs", logs);
-  return log;
+export function updateExpense(id: string, updates: Partial<Expense>): void {
+  setStore("pos_expenses", getExpenses().map((e) => (e.id === id ? { ...e, ...updates } : e)));
+}
+export function deleteExpense(id: string): void {
+  setStore("pos_expenses", getExpenses().filter((e) => e.id !== id));
 }
 
 // Dashboard helpers
@@ -378,28 +335,26 @@ export function getDateRange(filter: "daily" | "weekly" | "monthly"): { start: D
   return { start, end };
 }
 
-// Company outstanding helpers
 export function getCompanyOutstanding(companyId: string): number {
-  return getBillsByCompany(companyId)
-    .filter((b) => b.paymentMode === "credit")
-    .reduce((s, b) => s + (b.outstandingAmount ?? 0), 0);
+  const bills = getBillsByCompany(companyId);
+  return bills.reduce((s, b) => s + (b.outstandingAmount ?? 0), 0);
 }
+
+// Legacy JCB
+export function getJCBLogs(): JCBLog[] { return getStore<JCBLog>("pos_jcb_logs"); }
 
 export function exportData(): string {
   return JSON.stringify({
     products: getProducts(),
     bills: getBills(),
-    jcbLogs: getJCBLogs(),
     expenses: getExpenses(),
-    customers: getCustomers(),
     companies: getCompanies(),
-    drivers: getDrivers(),
-    vehicles: getVehicles(),
     payments: getPayments(),
     hitachiMachines: getHitachiMachines(),
     hitachiEntries: getHitachiEntries(),
     hitachiFuel: getHitachiFuel(),
     operators: getOperators(),
+    jcbLogs: getJCBLogs(),
     exportedAt: new Date().toISOString(),
   });
 }
@@ -408,15 +363,12 @@ export function importData(json: string): void {
   const data = JSON.parse(json);
   if (data.products) setStore("pos_products", data.products);
   if (data.bills) setStore("pos_bills", data.bills);
-  if (data.jcbLogs) setStore("pos_jcb_logs", data.jcbLogs);
   if (data.expenses) setStore("pos_expenses", data.expenses);
-  if (data.customers) setStore("pos_customers", data.customers);
   if (data.companies) setStore("pos_companies", data.companies);
-  if (data.drivers) setStore("pos_drivers", data.drivers);
-  if (data.vehicles) setStore("pos_vehicles", data.vehicles);
   if (data.payments) setStore("pos_payments", data.payments);
   if (data.hitachiMachines) setStore("pos_hitachi_machines", data.hitachiMachines);
   if (data.hitachiEntries) setStore("pos_hitachi_entries", data.hitachiEntries);
   if (data.hitachiFuel) setStore("pos_hitachi_fuel", data.hitachiFuel);
   if (data.operators) setStore("pos_operators", data.operators);
+  if (data.jcbLogs) setStore("pos_jcb_logs", data.jcbLogs);
 }

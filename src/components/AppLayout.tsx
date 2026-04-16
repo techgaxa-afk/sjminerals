@@ -1,12 +1,11 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Users, Building2, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Building2, Settings, BarChart3 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/companies", label: "Companies", icon: Building2 },
   { to: "/products", label: "Products", icon: Package },
-  { to: "/customers", label: "Customers", icon: Users },
   { to: "/billing", label: "New Bill", icon: Receipt },
   { to: "/bills", label: "Bills", icon: Receipt },
   { to: "/hitachi", label: "Hitachi", icon: Settings },
