@@ -253,7 +253,7 @@ export function getHitachiEntries(): HitachiEntry[] {
     totalHours: e.totalHours ?? (e as any).totalKM ?? 0,
     machineRevenue: e.machineRevenue ?? 0,
     operatorSalary: e.operatorSalary ?? 0,
-    shift: e.shift === "day" || e.shift === "A" ? "A" : "B",
+    shift: ((e as any).shift === "day" || (e as any).shift === "A") ? "A" as const : "B" as const,
   }));
 }
 export function saveHitachiEntry(e: Omit<HitachiEntry, "id" | "createdAt">): HitachiEntry {
