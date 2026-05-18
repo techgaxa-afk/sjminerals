@@ -189,8 +189,18 @@ export function getBills(): Bill[] {
     paidAmount: b.paidAmount ?? b.totalAmount,
     outstandingAmount: b.outstandingAmount ?? 0,
     tipsAmount: b.tipsAmount ?? 0,
+    tipsRate: b.tipsRate ?? 0,
     vehicleCapacity: Number(b.vehicleCapacity) || 0,
   }));
+}
+export function deleteBill(id: string): void {
+  setStore("pos_bills", getStore<Bill>("pos_bills").filter((b) => b.id !== id));
+  // remove linked tips expense and payments
+  setStore("pos_expenses", getExpenses().filter((e) => e.linkedBillId !== id));
+  setStore("pos_payments", getPayments().filter((p) => p.billId !== id));
+}
+export function getExpensesByBill(billId: string): Expense[] {
+  return getExpenses().filter((e) => e.linkedBillId === billId);
 }
 export function saveBill(b: Omit<Bill, "id" | "createdAt">): Bill {
   const bills = getStore<Bill>("pos_bills");
