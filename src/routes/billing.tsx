@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
-  getProducts, getCompanies, getCompanyByVehicle, saveCompany, saveBill, saveExpense,
+  getProducts, getCompanies, saveCompany, saveBill, saveExpense,
   type BillItem, type Company,
 } from "../lib/store";
 import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search } from "lucide-react";
@@ -10,6 +10,12 @@ import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins
 export const Route = createFileRoute("/billing")({
   component: BillingPage,
 });
+
+const TIPS_OPTIONS = [
+  { label: "No Tips", value: 0 },
+  { label: "₹50 per Unit", value: 50 },
+  { label: "₹100 per Unit", value: 100 },
+];
 
 function BillingPage() {
   const products = getProducts();
@@ -22,6 +28,7 @@ function BillingPage() {
   const [vehicleCapacity, setVehicleCapacity] = useState<number>(0);
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi" | "credit">("cash");
   const [paidAmount, setPaidAmount] = useState("");
+  const [tipsRate, setTipsRate] = useState<number>(0);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
   const [showNewCompany, setShowNewCompany] = useState(false);
@@ -30,7 +37,10 @@ function BillingPage() {
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
   const total = items.reduce((s, i) => s + i.total, 0);
-  const totalTips = items.reduce((s, i) => s + i.tipsAmount, 0);
+  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+  // Tips base: vehicle capacity if set, otherwise total product quantity
+  const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
+  const totalTips = tipsRate * tipsBase;
   const grandTotal = total;
   const paid = paymentMode === "credit" ? Number(paidAmount || 0) : grandTotal;
   const outstanding = Math.max(0, grandTotal - paid);
@@ -42,7 +52,6 @@ function BillingPage() {
       const companies = getCompanies();
       const matches = companies.filter((c) => c.vehicleNumber.toLowerCase().includes(value.toLowerCase()));
       setSuggestions(matches);
-      // Exact match auto-fill
       const exact = companies.find((c) => c.vehicleNumber.toLowerCase() === value.toLowerCase());
       if (exact) selectCompany(exact);
     } else {
@@ -58,13 +67,9 @@ function BillingPage() {
     setVehicleCapacity(c.vehicleCapacity);
     setVehicleSearch(c.vehicleNumber);
     setSuggestions([]);
-    // Auto-set quantity for existing items
     if (c.vehicleCapacity > 0) {
       setItems((prev) => prev.map((i) => ({
-        ...i,
-        quantity: c.vehicleCapacity,
-        total: c.vehicleCapacity * i.price,
-        tipsAmount: i.tipsRate * c.vehicleCapacity,
+        ...i, quantity: c.vehicleCapacity, total: c.vehicleCapacity * i.price,
       })));
     }
   };
@@ -84,69 +89,44 @@ function BillingPage() {
     const qty = vehicleCapacity > 0 ? vehicleCapacity : 1;
     if (existing) {
       const newQty = existing.quantity + 1;
-      setItems(items.map((i) => i.productId === productId ? {
-        ...i, quantity: newQty, total: newQty * i.price,
-        tipsAmount: i.tipsRate * newQty,
-      } : i));
+      setItems(items.map((i) => i.productId === productId ? { ...i, quantity: newQty, total: newQty * i.price } : i));
     } else {
       setItems([...items, {
         productId, productName: product.name, price: product.price,
         quantity: qty, total: product.price * qty,
-        tipsRate: product.tipsEnabled ? product.tipsRate : 0,
-        tipsAmount: product.tipsEnabled ? product.tipsRate * qty : 0,
+        tipsRate: 0, tipsAmount: 0,
       }]);
     }
   };
 
   const updateQty = (productId: string, newQty: number) => {
-    if (newQty <= 0) {
-      setItems(items.filter((i) => i.productId !== productId));
-      return;
-    }
-    setItems(items.map((i) => {
-      if (i.productId !== productId) return i;
-      return { ...i, quantity: newQty, total: newQty * i.price, tipsAmount: i.tipsRate * newQty };
-    }));
-  };
-
-  const updateItemTipsRate = (productId: string, rate: number) => {
-    setItems(items.map((i) => {
-      if (i.productId !== productId) return i;
-      return { ...i, tipsRate: rate, tipsAmount: rate * i.quantity };
-    }));
+    if (newQty <= 0) { setItems(items.filter((i) => i.productId !== productId)); return; }
+    setItems(items.map((i) => i.productId === productId ? { ...i, quantity: newQty, total: newQty * i.price } : i));
   };
 
   const handleSave = () => {
     if (items.length === 0) return;
     const bill = saveBill({
-      items,
-      totalAmount: grandTotal,
-      paymentMode,
-      paidAmount: paid,
-      outstandingAmount: outstanding,
+      items, totalAmount: grandTotal, paymentMode,
+      paidAmount: paid, outstandingAmount: outstanding,
       companyId: selectedCompany?.id || "",
-      companyName: companyName.trim(),
-      driverName: driverName.trim(),
-      vehicleNumber: vehicleNumber.trim(),
-      vehicleCapacity,
-      tipsAmount: totalTips,
+      companyName: companyName.trim(), driverName: driverName.trim(),
+      vehicleNumber: vehicleNumber.trim(), vehicleCapacity,
+      tipsRate, tipsAmount: totalTips,
     });
-    // Save tips as expense
     if (totalTips > 0) {
       saveExpense({
-        category: "tips",
-        amount: totalTips,
+        category: "tips", amount: totalTips,
         date: new Date().toISOString().split("T")[0],
-        notes: `Tips - ${companyName.trim() || vehicleNumber.trim() || "Walk-in"} - Bill #${bill.id}`,
-        linkedBillId: bill.id,
-        linkedCompanyId: selectedCompany?.id,
+        notes: `Tips ₹${tipsRate}/unit × ${tipsBase} — ${companyName.trim() || vehicleNumber.trim() || "Walk-in"} — Bill #${bill.id}`,
+        linkedBillId: bill.id, linkedCompanyId: selectedCompany?.id,
       });
     }
     setSaved(true);
     setTimeout(() => {
       setItems([]); setCompanyName(""); setDriverName(""); setVehicleNumber(""); setVehicleCapacity(0);
       setSelectedCompany(null); setPaidAmount(""); setPaymentMode("cash"); setSaved(false);
-      setVehicleSearch(""); setSuggestions([]);
+      setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
     }, 2000);
   };
 
@@ -155,7 +135,6 @@ function BillingPage() {
       <div className="space-y-4">
         <h1 className="module-header">New Bill</h1>
 
-        {/* Vehicle Number Lookup - Primary Input */}
         <div className="stat-card space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Truck className="h-4 w-4 text-primary" /> Vehicle Lookup</h3>
           <div>
@@ -190,7 +169,6 @@ function BillingPage() {
             </div>
           )}
 
-          {/* Auto-filled details */}
           {(companyName || driverName) && (
             <div className="rounded-md bg-primary/5 border border-primary/20 p-3 space-y-1">
               <p className="text-xs text-muted-foreground">Auto-filled Details <span className="text-primary">(editable)</span></p>
@@ -204,7 +182,6 @@ function BillingPage() {
           )}
         </div>
 
-        {/* Product picker */}
         <div>
           <label className="field-label">Add Products</label>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring mb-2" />
@@ -213,46 +190,42 @@ function BillingPage() {
               <button key={p.id} onClick={() => addItem(p.id)} className="stat-card text-left hover:border-primary/50 transition-colors">
                 <p className="font-medium text-sm text-foreground">{p.name}</p>
                 <p className="text-xs text-muted-foreground">₹{p.price}/{p.unit}</p>
-                {p.tipsEnabled && <p className="text-xs text-warning">Tips: ₹{p.tipsRate}/unit</p>}
               </button>
             ))}
             {filtered.length === 0 && <p className="col-span-full text-sm text-muted-foreground text-center py-4">No products found.</p>}
           </div>
         </div>
 
-        {/* Bill items */}
         {items.length > 0 && (
           <div className="stat-card space-y-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Bill Items</h3>
             {items.map((item) => (
-              <div key={item.productId} className="space-y-1 border-b border-border/50 pb-2 last:border-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{item.productName}</p>
-                    <p className="text-xs text-muted-foreground">₹{item.price} × {item.quantity} = ₹{item.total.toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => updateQty(item.productId, item.quantity - 1)} className="rounded-md bg-secondary p-1 text-muted-foreground hover:text-foreground"><Minus className="h-4 w-4" /></button>
-                    <input type="number" value={item.quantity} onChange={(e) => updateQty(item.productId, Number(e.target.value) || 0)} className="w-14 text-center rounded border border-input bg-secondary px-1 py-0.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                    <button onClick={() => updateQty(item.productId, item.quantity + 1)} className="rounded-md bg-secondary p-1 text-muted-foreground hover:text-foreground"><Plus className="h-4 w-4" /></button>
-                  </div>
+              <div key={item.productId} className="flex items-center justify-between border-b border-border/50 pb-2 last:border-0">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{item.productName}</p>
+                  <p className="text-xs text-muted-foreground">₹{item.price} × {item.quantity} = ₹{item.total.toLocaleString()}</p>
                 </div>
-                {/* Per-product tips */}
-                <div className="flex items-center gap-2 pl-1">
-                  <Coins className="h-3 w-3 text-warning" />
-                  <span className="text-xs text-muted-foreground">Tips/unit:</span>
-                  <input type="number" value={item.tipsRate || ""} onChange={(e) => updateItemTipsRate(item.productId, Number(e.target.value) || 0)} placeholder="0" className="w-16 rounded border border-input bg-secondary px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                  {item.tipsAmount > 0 && <span className="text-xs text-warning font-medium">= ₹{item.tipsAmount.toLocaleString()}</span>}
+                <div className="flex items-center gap-2">
+                  <button onClick={() => updateQty(item.productId, item.quantity - 1)} className="rounded-md bg-secondary p-1 text-muted-foreground hover:text-foreground"><Minus className="h-4 w-4" /></button>
+                  <input type="number" value={item.quantity} onChange={(e) => updateQty(item.productId, Number(e.target.value) || 0)} className="w-14 text-center rounded border border-input bg-secondary px-1 py-0.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <button onClick={() => updateQty(item.productId, item.quantity + 1)} className="rounded-md bg-secondary p-1 text-muted-foreground hover:text-foreground"><Plus className="h-4 w-4" /></button>
                 </div>
               </div>
             ))}
 
-            {totalTips > 0 && (
-              <div className="rounded-md bg-warning/10 border border-warning/20 px-3 py-2 flex justify-between text-sm">
-                <span className="text-warning font-medium">Total Tips</span>
-                <span className="text-warning font-bold">₹{totalTips.toLocaleString()}</span>
-              </div>
-            )}
+            {/* Tips Selector */}
+            <div className="space-y-2">
+              <label className="field-label flex items-center gap-1.5"><Coins className="h-3.5 w-3.5 text-warning" /> Tips</label>
+              <select value={tipsRate} onChange={(e) => setTipsRate(Number(e.target.value))} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                {TIPS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              {totalTips > 0 && (
+                <div className="rounded-md bg-warning/10 border border-warning/20 px-3 py-2 flex justify-between text-sm">
+                  <span className="text-warning">₹{tipsRate} × {tipsBase} {vehicleCapacity > 0 ? "(capacity)" : "(qty)"}</span>
+                  <span className="text-warning font-bold">₹{totalTips.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
 
             <div className="border-t border-border pt-3 flex items-center justify-between">
               <span className="font-bold text-foreground">Total</span>
@@ -261,7 +234,6 @@ function BillingPage() {
           </div>
         )}
 
-        {/* Payment mode */}
         {items.length > 0 && (
           <div className="space-y-3">
             <label className="field-label">Payment Mode</label>
