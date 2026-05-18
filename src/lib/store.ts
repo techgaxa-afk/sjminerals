@@ -40,6 +40,7 @@ export interface Bill {
   driverName: string;
   vehicleNumber: string;
   vehicleCapacity: number;
+  tipsRate: number; // 0 | 50 | 100 per unit
   tipsAmount: number;
   createdAt: string;
 }
