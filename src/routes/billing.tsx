@@ -41,7 +41,7 @@ function BillingPage() {
   // Tips base: vehicle capacity if set, otherwise total product quantity
   const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
   const totalTips = tipsRate * tipsBase;
-  const grandTotal = total;
+  const grandTotal = total + totalTips;
   const paid = paymentMode === "credit" ? Number(paidAmount || 0) : grandTotal;
   const outstanding = Math.max(0, grandTotal - paid);
 
