@@ -109,12 +109,12 @@ function BillsPage() {
 
   const saveEdit = () => {
     if (!editBill || !editForm) return;
-    const paid = editForm.paymentMode === "credit" ? editForm.paidAmount : editTotal;
-    const outstanding = Math.max(0, editTotal - paid);
+    const paid = editForm.paymentMode === "credit" ? editForm.paidAmount : editGrandTotal;
+    const outstanding = Math.max(0, editGrandTotal - paid);
 
     updateBill(editBill.id, {
       items: editForm.items,
-      totalAmount: editTotal,
+      totalAmount: editGrandTotal,
       companyName: editForm.companyName,
       driverName: editForm.driverName,
       vehicleNumber: editForm.vehicleNumber,
