@@ -186,20 +186,51 @@ function BillsPage() {
                 <button onClick={() => exportInvoicePDF(bill)} className="flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs text-foreground hover:bg-secondary/80"><FileDown className="h-3 w-3" /> PDF</button>
               </div>
 
-              {viewId === bill.id && (
-                <div className="mt-3 border-t border-border pt-3 space-y-1">
-                  {bill.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{item.productName} × {item.quantity}</span>
-                      <span className="text-foreground">₹{item.total.toLocaleString()}</span>
+              {viewId === bill.id && (() => {
+                const subtotal = bill.items.reduce((s, i) => s + i.total, 0);
+                const totalQty = bill.items.reduce((s, i) => s + i.quantity, 0);
+                const tipsBase = bill.vehicleCapacity > 0 ? bill.vehicleCapacity : totalQty;
+                const tipsLabel = !bill.tipsRate ? "No Tips" : `₹${bill.tipsRate} per Unit`;
+                return (
+                <div className="mt-3 border-t border-border pt-3 space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Product Details</p>
+                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1 text-xs">
+                      <span className="font-medium text-muted-foreground">Product</span>
+                      <span className="text-muted-foreground text-center">Qty</span>
+                      <span className="text-muted-foreground text-right">Rate</span>
+                      <span className="text-muted-foreground text-right">Total</span>
+                      {bill.items.map((item, i) => (
+                        <div key={i} className="contents">
+                          <span className="text-foreground">{item.productName}</span>
+                          <span className="text-foreground text-center">{item.quantity}</span>
+                          <span className="text-foreground text-right">₹{item.price.toLocaleString()}</span>
+                          <span className="text-foreground text-right font-medium">₹{item.total.toLocaleString()}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  {bill.tipsAmount > 0 && (
-                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tips (₹{bill.tipsRate}/unit)</span><span className="text-warning">₹{bill.tipsAmount.toLocaleString()}</span></div>
-                  )}
+                  </div>
+
+                  <div className="rounded-md bg-secondary/50 border border-border p-2.5 space-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="text-foreground">₹{subtotal.toLocaleString()}</span></div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tips <span className="ml-1 inline-block rounded bg-warning/20 text-warning px-1.5 py-0.5 text-[10px] font-semibold">{tipsLabel}</span></span>
+                      <span className="text-warning">₹{bill.tipsAmount.toLocaleString()}</span>
+                    </div>
+                    {bill.tipsRate > 0 && <div className="flex justify-between text-[11px] text-muted-foreground"><span>↳ ₹{bill.tipsRate} × {tipsBase} units</span><span /></div>}
+                    <div className="flex justify-between pt-1 border-t border-border"><span className="font-semibold text-foreground">Grand Total</span><span className="font-bold text-primary">₹{bill.totalAmount.toLocaleString()}</span></div>
+                  </div>
+
+                  <div className="rounded-md bg-secondary/30 border border-border p-2.5 space-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Paid Amount</span><span className="text-success font-medium">₹{bill.paidAmount.toLocaleString()}</span></div>
+                    {bill.outstandingAmount > 0
+                      ? <div className="flex justify-between"><span className="text-muted-foreground">Outstanding Balance</span><span className="text-warning font-bold">₹{bill.outstandingAmount.toLocaleString()}</span></div>
+                      : <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="text-success font-bold">PAID IN FULL</span></div>}
+                  </div>
+
                   {bill.paymentMode === "credit" && (
-                    <div className="mt-2 pt-2 border-t border-border/50">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">Payments</p>
+                    <div className="pt-2 border-t border-border/50">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Payment History</p>
                       <p className="text-xs text-foreground">Initial: ₹{bill.paidAmount.toLocaleString()}</p>
                       {getPaymentsByBill(bill.id).map((p) => (
                         <p key={p.id} className="text-xs text-success">+₹{p.amount.toLocaleString()} on {p.date}</p>
@@ -218,7 +249,8 @@ function BillsPage() {
                     </div>
                   )}
                 </div>
-              )}
+                );
+              })()}
             </div>
           ))}
           {filtered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No bills found.</p>}
