@@ -73,11 +73,12 @@ function BillsPage() {
     });
   };
 
-  const editTotal = editForm ? editForm.items.reduce((s, i) => s + i.total, 0) : 0;
+  const editSubtotal = editForm ? editForm.items.reduce((s, i) => s + i.total, 0) : 0;
   const editTotalQty = editForm ? editForm.items.reduce((s, i) => s + i.quantity, 0) : 0;
   const editTipsBase = editForm ? (editForm.vehicleCapacity > 0 ? editForm.vehicleCapacity : editTotalQty) : 0;
   const editTipsAmount = editForm ? editForm.tipsRate * editTipsBase : 0;
-  const editOutstanding = editForm ? Math.max(0, editTotal - (editForm.paymentMode === "credit" ? editForm.paidAmount : editTotal)) : 0;
+  const editGrandTotal = editSubtotal + editTipsAmount;
+  const editOutstanding = editForm ? Math.max(0, editGrandTotal - (editForm.paymentMode === "credit" ? editForm.paidAmount : editGrandTotal)) : 0;
 
   const updateEditQty = (productId: string, qty: number) => {
     if (!editForm) return;
