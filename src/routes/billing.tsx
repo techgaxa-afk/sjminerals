@@ -41,7 +41,7 @@ function BillingPage() {
   // Tips base: vehicle capacity if set, otherwise total product quantity
   const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
   const totalTips = tipsRate * tipsBase;
-  const grandTotal = total;
+  const grandTotal = total + totalTips;
   const paid = paymentMode === "credit" ? Number(paidAmount || 0) : grandTotal;
   const outstanding = Math.max(0, grandTotal - paid);
 
@@ -227,9 +227,16 @@ function BillingPage() {
               )}
             </div>
 
-            <div className="border-t border-border pt-3 flex items-center justify-between">
-              <span className="font-bold text-foreground">Total</span>
-              <span className="font-bold text-lg text-primary">₹{grandTotal.toLocaleString()}</span>
+            <div className="border-t border-border pt-3 space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="text-foreground">₹{total.toLocaleString()}</span></div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tips {tipsRate > 0 ? <span className="text-xs">(₹{tipsRate}/unit × {tipsBase})</span> : "(No Tips)"}</span>
+                <span className="text-warning">₹{totalTips.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between pt-1.5 border-t border-border">
+                <span className="font-bold text-foreground">Grand Total</span>
+                <span className="font-bold text-lg text-primary">₹{grandTotal.toLocaleString()}</span>
+              </div>
             </div>
           </div>
         )}
