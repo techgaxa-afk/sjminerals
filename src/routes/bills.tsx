@@ -296,9 +296,13 @@ function BillsPage() {
 
               {/* Summary */}
               <div className="rounded-md border border-border bg-secondary/50 p-3 space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-bold text-primary">₹{editTotal.toLocaleString()}</span></div>
-                {editTipsAmount > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Tips Expense</span><span className="text-warning">₹{editTipsAmount.toLocaleString()}</span></div>}
-                {editForm.paymentMode === "credit" && <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className="font-bold text-warning">₹{editOutstanding.toLocaleString()}</span></div>}
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="text-foreground">₹{editSubtotal.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Tips ({editForm.tipsRate ? `₹${editForm.tipsRate}/unit × ${editTipsBase}` : "No Tips"})</span><span className="text-warning">₹{editTipsAmount.toLocaleString()}</span></div>
+                <div className="flex justify-between pt-1 border-t border-border"><span className="font-semibold text-foreground">Grand Total</span><span className="font-bold text-primary">₹{editGrandTotal.toLocaleString()}</span></div>
+                {editForm.paymentMode === "credit" && <>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="text-success">₹{(editForm.paidAmount || 0).toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className="font-bold text-warning">₹{editOutstanding.toLocaleString()}</span></div>
+                </>}
               </div>
 
               <div className="flex gap-2">
