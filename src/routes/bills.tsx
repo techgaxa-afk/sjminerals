@@ -73,6 +73,9 @@ function BillsPage() {
       vehicleNumber: b.vehicleNumber, vehicleCapacity: b.vehicleCapacity,
       tipsRate: b.tipsRate || 0, paymentMode: b.paymentMode,
       paidAmount: b.paidAmount,
+      splitEnabled: b.splitPayment ?? (b.paymentMode === "split"),
+      cashAmount: b.cashAmount ?? 0,
+      upiAmount: b.upiAmount ?? 0,
     });
   };
 
@@ -81,7 +84,12 @@ function BillsPage() {
   const editTipsBase = editForm ? (editForm.vehicleCapacity > 0 ? editForm.vehicleCapacity : editTotalQty) : 0;
   const editTipsAmount = editForm ? editForm.tipsRate * editTipsBase : 0;
   const editGrandTotal = editSubtotal + editTipsAmount;
-  const editOutstanding = editForm ? Math.max(0, editGrandTotal - (editForm.paymentMode === "credit" ? editForm.paidAmount : editGrandTotal)) : 0;
+  const editPaid = editForm
+    ? (editForm.splitEnabled
+        ? Math.min(editGrandTotal, editForm.cashAmount + editForm.upiAmount)
+        : (editForm.paymentMode === "credit" ? editForm.paidAmount : editGrandTotal))
+    : 0;
+  const editOutstanding = Math.max(0, editGrandTotal - editPaid);
 
   const updateEditQty = (productId: string, qty: number) => {
     if (!editForm) return;
