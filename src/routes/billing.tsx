@@ -29,6 +29,9 @@ function BillingPage() {
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi" | "credit">("cash");
   const [paidAmount, setPaidAmount] = useState("");
   const [tipsRate, setTipsRate] = useState<number>(0);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitCash, setSplitCash] = useState("");
+  const [splitUpi, setSplitUpi] = useState("");
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
   const [showNewCompany, setShowNewCompany] = useState(false);
@@ -38,11 +41,14 @@ function BillingPage() {
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
   const total = items.reduce((s, i) => s + i.total, 0);
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-  // Tips base: vehicle capacity if set, otherwise total product quantity
   const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
   const totalTips = tipsRate * tipsBase;
   const grandTotal = total + totalTips;
-  const paid = paymentMode === "credit" ? Number(paidAmount || 0) : grandTotal;
+  const splitCashNum = Number(splitCash) || 0;
+  const splitUpiNum = Number(splitUpi) || 0;
+  const paid = splitEnabled
+    ? Math.min(grandTotal, splitCashNum + splitUpiNum)
+    : (paymentMode === "credit" ? Number(paidAmount || 0) : grandTotal);
   const outstanding = Math.max(0, grandTotal - paid);
 
   const handleVehicleSearch = (value: string) => {
