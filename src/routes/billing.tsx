@@ -112,13 +112,17 @@ function BillingPage() {
 
   const handleSave = () => {
     if (items.length === 0) return;
+    const effectiveMode: "cash" | "upi" | "credit" | "split" = splitEnabled ? "split" : paymentMode;
+    const cashAmt = splitEnabled ? splitCashNum : (paymentMode === "cash" ? paid : 0);
+    const upiAmt = splitEnabled ? splitUpiNum : (paymentMode === "upi" ? paid : 0);
     const bill = saveBill({
-      items, totalAmount: grandTotal, paymentMode,
+      items, totalAmount: grandTotal, paymentMode: effectiveMode,
       paidAmount: paid, outstandingAmount: outstanding,
       companyId: selectedCompany?.id || "",
       companyName: companyName.trim(), driverName: driverName.trim(),
       vehicleNumber: vehicleNumber.trim(), vehicleCapacity,
       tipsRate, tipsAmount: totalTips,
+      splitPayment: splitEnabled, cashAmount: cashAmt, upiAmount: upiAmt,
     });
     if (totalTips > 0) {
       saveExpense({
@@ -133,6 +137,7 @@ function BillingPage() {
       setItems([]); setCompanyName(""); setDriverName(""); setVehicleNumber(""); setVehicleCapacity(0);
       setSelectedCompany(null); setPaidAmount(""); setPaymentMode("cash"); setSaved(false);
       setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
+      setSplitEnabled(false); setSplitCash(""); setSplitUpi("");
     }, 2000);
   };
 
