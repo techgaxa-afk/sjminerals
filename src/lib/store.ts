@@ -32,7 +32,7 @@ export interface Bill {
   id: string;
   items: BillItem[];
   totalAmount: number;
-  paymentMode: "cash" | "upi" | "credit";
+  paymentMode: "cash" | "upi" | "credit" | "split";
   paidAmount: number;
   outstandingAmount: number;
   companyId: string;
@@ -42,6 +42,9 @@ export interface Bill {
   vehicleCapacity: number;
   tipsRate: number; // 0 | 50 | 100 per unit
   tipsAmount: number;
+  splitPayment?: boolean;
+  cashAmount?: number;
+  upiAmount?: number;
   createdAt: string;
 }
 
@@ -191,6 +194,9 @@ export function getBills(): Bill[] {
     tipsAmount: b.tipsAmount ?? 0,
     tipsRate: b.tipsRate ?? 0,
     vehicleCapacity: Number(b.vehicleCapacity) || 0,
+    splitPayment: b.splitPayment ?? false,
+    cashAmount: b.cashAmount ?? 0,
+    upiAmount: b.upiAmount ?? 0,
   }));
 }
 export function deleteBill(id: string): void {

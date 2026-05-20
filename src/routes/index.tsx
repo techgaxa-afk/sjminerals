@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/")({
@@ -21,11 +21,28 @@ function DashboardPage() {
     const bills = getBills().filter((b) => new Date(b.createdAt) >= start);
     const expenses = getExpenses().filter((e) => new Date(e.date) >= start);
     const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
+    const payments = getPayments().filter((p) => new Date(p.createdAt) >= start);
 
     const totalRevenue = bills.reduce((s, b) => s + b.totalAmount, 0);
     const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
     const totalOutstanding = bills.reduce((s, b) => s + (b.outstandingAmount || 0), 0);
     const totalTips = bills.reduce((s, b) => s + (b.tipsAmount || 0), 0);
+
+    // Cash / UPI / Credit breakdown (split-aware)
+    let cashSales = 0, upiSales = 0;
+    let creditBillsCount = 0;
+    bills.forEach((b) => {
+      if (b.splitPayment) {
+        cashSales += b.cashAmount || 0;
+        upiSales += b.upiAmount || 0;
+      } else if (b.paymentMode === "cash") {
+        cashSales += b.paidAmount;
+      } else if (b.paymentMode === "upi") {
+        upiSales += b.paidAmount;
+      }
+      if (b.paymentMode === "credit" || (b.outstandingAmount || 0) > 0) creditBillsCount++;
+    });
+    const collectedToday = payments.reduce((s, p) => s + p.amount, 0);
 
     const expenseByCategory = expenses.reduce((acc, e) => {
       acc[e.category] = (acc[e.category] || 0) + e.amount;
@@ -47,6 +64,7 @@ function DashboardPage() {
     return {
       totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses,
       billCount: bills.length, totalOutstanding, totalTips,
+      cashSales, upiSales, creditBillsCount, collectedToday,
       hitachiEntries: hitachiEntries.length, expenseByCategory,
       revenueChart: Object.entries(revenueByDay).map(([name, value]) => ({ name, value })),
       companyOutstandings,
@@ -75,6 +93,24 @@ function DashboardPage() {
           </div>
         </div>
 
+        {/* Payment Method Breakdown */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="stat-card border-success/30 bg-success/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-success"><Banknote className="h-3.5 w-3.5" /> Cash Sales</div>
+            <p className="text-xl font-bold text-success">₹{stats.cashSales.toLocaleString()}</p>
+          </div>
+          <div className="stat-card border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> UPI Sales</div>
+            <p className="text-xl font-bold text-primary">₹{stats.upiSales.toLocaleString()}</p>
+          </div>
+          <div className="stat-card border-warning/30 bg-warning/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Credit / Outstanding</div>
+            <p className="text-xl font-bold text-warning">₹{stats.totalOutstanding.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">{stats.creditBillsCount} credit bills</p>
+          </div>
+        </div>
+
+        {/* Overall Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="stat-card">
             <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><TrendingUp className="h-3.5 w-3.5 text-success" /> Revenue</div>
@@ -90,8 +126,9 @@ function DashboardPage() {
             <p className={`text-xl font-bold ${stats.netProfit >= 0 ? "text-success" : "text-destructive"}`}>₹{stats.netProfit.toLocaleString()}</p>
           </div>
           <div className="stat-card">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><AlertTriangle className="h-3.5 w-3.5 text-warning" /> Outstanding</div>
-            <p className="text-xl font-bold text-warning">₹{stats.totalOutstanding.toLocaleString()}</p>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Wallet className="h-3.5 w-3.5 text-success" /> Collected</div>
+            <p className="text-xl font-bold text-success">₹{stats.collectedToday.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground"><FileText className="h-3 w-3 inline" /> payments in period</p>
           </div>
         </div>
 

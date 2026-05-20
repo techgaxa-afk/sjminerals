@@ -29,6 +29,9 @@ function BillingPage() {
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi" | "credit">("cash");
   const [paidAmount, setPaidAmount] = useState("");
   const [tipsRate, setTipsRate] = useState<number>(0);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitCash, setSplitCash] = useState("");
+  const [splitUpi, setSplitUpi] = useState("");
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
   const [showNewCompany, setShowNewCompany] = useState(false);
@@ -38,11 +41,14 @@ function BillingPage() {
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
   const total = items.reduce((s, i) => s + i.total, 0);
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-  // Tips base: vehicle capacity if set, otherwise total product quantity
   const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
   const totalTips = tipsRate * tipsBase;
   const grandTotal = total + totalTips;
-  const paid = paymentMode === "credit" ? Number(paidAmount || 0) : grandTotal;
+  const splitCashNum = Number(splitCash) || 0;
+  const splitUpiNum = Number(splitUpi) || 0;
+  const paid = splitEnabled
+    ? Math.min(grandTotal, splitCashNum + splitUpiNum)
+    : (paymentMode === "credit" ? Number(paidAmount || 0) : grandTotal);
   const outstanding = Math.max(0, grandTotal - paid);
 
   const handleVehicleSearch = (value: string) => {
@@ -106,13 +112,17 @@ function BillingPage() {
 
   const handleSave = () => {
     if (items.length === 0) return;
+    const effectiveMode: "cash" | "upi" | "credit" | "split" = splitEnabled ? "split" : paymentMode;
+    const cashAmt = splitEnabled ? splitCashNum : (paymentMode === "cash" ? paid : 0);
+    const upiAmt = splitEnabled ? splitUpiNum : (paymentMode === "upi" ? paid : 0);
     const bill = saveBill({
-      items, totalAmount: grandTotal, paymentMode,
+      items, totalAmount: grandTotal, paymentMode: effectiveMode,
       paidAmount: paid, outstandingAmount: outstanding,
       companyId: selectedCompany?.id || "",
       companyName: companyName.trim(), driverName: driverName.trim(),
       vehicleNumber: vehicleNumber.trim(), vehicleCapacity,
       tipsRate, tipsAmount: totalTips,
+      splitPayment: splitEnabled, cashAmount: cashAmt, upiAmount: upiAmt,
     });
     if (totalTips > 0) {
       saveExpense({
@@ -127,6 +137,7 @@ function BillingPage() {
       setItems([]); setCompanyName(""); setDriverName(""); setVehicleNumber(""); setVehicleCapacity(0);
       setSelectedCompany(null); setPaidAmount(""); setPaymentMode("cash"); setSaved(false);
       setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
+      setSplitEnabled(false); setSplitCash(""); setSplitUpi("");
     }, 2000);
   };
 
@@ -244,6 +255,7 @@ function BillingPage() {
         {items.length > 0 && (
           <div className="space-y-3">
             <label className="field-label">Payment Mode</label>
+            <div className={splitEnabled ? "opacity-50 pointer-events-none" : ""}>
             <div className="flex gap-2">
               <button onClick={() => setPaymentMode("cash")} className={`flex-1 flex items-center justify-center gap-2 rounded-md border px-3 py-3 text-sm font-medium transition-colors ${paymentMode === "cash" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
                 <Banknote className="h-4 w-4" /> Cash
@@ -256,13 +268,41 @@ function BillingPage() {
               </button>
             </div>
 
-            {paymentMode === "credit" && (
-              <div className="stat-card space-y-2">
+            {paymentMode === "credit" && !splitEnabled && (
+              <div className="stat-card mt-2 space-y-2">
                 <label className="field-label">Paid Amount (₹)</label>
                 <input type="number" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Outstanding:</span>
                   <span className="font-bold text-warning">₹{outstanding.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+            </div>
+
+            <button onClick={() => setSplitEnabled(!splitEnabled)} className={`w-full text-xs rounded-md border px-3 py-2 font-medium transition-colors ${splitEnabled ? "border-primary bg-primary/10 text-primary" : "border-dashed border-border text-muted-foreground hover:text-foreground"}`}>
+              {splitEnabled ? "✓ Split Payment Enabled — Click to Disable" : "+ Enable Split Payment (Cash + UPI)"}
+            </button>
+
+            {splitEnabled && (
+              <div className="stat-card space-y-2 border-primary/30">
+                <p className="text-xs font-semibold text-primary">Split Payment Breakdown</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="field-label flex items-center gap-1"><Banknote className="h-3 w-3 text-success" /> Cash (₹)</label>
+                    <input type="number" value={splitCash} onChange={(e) => setSplitCash(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div>
+                    <label className="field-label flex items-center gap-1"><CreditCard className="h-3 w-3 text-primary" /> UPI (₹)</label>
+                    <input type="number" value={splitUpi} onChange={(e) => setSplitUpi(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                </div>
+                <div className="border-t border-border pt-2 space-y-1 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Total Paid</span><span className="text-success font-medium">₹{paid.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className={`font-bold ${outstanding > 0 ? "text-warning" : "text-success"}`}>₹{outstanding.toLocaleString()}</span></div>
+                  <div className="text-xs text-center pt-1">
+                    {outstanding === 0 && paid > 0 ? <span className="text-success font-semibold">PAID IN FULL</span> : paid > 0 ? <span className="text-warning font-semibold">PARTIALLY PAID</span> : <span className="text-muted-foreground">Enter amounts</span>}
+                  </div>
                 </div>
               </div>
             )}
