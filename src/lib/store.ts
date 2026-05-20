@@ -194,6 +194,9 @@ export function getBills(): Bill[] {
     tipsAmount: b.tipsAmount ?? 0,
     tipsRate: b.tipsRate ?? 0,
     vehicleCapacity: Number(b.vehicleCapacity) || 0,
+    splitPayment: b.splitPayment ?? false,
+    cashAmount: b.cashAmount ?? 0,
+    upiAmount: b.upiAmount ?? 0,
   }));
 }
 export function deleteBill(id: string): void {
