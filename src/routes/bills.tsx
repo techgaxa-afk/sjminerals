@@ -120,8 +120,11 @@ function BillsPage() {
 
   const saveEdit = () => {
     if (!editBill || !editForm) return;
-    const paid = editForm.paymentMode === "credit" ? editForm.paidAmount : editGrandTotal;
+    const mode: "cash" | "upi" | "credit" | "split" = editForm.splitEnabled ? "split" : editForm.paymentMode;
+    const paid = editPaid;
     const outstanding = Math.max(0, editGrandTotal - paid);
+    const cashAmt = editForm.splitEnabled ? editForm.cashAmount : (editForm.paymentMode === "cash" ? paid : 0);
+    const upiAmt = editForm.splitEnabled ? editForm.upiAmount : (editForm.paymentMode === "upi" ? paid : 0);
 
     updateBill(editBill.id, {
       items: editForm.items,
@@ -132,9 +135,12 @@ function BillsPage() {
       vehicleCapacity: editForm.vehicleCapacity,
       tipsRate: editForm.tipsRate,
       tipsAmount: editTipsAmount,
-      paymentMode: editForm.paymentMode,
+      paymentMode: mode,
       paidAmount: paid,
       outstandingAmount: outstanding,
+      splitPayment: editForm.splitEnabled,
+      cashAmount: cashAmt,
+      upiAmount: upiAmt,
     });
 
     // Replace tips expense
