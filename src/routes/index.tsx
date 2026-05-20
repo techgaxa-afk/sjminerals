@@ -21,11 +21,28 @@ function DashboardPage() {
     const bills = getBills().filter((b) => new Date(b.createdAt) >= start);
     const expenses = getExpenses().filter((e) => new Date(e.date) >= start);
     const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
+    const payments = getPayments().filter((p) => new Date(p.createdAt) >= start);
 
     const totalRevenue = bills.reduce((s, b) => s + b.totalAmount, 0);
     const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
     const totalOutstanding = bills.reduce((s, b) => s + (b.outstandingAmount || 0), 0);
     const totalTips = bills.reduce((s, b) => s + (b.tipsAmount || 0), 0);
+
+    // Cash / UPI / Credit breakdown (split-aware)
+    let cashSales = 0, upiSales = 0;
+    let creditBillsCount = 0;
+    bills.forEach((b) => {
+      if (b.splitPayment) {
+        cashSales += b.cashAmount || 0;
+        upiSales += b.upiAmount || 0;
+      } else if (b.paymentMode === "cash") {
+        cashSales += b.paidAmount;
+      } else if (b.paymentMode === "upi") {
+        upiSales += b.paidAmount;
+      }
+      if (b.paymentMode === "credit" || (b.outstandingAmount || 0) > 0) creditBillsCount++;
+    });
+    const collectedToday = payments.reduce((s, p) => s + p.amount, 0);
 
     const expenseByCategory = expenses.reduce((acc, e) => {
       acc[e.category] = (acc[e.category] || 0) + e.amount;
@@ -47,6 +64,7 @@ function DashboardPage() {
     return {
       totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses,
       billCount: bills.length, totalOutstanding, totalTips,
+      cashSales, upiSales, creditBillsCount, collectedToday,
       hitachiEntries: hitachiEntries.length, expenseByCategory,
       revenueChart: Object.entries(revenueByDay).map(([name, value]) => ({ name, value })),
       companyOutstandings,
