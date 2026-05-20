@@ -255,6 +255,7 @@ function BillingPage() {
         {items.length > 0 && (
           <div className="space-y-3">
             <label className="field-label">Payment Mode</label>
+            <div className={splitEnabled ? "opacity-50 pointer-events-none" : ""}>
             <div className="flex gap-2">
               <button onClick={() => setPaymentMode("cash")} className={`flex-1 flex items-center justify-center gap-2 rounded-md border px-3 py-3 text-sm font-medium transition-colors ${paymentMode === "cash" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
                 <Banknote className="h-4 w-4" /> Cash
@@ -267,13 +268,41 @@ function BillingPage() {
               </button>
             </div>
 
-            {paymentMode === "credit" && (
-              <div className="stat-card space-y-2">
+            {paymentMode === "credit" && !splitEnabled && (
+              <div className="stat-card mt-2 space-y-2">
                 <label className="field-label">Paid Amount (₹)</label>
                 <input type="number" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Outstanding:</span>
                   <span className="font-bold text-warning">₹{outstanding.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+            </div>
+
+            <button onClick={() => setSplitEnabled(!splitEnabled)} className={`w-full text-xs rounded-md border px-3 py-2 font-medium transition-colors ${splitEnabled ? "border-primary bg-primary/10 text-primary" : "border-dashed border-border text-muted-foreground hover:text-foreground"}`}>
+              {splitEnabled ? "✓ Split Payment Enabled — Click to Disable" : "+ Enable Split Payment (Cash + UPI)"}
+            </button>
+
+            {splitEnabled && (
+              <div className="stat-card space-y-2 border-primary/30">
+                <p className="text-xs font-semibold text-primary">Split Payment Breakdown</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="field-label flex items-center gap-1"><Banknote className="h-3 w-3 text-success" /> Cash (₹)</label>
+                    <input type="number" value={splitCash} onChange={(e) => setSplitCash(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div>
+                    <label className="field-label flex items-center gap-1"><CreditCard className="h-3 w-3 text-primary" /> UPI (₹)</label>
+                    <input type="number" value={splitUpi} onChange={(e) => setSplitUpi(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                </div>
+                <div className="border-t border-border pt-2 space-y-1 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Total Paid</span><span className="text-success font-medium">₹{paid.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className={`font-bold ${outstanding > 0 ? "text-warning" : "text-success"}`}>₹{outstanding.toLocaleString()}</span></div>
+                  <div className="text-xs text-center pt-1">
+                    {outstanding === 0 && paid > 0 ? <span className="text-success font-semibold">PAID IN FULL</span> : paid > 0 ? <span className="text-warning font-semibold">PARTIALLY PAID</span> : <span className="text-muted-foreground">Enter amounts</span>}
+                  </div>
                 </div>
               </div>
             )}
