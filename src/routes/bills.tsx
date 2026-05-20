@@ -239,10 +239,18 @@ function BillsPage() {
                   </div>
 
                   <div className="rounded-md bg-secondary/30 border border-border p-2.5 space-y-1 text-sm">
+                    {bill.splitPayment && (
+                      <>
+                        <div className="flex justify-between text-xs"><span className="text-muted-foreground flex items-center gap-1"><Banknote className="h-3 w-3 text-success" /> Cash</span><span className="text-success">₹{(bill.cashAmount || 0).toLocaleString()}</span></div>
+                        <div className="flex justify-between text-xs"><span className="text-muted-foreground flex items-center gap-1"><CreditCard className="h-3 w-3 text-primary" /> UPI</span><span className="text-primary">₹{(bill.upiAmount || 0).toLocaleString()}</span></div>
+                        <div className="border-t border-border/50" />
+                      </>
+                    )}
                     <div className="flex justify-between"><span className="text-muted-foreground">Paid Amount</span><span className="text-success font-medium">₹{bill.paidAmount.toLocaleString()}</span></div>
                     {bill.outstandingAmount > 0
                       ? <div className="flex justify-between"><span className="text-muted-foreground">Outstanding Balance</span><span className="text-warning font-bold">₹{bill.outstandingAmount.toLocaleString()}</span></div>
                       : <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="text-success font-bold">PAID IN FULL</span></div>}
+                    {bill.splitPayment && bill.outstandingAmount > 0 && <p className="text-xs text-warning text-center">PARTIALLY PAID (Split)</p>}
                   </div>
 
                   {bill.paymentMode === "credit" && (
