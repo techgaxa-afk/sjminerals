@@ -333,13 +333,32 @@ function BillsPage() {
               {/* Payment */}
               <div className="space-y-2">
                 <label className="field-label">Payment Mode</label>
-                <div className="flex gap-2">
-                  {(["cash", "upi", "credit"] as const).map((m) => (
-                    <button key={m} onClick={() => setEditForm({ ...editForm, paymentMode: m })} className={`flex-1 rounded-md border px-2 py-2 text-xs font-medium ${editForm.paymentMode === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>{m.toUpperCase()}</button>
-                  ))}
+                <div className={editForm.splitEnabled ? "opacity-50 pointer-events-none" : ""}>
+                  <div className="flex gap-2">
+                    {(["cash", "upi", "credit"] as const).map((m) => (
+                      <button key={m} onClick={() => setEditForm({ ...editForm, paymentMode: m })} className={`flex-1 rounded-md border px-2 py-2 text-xs font-medium ${editForm.paymentMode === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>{m.toUpperCase()}</button>
+                    ))}
+                  </div>
+                  {editForm.paymentMode === "credit" && !editForm.splitEnabled && (
+                    <input type="number" value={editForm.paidAmount || ""} onChange={(e) => setEditForm({ ...editForm, paidAmount: Number(e.target.value) || 0 })} placeholder="Paid Amount" className="mt-2 w-full rounded border border-input bg-secondary px-3 py-2 text-sm text-foreground" />
+                  )}
                 </div>
-                {editForm.paymentMode === "credit" && (
-                  <input type="number" value={editForm.paidAmount || ""} onChange={(e) => setEditForm({ ...editForm, paidAmount: Number(e.target.value) || 0 })} placeholder="Paid Amount" className="w-full rounded border border-input bg-secondary px-3 py-2 text-sm text-foreground" />
+                <button onClick={() => setEditForm({ ...editForm, splitEnabled: !editForm.splitEnabled })} className={`w-full text-xs rounded-md border px-3 py-2 font-medium ${editForm.splitEnabled ? "border-primary bg-primary/10 text-primary" : "border-dashed border-border text-muted-foreground"}`}>
+                  {editForm.splitEnabled ? "✓ Split Payment Enabled" : "+ Enable Split Payment"}
+                </button>
+                {editForm.splitEnabled && (
+                  <div className="rounded-md border border-primary/30 bg-secondary/30 p-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground flex items-center gap-1"><Banknote className="h-3 w-3 text-success" /> Cash</label>
+                        <input type="number" value={editForm.cashAmount || ""} onChange={(e) => setEditForm({ ...editForm, cashAmount: Number(e.target.value) || 0 })} placeholder="0" className="w-full rounded border border-input bg-secondary px-2 py-1.5 text-sm text-foreground" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground flex items-center gap-1"><CreditCard className="h-3 w-3 text-primary" /> UPI</label>
+                        <input type="number" value={editForm.upiAmount || ""} onChange={(e) => setEditForm({ ...editForm, upiAmount: Number(e.target.value) || 0 })} placeholder="0" className="w-full rounded border border-input bg-secondary px-2 py-1.5 text-sm text-foreground" />
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -348,10 +367,8 @@ function BillsPage() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="text-foreground">₹{editSubtotal.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Tips ({editForm.tipsRate ? `₹${editForm.tipsRate}/unit × ${editTipsBase}` : "No Tips"})</span><span className="text-warning">₹{editTipsAmount.toLocaleString()}</span></div>
                 <div className="flex justify-between pt-1 border-t border-border"><span className="font-semibold text-foreground">Grand Total</span><span className="font-bold text-primary">₹{editGrandTotal.toLocaleString()}</span></div>
-                {editForm.paymentMode === "credit" && <>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="text-success">₹{(editForm.paidAmount || 0).toLocaleString()}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className="font-bold text-warning">₹{editOutstanding.toLocaleString()}</span></div>
-                </>}
+                <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="text-success">₹{editPaid.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className={`font-bold ${editOutstanding > 0 ? "text-warning" : "text-success"}`}>₹{editOutstanding.toLocaleString()}</span></div>
               </div>
 
               <div className="flex gap-2">
