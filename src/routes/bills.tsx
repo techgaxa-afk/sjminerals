@@ -27,8 +27,11 @@ interface EditForm {
   vehicleNumber: string;
   vehicleCapacity: number;
   tipsRate: number;
-  paymentMode: "cash" | "upi" | "credit";
+  paymentMode: "cash" | "upi" | "credit" | "split";
   paidAmount: number;
+  splitEnabled: boolean;
+  cashAmount: number;
+  upiAmount: number;
 }
 
 function BillsPage() {
