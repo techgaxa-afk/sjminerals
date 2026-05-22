@@ -109,6 +109,19 @@ function DashboardPage() {
           </div>
         </div>
 
+        {showImport && (
+          <div className="rounded-md border border-primary/40 bg-primary/5 p-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm">
+              <div className="font-medium text-foreground flex items-center gap-2"><CloudUpload className="h-4 w-4 text-primary" /> Local data detected</div>
+              <p className="text-xs text-muted-foreground">Push existing bills, companies and records from this device to the cloud (one time).</p>
+            </div>
+            <button onClick={handleImport} disabled={importing} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+              {importing ? "Importing…" : "Import to cloud"}
+            </button>
+          </div>
+        )}
+        {importMsg && <div className="rounded-md border border-success/30 bg-success/5 p-2 text-xs text-success">{importMsg}</div>}
+
         {/* Payment Method Breakdown */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="stat-card border-success/30 bg-success/5">
