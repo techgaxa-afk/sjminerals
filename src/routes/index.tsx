@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/")({
@@ -14,8 +14,24 @@ export const Route = createFileRoute("/")({
 type FilterType = "daily" | "weekly" | "monthly";
 
 function DashboardPage() {
+  useCloudData();
   const [filter, setFilter] = useState<FilterType>("daily");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const showImport = hasLocalDataToImport() && !hasImportedLocal();
   const { start } = getDateRange(filter);
+
+  const handleImport = async () => {
+    if (!confirm("Push existing data from this device to the cloud? This runs only once.")) return;
+    setImporting(true); setImportMsg(null);
+    try {
+      const res = await importFromLocalStorage();
+      const total = Object.values(res.inserted).reduce((s, n) => s + n, 0);
+      setImportMsg(`Imported ${total} records to cloud.`);
+    } catch (e: any) {
+      setImportMsg(`Import failed: ${e?.message ?? e}`);
+    } finally { setImporting(false); }
+  };
 
   const stats = useMemo(() => {
     const bills = getBills().filter((b) => new Date(b.createdAt) >= start);
@@ -92,6 +108,19 @@ function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {showImport && (
+          <div className="rounded-md border border-primary/40 bg-primary/5 p-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm">
+              <div className="font-medium text-foreground flex items-center gap-2"><CloudUpload className="h-4 w-4 text-primary" /> Local data detected</div>
+              <p className="text-xs text-muted-foreground">Push existing bills, companies and records from this device to the cloud (one time).</p>
+            </div>
+            <button onClick={handleImport} disabled={importing} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+              {importing ? "Importing…" : "Import to cloud"}
+            </button>
+          </div>
+        )}
+        {importMsg && <div className="rounded-md border border-success/30 bg-success/5 p-2 text-xs text-success">{importMsg}</div>}
 
         {/* Payment Method Breakdown */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
