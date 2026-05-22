@@ -20,12 +20,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { session, loading, signOut, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  useCloudData();
+  const [dataReady, setDataReady] = useState(isLoaded());
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/login" });
   }, [session, loading, navigate]);
 
-  if (loading || !session) {
+  useEffect(() => {
+    if (session && !isLoaded()) {
+      loadAll().then(() => setDataReady(true)).catch((e) => { console.error(e); setDataReady(true); });
+    } else if (session) {
+      setDataReady(true);
+    }
+  }, [session]);
+
+  if (loading || !session || !dataReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -33,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const handleLogout = async () => { await signOut(); navigate({ to: "/login" }); };
+  const handleLogout = async () => { resetStore(); await signOut(); navigate({ to: "/login" }); };
 
   return (
     <div className="min-h-screen flex flex-col">
