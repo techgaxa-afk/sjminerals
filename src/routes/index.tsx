@@ -14,8 +14,24 @@ export const Route = createFileRoute("/")({
 type FilterType = "daily" | "weekly" | "monthly";
 
 function DashboardPage() {
+  useCloudData();
   const [filter, setFilter] = useState<FilterType>("daily");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const showImport = hasLocalDataToImport() && !hasImportedLocal();
   const { start } = getDateRange(filter);
+
+  const handleImport = async () => {
+    if (!confirm("Push existing data from this device to the cloud? This runs only once.")) return;
+    setImporting(true); setImportMsg(null);
+    try {
+      const res = await importFromLocalStorage();
+      const total = Object.values(res.inserted).reduce((s, n) => s + n, 0);
+      setImportMsg(`Imported ${total} records to cloud.`);
+    } catch (e: any) {
+      setImportMsg(`Import failed: ${e?.message ?? e}`);
+    } finally { setImporting(false); }
+  };
 
   const stats = useMemo(() => {
     const bills = getBills().filter((b) => new Date(b.createdAt) >= start);
