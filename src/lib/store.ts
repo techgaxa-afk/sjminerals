@@ -263,8 +263,8 @@ export function resetStore() {
 }
 
 // Fire-and-forget write helper (logs on failure)
-function bg<T>(promise: Promise<T>): void {
-  promise.then((res: any) => { if (res?.error) console.error("[store]", res.error); }).catch((e) => console.error("[store]", e));
+function bg(promise: any): void {
+  Promise.resolve(promise).then((res: any) => { if (res?.error) console.error("[store]", res.error); }).catch((e) => console.error("[store]", e));
 }
 
 // ============ Products ============
