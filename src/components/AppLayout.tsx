@@ -1,6 +1,7 @@
-import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Building2, Settings, BarChart3 } from "lucide-react";
-import { useState } from "react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Building2, Settings, BarChart3, LogOut, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -15,7 +16,23 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { session, loading, signOut, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !session) navigate({ to: "/login" });
+  }, [session, loading, navigate]);
+
+  if (loading || !session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const handleLogout = async () => { await signOut(); navigate({ to: "/login" }); };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -24,9 +41,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Truck className="h-6 w-6 text-primary" />
           <span className="text-lg font-bold tracking-tight text-foreground">MinePOS</span>
         </div>
-        <button onClick={() => setMenuOpen(!menuOpen)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary md:hidden">
-          {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
         <nav className="hidden md:flex items-center gap-1">
           {navItems.map((item) => {
             const active = location.pathname === item.to;
@@ -38,6 +52,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+        <div className="flex items-center gap-2">
+          <span className="hidden md:inline text-xs text-muted-foreground max-w-[160px] truncate">{user?.email}</span>
+          <button onClick={handleLogout} title="Sign out" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+            <LogOut className="h-4 w-4" />
+          </button>
+          <button onClick={() => setMenuOpen(!menuOpen)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary md:hidden">
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </header>
 
       {menuOpen && (
