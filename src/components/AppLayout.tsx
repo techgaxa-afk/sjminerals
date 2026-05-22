@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Building2, Settings, BarChart3, LogOut, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { loadAll, isLoaded, resetStore, useCloudData } from "@/lib/store";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
