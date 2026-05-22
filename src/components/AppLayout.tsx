@@ -50,7 +50,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-border bg-card px-4 py-3">
         <div className="flex items-center gap-2">
           <Truck className="h-6 w-6 text-primary" />
-          <span className="text-lg font-bold tracking-tight text-foreground">MinePOS</span>
+          <span className="text-lg font-bold tracking-tight text-foreground">SJ Minerals</span>
         </div>
         <nav className="hidden md:flex items-center gap-1">
           {navItems.map((item) => {

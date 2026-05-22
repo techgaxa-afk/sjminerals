@@ -38,7 +38,7 @@ export function exportInvoicePDF(bill: Bill) {
     .paid{color:#047857;font-weight:bold}
     .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e}
   </style></head><body>
-  <h1>MinePOS Invoice</h1>
+  <h1>SJ Minerals Invoice</h1>
   <p class="muted">#${bill.id} · ${new Date(bill.createdAt).toLocaleString()}</p>
 
   <div class="meta">
@@ -93,12 +93,12 @@ export function exportReportPDF(filter: string, stats: any) {
      <td style="padding:4px 8px;border-bottom:1px solid #ddd">${new Date(b.createdAt).toLocaleDateString()}</td></tr>`
   ).join("");
 
-  w.document.write(`<!DOCTYPE html><html><head><title>MinePOS ${filter} Report</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>SJ Minerals ${filter} Report</title>
   <style>body{font-family:system-ui;max-width:700px;margin:0 auto;padding:20px}
   h1{color:#333} table{width:100%;border-collapse:collapse;margin-top:12px}
   th{padding:6px 8px;text-align:left;border-bottom:2px solid #999;color:#666;font-size:12px}
   .stat{display:inline-block;margin:8px 16px 8px 0;padding:10px 16px;border:1px solid #ddd;border-radius:8px}</style></head><body>
-  <h1>MinePOS ${filter.charAt(0).toUpperCase() + filter.slice(1)} Report</h1>
+  <h1>SJ Minerals ${filter.charAt(0).toUpperCase() + filter.slice(1)} Report</h1>
   <div class="stat"><small style="color:#999">Revenue</small><br><strong>₹${stats.totalRevenue.toLocaleString()}</strong></div>
   <div class="stat"><small style="color:#999">Expenses</small><br><strong>₹${stats.totalExpenses.toLocaleString()}</strong></div>
   <div class="stat"><small style="color:#999">Net Profit</small><br><strong>₹${stats.netProfit.toLocaleString()}</strong></div>

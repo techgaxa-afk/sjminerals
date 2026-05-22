@@ -41,7 +41,7 @@ function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 mb-2"><Truck className="h-7 w-7 text-primary" /><span className="text-2xl font-bold">MinePOS</span></div>
+          <div className="inline-flex items-center gap-2 mb-2"><Truck className="h-7 w-7 text-primary" /><span className="text-2xl font-bold">SJ Minerals</span></div>
           <p className="text-sm text-muted-foreground">Sign in to continue</p>
         </div>
 
