@@ -144,6 +144,7 @@ function BillingPage() {
       setSelectedCompany(null); setPaidAmount(""); setPaymentMode("cash"); setSaved(false);
       setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
       setSplitEnabled(false); setSplitCash(""); setSplitUpi("");
+      setPassEnabled(false); setPassAmount(DEFAULT_PASS_AMOUNT);
     }, 2000);
   };
 
