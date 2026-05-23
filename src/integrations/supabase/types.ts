@@ -78,6 +78,8 @@ export type Database = {
           id: string
           outstanding_amount: number
           paid_amount: number
+          pass_amount: number
+          pass_enabled: boolean
           payment_mode: string
           split_payment: boolean
           tips_amount: number
@@ -97,6 +99,8 @@ export type Database = {
           id?: string
           outstanding_amount?: number
           paid_amount?: number
+          pass_amount?: number
+          pass_enabled?: boolean
           payment_mode: string
           split_payment?: boolean
           tips_amount?: number
@@ -116,6 +120,8 @@ export type Database = {
           id?: string
           outstanding_amount?: number
           paid_amount?: number
+          pass_amount?: number
+          pass_enabled?: boolean
           payment_mode?: string
           split_payment?: boolean
           tips_amount?: number
