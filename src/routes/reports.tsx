@@ -92,7 +92,7 @@ function ReportsPage() {
         trips: oEntries.length, revenue: totalHrs, outstanding: totalSalary, isOperator: true,
       };
     }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
-  }, [reportType, filter, start, search]);
+  }, [reportType, filter, start, search, allBillsInRange]);
 
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
