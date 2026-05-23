@@ -244,6 +244,9 @@ function BillsPage() {
                       <span className="text-warning">₹{bill.tipsAmount.toLocaleString()}</span>
                     </div>
                     {bill.tipsRate > 0 && <div className="flex justify-between text-[11px] text-muted-foreground"><span>↳ ₹{bill.tipsRate} × {tipsBase} units</span><span /></div>}
+                    {bill.passEnabled && (
+                      <div className="flex justify-between"><span className="text-muted-foreground">Pass</span><span className="text-primary">₹{(bill.passAmount || 0).toLocaleString()}</span></div>
+                    )}
                     <div className="flex justify-between pt-1 border-t border-border"><span className="font-semibold text-foreground">Grand Total</span><span className="font-bold text-primary">₹{bill.totalAmount.toLocaleString()}</span></div>
                   </div>
 
