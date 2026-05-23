@@ -11,6 +11,8 @@ export const Route = createFileRoute("/billing")({
   component: BillingPage,
 });
 
+const DEFAULT_PASS_AMOUNT = 1600;
+
 const TIPS_OPTIONS = [
   { label: "No Tips", value: 0 },
   { label: "₹50 per Unit", value: 50 },
