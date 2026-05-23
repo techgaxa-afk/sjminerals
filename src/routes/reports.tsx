@@ -126,6 +126,18 @@ function ReportsPage() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground">Pass Collections</p>
+            <p className="font-bold text-primary">₹{passStats.total.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground">Pass Used</p>
+            <p className="font-bold text-foreground">{passStats.count} bill{passStats.count === 1 ? "" : "s"}</p>
+          </div>
+        </div>
+
+
         <div className="space-y-2">
           <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
             <span>Name</span>
