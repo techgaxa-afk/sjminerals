@@ -382,10 +382,24 @@ function BillsPage() {
                 )}
               </div>
 
+              {/* Pass */}
+              <div className="space-y-2">
+                <button onClick={() => setEditForm({ ...editForm, passEnabled: !editForm.passEnabled, passAmount: editForm.passAmount || DEFAULT_PASS_AMOUNT })} className={`w-full text-xs rounded-md border px-3 py-2 font-medium ${editForm.passEnabled ? "border-primary bg-primary/10 text-primary" : "border-dashed border-border text-muted-foreground"}`}>
+                  {editForm.passEnabled ? `✓ Pass Added (₹${(Number(editForm.passAmount) || 0).toLocaleString()})` : "+ Add Pass (₹1600)"}
+                </button>
+                {editForm.passEnabled && (
+                  <div className="rounded-md border border-primary/30 bg-secondary/30 p-2">
+                    <label className="text-xs text-muted-foreground">Pass Amount (₹)</label>
+                    <input type="number" value={editForm.passAmount || ""} onChange={(e) => setEditForm({ ...editForm, passAmount: Number(e.target.value) || 0 })} placeholder="0" className="w-full rounded border border-input bg-secondary px-2 py-1.5 text-sm text-foreground" />
+                  </div>
+                )}
+              </div>
+
               {/* Summary */}
               <div className="rounded-md border border-border bg-secondary/50 p-3 space-y-1 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="text-foreground">₹{editSubtotal.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Tips ({editForm.tipsRate ? `₹${editForm.tipsRate}/unit × ${editTipsBase}` : "No Tips"})</span><span className="text-warning">₹{editTipsAmount.toLocaleString()}</span></div>
+                {editForm.passEnabled && <div className="flex justify-between"><span className="text-muted-foreground">Pass</span><span className="text-primary">₹{editPassAmount.toLocaleString()}</span></div>}
                 <div className="flex justify-between pt-1 border-t border-border"><span className="font-semibold text-foreground">Grand Total</span><span className="font-bold text-primary">₹{editGrandTotal.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="text-success">₹{editPaid.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className={`font-bold ${editOutstanding > 0 ? "text-warning" : "text-success"}`}>₹{editOutstanding.toLocaleString()}</span></div>
