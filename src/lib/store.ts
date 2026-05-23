@@ -22,6 +22,7 @@ export interface Bill {
   vehicleNumber: string; vehicleCapacity: number;
   tipsRate: number; tipsAmount: number;
   splitPayment?: boolean; cashAmount?: number; upiAmount?: number;
+  passEnabled?: boolean; passAmount?: number;
   createdAt: string;
 }
 export interface Payment {
