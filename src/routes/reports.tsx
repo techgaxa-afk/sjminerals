@@ -20,8 +20,17 @@ function ReportsPage() {
   const [search, setSearch] = useState("");
   const { start } = getDateRange(filter);
 
+  const allBillsInRange = useMemo(() => getBills().filter((b) => new Date(b.createdAt) >= start), [start]);
+  const passStats = useMemo(() => {
+    const passBills = allBillsInRange.filter((b) => b.passEnabled);
+    return {
+      count: passBills.length,
+      total: passBills.reduce((s, b) => s + (b.passAmount || 0), 0),
+    };
+  }, [allBillsInRange]);
+
   const data = useMemo(() => {
-    const bills = getBills().filter((b) => new Date(b.createdAt) >= start);
+    const bills = allBillsInRange;
     const companies = getCompanies();
     const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
     const hitachiFuel = getHitachiFuel().filter((f) => new Date(f.createdAt) >= start);
