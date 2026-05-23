@@ -89,7 +89,8 @@ function BillsPage() {
   const editTotalQty = editForm ? editForm.items.reduce((s, i) => s + i.quantity, 0) : 0;
   const editTipsBase = editForm ? (editForm.vehicleCapacity > 0 ? editForm.vehicleCapacity : editTotalQty) : 0;
   const editTipsAmount = editForm ? editForm.tipsRate * editTipsBase : 0;
-  const editGrandTotal = editSubtotal + editTipsAmount;
+  const editPassAmount = editForm && editForm.passEnabled ? (Number(editForm.passAmount) || 0) : 0;
+  const editGrandTotal = editSubtotal + editTipsAmount + editPassAmount;
   const editPaid = editForm
     ? (editForm.splitEnabled
         ? Math.min(editGrandTotal, editForm.cashAmount + editForm.upiAmount)
