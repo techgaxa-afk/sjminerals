@@ -148,6 +148,8 @@ function BillsPage() {
       splitPayment: editForm.splitEnabled,
       cashAmount: cashAmt,
       upiAmount: upiAmt,
+      passEnabled: editForm.passEnabled,
+      passAmount: editPassAmount,
     });
 
     // Replace tips expense
