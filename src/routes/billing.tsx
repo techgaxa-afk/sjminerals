@@ -128,6 +128,7 @@ function BillingPage() {
       vehicleNumber: vehicleNumber.trim(), vehicleCapacity,
       tipsRate, tipsAmount: totalTips,
       splitPayment: splitEnabled, cashAmount: cashAmt, upiAmount: upiAmt,
+      passEnabled, passAmount: passCharge,
     });
     if (totalTips > 0) {
       saveExpense({
