@@ -34,6 +34,8 @@ function BillingPage() {
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitCash, setSplitCash] = useState("");
   const [splitUpi, setSplitUpi] = useState("");
+  const [passEnabled, setPassEnabled] = useState(false);
+  const [passAmount, setPassAmount] = useState<number>(DEFAULT_PASS_AMOUNT);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
   const [showNewCompany, setShowNewCompany] = useState(false);
@@ -45,7 +47,8 @@ function BillingPage() {
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
   const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
   const totalTips = tipsRate * tipsBase;
-  const grandTotal = total + totalTips;
+  const passCharge = passEnabled ? (Number(passAmount) || 0) : 0;
+  const grandTotal = total + totalTips + passCharge;
   const splitCashNum = Number(splitCash) || 0;
   const splitUpiNum = Number(splitUpi) || 0;
   const paid = splitEnabled
