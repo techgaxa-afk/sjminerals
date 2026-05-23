@@ -11,6 +11,8 @@ export const Route = createFileRoute("/billing")({
   component: BillingPage,
 });
 
+const DEFAULT_PASS_AMOUNT = 1600;
+
 const TIPS_OPTIONS = [
   { label: "No Tips", value: 0 },
   { label: "₹50 per Unit", value: 50 },
@@ -32,6 +34,8 @@ function BillingPage() {
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitCash, setSplitCash] = useState("");
   const [splitUpi, setSplitUpi] = useState("");
+  const [passEnabled, setPassEnabled] = useState(false);
+  const [passAmount, setPassAmount] = useState<number>(DEFAULT_PASS_AMOUNT);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
   const [showNewCompany, setShowNewCompany] = useState(false);
@@ -43,7 +47,8 @@ function BillingPage() {
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
   const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
   const totalTips = tipsRate * tipsBase;
-  const grandTotal = total + totalTips;
+  const passCharge = passEnabled ? (Number(passAmount) || 0) : 0;
+  const grandTotal = total + totalTips + passCharge;
   const splitCashNum = Number(splitCash) || 0;
   const splitUpiNum = Number(splitUpi) || 0;
   const paid = splitEnabled
@@ -123,6 +128,7 @@ function BillingPage() {
       vehicleNumber: vehicleNumber.trim(), vehicleCapacity,
       tipsRate, tipsAmount: totalTips,
       splitPayment: splitEnabled, cashAmount: cashAmt, upiAmount: upiAmt,
+      passEnabled, passAmount: passCharge,
     });
     if (totalTips > 0) {
       saveExpense({
@@ -138,6 +144,7 @@ function BillingPage() {
       setSelectedCompany(null); setPaidAmount(""); setPaymentMode("cash"); setSaved(false);
       setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
       setSplitEnabled(false); setSplitCash(""); setSplitUpi("");
+      setPassEnabled(false); setPassAmount(DEFAULT_PASS_AMOUNT);
     }, 2000);
   };
 
@@ -238,12 +245,31 @@ function BillingPage() {
               )}
             </div>
 
+            {/* Pass Toggle */}
+            <div className="space-y-2">
+              <button onClick={() => setPassEnabled(!passEnabled)} className={`w-full text-xs rounded-md border px-3 py-2 font-medium transition-colors ${passEnabled ? "border-primary bg-primary/10 text-primary" : "border-dashed border-border text-muted-foreground hover:text-foreground"}`}>
+                {passEnabled ? `✓ Pass Added (₹${(Number(passAmount) || 0).toLocaleString()}) — Click to Remove` : "+ Add Pass (₹1600)"}
+              </button>
+              {passEnabled && (
+                <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 space-y-1.5">
+                  <label className="text-xs text-muted-foreground">Pass Amount (₹)</label>
+                  <input type="number" value={passAmount} onChange={(e) => setPassAmount(Number(e.target.value) || 0)} className="w-full rounded border border-input bg-secondary px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                </div>
+              )}
+            </div>
+
             <div className="border-t border-border pt-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="text-foreground">₹{total.toLocaleString()}</span></div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tips {tipsRate > 0 ? <span className="text-xs">(₹{tipsRate}/unit × {tipsBase})</span> : "(No Tips)"}</span>
                 <span className="text-warning">₹{totalTips.toLocaleString()}</span>
               </div>
+              {passEnabled && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pass</span>
+                  <span className="text-primary">₹{passCharge.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between pt-1.5 border-t border-border">
                 <span className="font-bold text-foreground">Grand Total</span>
                 <span className="font-bold text-lg text-primary">₹{grandTotal.toLocaleString()}</span>

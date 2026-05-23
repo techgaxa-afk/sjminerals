@@ -68,6 +68,7 @@ export function exportInvoicePDF(bill: Bill) {
       <span>₹${bill.tipsAmount.toLocaleString()}</span>
     </div>
     ${bill.tipsRate > 0 ? `<div class="row muted" style="font-size:11px"><span>↳ ₹${bill.tipsRate} × ${tipsBase} units</span><span></span></div>` : ""}
+    ${bill.passEnabled ? `<div class="row"><span>Pass <span class="tag" style="background:#dbeafe;color:#1e40af">Included</span></span><span>₹${(bill.passAmount || 0).toLocaleString()}</span></div>` : `<div class="row muted" style="font-size:11px"><span>Pass</span><span>Not Included</span></div>`}
     <div class="row total"><span>Grand Total</span><span>₹${bill.totalAmount.toLocaleString()}</span></div>
   </div>
 

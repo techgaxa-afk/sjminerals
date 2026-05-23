@@ -22,6 +22,7 @@ export interface Bill {
   vehicleNumber: string; vehicleCapacity: number;
   tipsRate: number; tipsAmount: number;
   splitPayment?: boolean; cashAmount?: number; upiAmount?: number;
+  passEnabled?: boolean; passAmount?: number;
   createdAt: string;
 }
 export interface Payment {
@@ -108,6 +109,7 @@ const mapBill = (r: any): Omit<Bill, "items"> => ({
   vehicleNumber: r.vehicle_number, vehicleCapacity: Number(r.vehicle_capacity) || 0,
   tipsRate: Number(r.tips_rate) || 0, tipsAmount: Number(r.tips_amount) || 0,
   splitPayment: !!r.split_payment, cashAmount: Number(r.cash_amount) || 0, upiAmount: Number(r.upi_amount) || 0,
+  passEnabled: !!r.pass_enabled, passAmount: Number(r.pass_amount) || 0,
   createdAt: r.created_at,
 });
 const billToDb = (b: Omit<Bill, "items">) => ({
@@ -117,6 +119,7 @@ const billToDb = (b: Omit<Bill, "items">) => ({
   vehicle_number: b.vehicleNumber, vehicle_capacity: b.vehicleCapacity,
   tips_rate: b.tipsRate, tips_amount: b.tipsAmount,
   split_payment: !!b.splitPayment, cash_amount: b.cashAmount ?? 0, upi_amount: b.upiAmount ?? 0,
+  pass_enabled: !!b.passEnabled, pass_amount: b.passAmount ?? 0,
 });
 const mapBillItem = (r: any) => ({
   id: r.id, billId: r.bill_id, productId: r.product_id ?? "", productName: r.product_name,

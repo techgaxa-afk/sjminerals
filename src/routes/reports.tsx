@@ -20,8 +20,17 @@ function ReportsPage() {
   const [search, setSearch] = useState("");
   const { start } = getDateRange(filter);
 
+  const allBillsInRange = useMemo(() => getBills().filter((b) => new Date(b.createdAt) >= start), [start]);
+  const passStats = useMemo(() => {
+    const passBills = allBillsInRange.filter((b) => b.passEnabled);
+    return {
+      count: passBills.length,
+      total: passBills.reduce((s, b) => s + (b.passAmount || 0), 0),
+    };
+  }, [allBillsInRange]);
+
   const data = useMemo(() => {
-    const bills = getBills().filter((b) => new Date(b.createdAt) >= start);
+    const bills = allBillsInRange;
     const companies = getCompanies();
     const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
     const hitachiFuel = getHitachiFuel().filter((f) => new Date(f.createdAt) >= start);
@@ -83,7 +92,7 @@ function ReportsPage() {
         trips: oEntries.length, revenue: totalHrs, outstanding: totalSalary, isOperator: true,
       };
     }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
-  }, [reportType, filter, start, search]);
+  }, [reportType, filter, start, search, allBillsInRange]);
 
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
@@ -116,6 +125,18 @@ function ReportsPage() {
             ))}
           </div>
         </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground">Pass Collections</p>
+            <p className="font-bold text-primary">₹{passStats.total.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground">Pass Used</p>
+            <p className="font-bold text-foreground">{passStats.count} bill{passStats.count === 1 ? "" : "s"}</p>
+          </div>
+        </div>
+
 
         <div className="space-y-2">
           <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
