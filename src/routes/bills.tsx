@@ -80,6 +80,8 @@ function BillsPage() {
       splitEnabled: b.splitPayment ?? (b.paymentMode === "split"),
       cashAmount: b.cashAmount ?? 0,
       upiAmount: b.upiAmount ?? 0,
+      passEnabled: !!b.passEnabled,
+      passAmount: b.passAmount ?? DEFAULT_PASS_AMOUNT,
     });
   };
 
