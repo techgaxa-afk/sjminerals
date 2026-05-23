@@ -32,7 +32,11 @@ interface EditForm {
   splitEnabled: boolean;
   cashAmount: number;
   upiAmount: number;
+  passEnabled: boolean;
+  passAmount: number;
 }
+
+const DEFAULT_PASS_AMOUNT = 1600;
 
 function BillsPage() {
   const products = getProducts();
