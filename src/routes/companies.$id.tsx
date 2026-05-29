@@ -184,7 +184,7 @@ function CompanyDetailsPage() {
                 <div key={b.id} className="stat-card space-y-2">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium text-sm text-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" /> Invoice #{bills.length - i}</p>
+                      <p className="font-medium text-sm text-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" /> <span className="font-mono text-xs tracking-wider">{b.invoiceNumber || `#${bills.length - i}`}</span></p>
                       <p className="text-xs text-muted-foreground">{format(parseISO(b.createdAt), "dd MMM yyyy · HH:mm")}</p>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ")}</p>
                       <div className="flex gap-3 mt-1 text-[11px] text-muted-foreground">
