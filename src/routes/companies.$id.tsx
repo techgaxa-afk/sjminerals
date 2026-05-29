@@ -129,11 +129,11 @@ function CompanyDetailsPage() {
         <div>
           {!showPayForm ? (
             <button onClick={() => setShowPayForm(true)} className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-              <Plus className="h-4 w-4" /> Add Payment
+              <Plus className="h-4 w-4" /> Receive Payment
             </button>
           ) : (
             <div className="stat-card space-y-3">
-              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">Record Payment</h3><button onClick={() => setShowPayForm(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
+              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">Receive Payment</h3><button onClick={() => setShowPayForm(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
               <div className="grid grid-cols-2 gap-2">
                 <div><label className="field-label">Date</label><input type="date" value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <div><label className="field-label">Amount *</label><input type="number" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} placeholder="₹" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
