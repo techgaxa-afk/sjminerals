@@ -360,7 +360,7 @@ export function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber">): B
   return assembleBill(billRow);
 }
 export function updateBill(id: string, updates: Partial<Bill>): void {
-  const { items, ...rest } = updates;
+  const { items, invoiceNumber: _ignore, ...rest } = updates; // invoice number is immutable
   cache.bills = cache.bills.map((b) => (b.id === id ? { ...b, ...rest } : b));
   if (items) {
     cache.billItems = cache.billItems.filter((i) => i.billId !== id);
