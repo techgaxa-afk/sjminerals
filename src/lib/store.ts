@@ -325,9 +325,32 @@ export function getBills(): Bill[] { return cache.bills.map(assembleBill); }
 export function getBillsByCompany(companyId: string): Bill[] {
   return cache.bills.filter((b) => b.companyId === companyId).map(assembleBill);
 }
-export function saveBill(b: Omit<Bill, "id" | "createdAt">): Bill {
+// Generate invoice number: SSDDMMYYYY (sequence-per-day + DDMMYYYY).
+// Increments until unique within current cache.
+function nextInvoiceNumber(now: Date): string {
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(now.getFullYear());
+  const dayKey = `${dd}${mm}${yyyy}`;
+  const existing = new Set(cache.bills.map((b) => b.invoiceNumber).filter(Boolean));
+  // Start from count-of-bills-today + 1, then bump until unique
+  const sameDay = cache.bills.filter((b) => (b.invoiceNumber || "").endsWith(dayKey)).length;
+  let seq = sameDay + 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const num = `${String(seq).padStart(2, "0")}${dayKey}`;
+    if (!existing.has(num)) return num;
+    seq++;
+  }
+}
+
+export function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber">): Bill {
   const { items, ...rest } = b;
-  const billRow: Omit<Bill, "items"> = { ...rest, id: uid(), createdAt: new Date().toISOString() };
+  const now = new Date();
+  const billRow: Omit<Bill, "items"> = {
+    ...rest, id: uid(), createdAt: now.toISOString(),
+    invoiceNumber: nextInvoiceNumber(now),
+  };
   cache.bills.push(billRow);
   const stamped = items.map((i) => ({ ...i, id: uid(), billId: billRow.id }));
   cache.billItems.push(...stamped);
