@@ -383,6 +383,30 @@ export function savePayment(p: Omit<Payment, "id" | "createdAt">): Payment {
 export function getPaymentsByBill(billId: string): Payment[] { return cache.payments.filter((p) => p.billId === billId); }
 export function getPaymentsByCompany(companyId: string): Payment[] { return cache.payments.filter((p) => p.companyId === companyId); }
 
+// Allocate a single payment across the company's oldest outstanding bills (FIFO).
+// Creates one Payment row per allocated bill so existing per-bill linkage stays intact.
+export function saveCompanyPayment(input: { companyId: string; amount: number; date: string; notes: string }): Payment[] {
+  let remaining = input.amount;
+  const created: Payment[] = [];
+  const bills = cache.bills
+    .filter((b) => b.companyId === input.companyId && (b.outstandingAmount || 0) > 0)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  for (const b of bills) {
+    if (remaining <= 0) break;
+    const apply = Math.min(remaining, b.outstandingAmount || 0);
+    if (apply <= 0) continue;
+    created.push(savePayment({ billId: b.id, companyId: input.companyId, amount: apply, date: input.date, notes: input.notes }));
+    remaining -= apply;
+  }
+  // If anything remains (overpayment / no outstanding bills), record it against the most recent bill, or a standalone row.
+  if (remaining > 0) {
+    const fallback = cache.bills.filter((b) => b.companyId === input.companyId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    created.push(savePayment({ billId: fallback?.id ?? "", companyId: input.companyId, amount: remaining, date: input.date, notes: input.notes + (fallback ? " (advance)" : " (no bill)") }));
+  }
+  return created;
+}
+
+
 // ============ Hitachi Machines ============
 export function getHitachiMachines(): HitachiMachine[] { return cache.hitachi_machines.slice(); }
 export function saveHitachiMachine(m: Omit<HitachiMachine, "id" | "createdAt">): HitachiMachine {
