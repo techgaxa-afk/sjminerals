@@ -76,6 +76,7 @@ export type Database = {
           created_at: string
           driver_name: string
           id: string
+          invoice_number: string | null
           outstanding_amount: number
           paid_amount: number
           pass_amount: number
@@ -97,6 +98,7 @@ export type Database = {
           created_at?: string
           driver_name?: string
           id?: string
+          invoice_number?: string | null
           outstanding_amount?: number
           paid_amount?: number
           pass_amount?: number
@@ -118,6 +120,7 @@ export type Database = {
           created_at?: string
           driver_name?: string
           id?: string
+          invoice_number?: string | null
           outstanding_amount?: number
           paid_amount?: number
           pass_amount?: number
