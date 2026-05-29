@@ -15,7 +15,7 @@ export interface BillItem {
   total: number; tipsRate: number; tipsAmount: number;
 }
 export interface Bill {
-  id: string; items: BillItem[]; totalAmount: number;
+  id: string; invoiceNumber: string; items: BillItem[]; totalAmount: number;
   paymentMode: "cash" | "upi" | "credit" | "split";
   paidAmount: number; outstandingAmount: number;
   companyId: string; companyName: string; driverName: string;
