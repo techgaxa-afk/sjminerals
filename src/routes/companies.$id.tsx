@@ -6,8 +6,8 @@ import {
   getCompanyOutstanding, saveCompanyPayment, useCloudData,
   type Bill, type Payment,
 } from "../lib/store";
-import { exportInvoicePDF } from "../lib/pdf";
-import { ArrowLeft, Building2, Truck, Phone, User, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck } from "lucide-react";
+import { exportInvoicePDF, exportCompanyStatementPDF } from "../lib/pdf";
+import { ArrowLeft, Building2, Truck, Phone, User, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
