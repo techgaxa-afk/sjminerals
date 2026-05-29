@@ -203,15 +203,27 @@ function BillingPage() {
         <div>
           <label className="field-label">Add Products</label>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring mb-2" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {filtered.map((p) => (
-              <button key={p.id} onClick={() => addItem(p.id)} className="stat-card text-left hover:border-primary/50 transition-colors">
-                <p className="font-medium text-sm text-foreground">{p.name}</p>
-                <p className="text-xs text-muted-foreground">₹{p.price}/{p.unit}</p>
-              </button>
-            ))}
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4">
+            {filtered.map((p) => {
+              const selected = items.some((i) => i.productId === p.id);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => addItem(p.id)}
+                  className={`stat-card text-left transition-all min-h-[88px] flex flex-col justify-center p-4 active:scale-[0.98] ${
+                    selected
+                      ? "border-2 border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                      : "border-2 border-transparent hover:border-primary/50"
+                  }`}
+                >
+                  <p className="font-semibold text-base text-foreground leading-tight">{p.name}</p>
+                  <p className="text-sm font-medium text-primary mt-1">₹{p.price}<span className="text-xs text-muted-foreground font-normal">/{p.unit}</span></p>
+                </button>
+              );
+            })}
             {filtered.length === 0 && <p className="col-span-full text-sm text-muted-foreground text-center py-4">No products found.</p>}
           </div>
+
         </div>
 
         {items.length > 0 && (
