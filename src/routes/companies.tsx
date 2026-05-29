@@ -3,7 +3,7 @@ import AppLayout from "../components/AppLayout";
 import { useState } from "react";
 import {
   getCompanies, saveCompany, updateCompany, deleteCompany,
-  getCompanyOutstanding, useCloudData,
+  getCompanyOutstanding, getBillsByCompany, useCloudData,
   type Company,
 } from "../lib/store";
 import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronRight } from "lucide-react";
