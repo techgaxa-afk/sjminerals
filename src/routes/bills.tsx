@@ -197,7 +197,6 @@ function BillsPage() {
                   {bill.driverName && <p className="text-xs text-muted-foreground">Driver: {bill.driverName}</p>}
                   <p className="text-xs text-muted-foreground">{format(parseISO(bill.createdAt), "dd MMM yyyy, hh:mm a")}</p>
                 </div>
-                </div>
                 <div className="text-right">
                   <p className="font-bold text-primary">₹{bill.totalAmount.toLocaleString()}</p>
                   <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
