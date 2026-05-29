@@ -1,4 +1,4 @@
-import type { Bill } from "./store";
+import type { Bill, Company, Payment } from "./store";
 
 function tipsLabel(rate: number): string {
   if (!rate) return "No Tips";
