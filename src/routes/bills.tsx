@@ -301,7 +301,7 @@ function BillsPage() {
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className="bg-card border border-border rounded-lg w-full max-w-lg max-h-[95vh] overflow-y-auto">
             <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
-              <h2 className="font-semibold text-foreground">Edit Bill #{editBill.id.slice(-6)}</h2>
+              <h2 className="font-semibold text-foreground">Edit Invoice {editBill.invoiceNumber || `#${editBill.id.slice(-6)}`}</h2>
               <button onClick={() => { setEditBill(null); setEditForm(null); }} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-4 space-y-4">
