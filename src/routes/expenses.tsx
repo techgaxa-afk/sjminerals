@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState } from "react";
 import { getExpenses, saveExpense, updateExpense, deleteExpense, type Expense, type ExpenseCategory } from "../lib/store";
-import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, Check } from "lucide-react";
+import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, Check, UtensilsCrossed } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/expenses")({
@@ -12,9 +12,10 @@ export const Route = createFileRoute("/expenses")({
 const CATEGORIES: { value: ExpenseCategory; label: string; icon: typeof Fuel }[] = [
   { value: "fuel", label: "Fuel", icon: Fuel },
   { value: "salary", label: "Salary", icon: Users },
-  { value: "maintenance", label: "Maint.", icon: Wrench },
-  { value: "miscellaneous", label: "Misc", icon: MoreHorizontal },
   { value: "tips", label: "Tips", icon: Coins },
+  { value: "food", label: "Food", icon: UtensilsCrossed },
+  { value: "maintenance", label: "Maint.", icon: Wrench },
+  { value: "miscellaneous", label: "Other", icon: MoreHorizontal },
 ];
 
 function ExpensesPage() {
