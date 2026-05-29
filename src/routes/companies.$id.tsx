@@ -187,11 +187,16 @@ function CompanyDetailsPage() {
                       <p className="font-medium text-sm text-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" /> Invoice #{bills.length - i}</p>
                       <p className="text-xs text-muted-foreground">{format(parseISO(b.createdAt), "dd MMM yyyy · HH:mm")}</p>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ")}</p>
+                      <div className="flex gap-3 mt-1 text-[11px] text-muted-foreground">
+                        <span>Qty: <span className="text-foreground font-medium">{b.items.reduce((s, it) => s + (it.quantity || 0), 0)}</span></span>
+                        <span>Tips: <span className="text-foreground font-medium">₹{(b.tipsAmount || 0).toLocaleString()}</span></span>
+                        <span>Pass: <span className={`font-medium ${b.passEnabled ? "text-foreground" : "text-muted-foreground"}`}>{b.passEnabled ? `₹${(b.passAmount || 0).toLocaleString()}` : "—"}</span></span>
+                      </div>
                     </div>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${st.cls}`}>{st.label}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div><p className="text-muted-foreground">Total</p><p className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString()}</p></div>
+                    <div><p className="text-muted-foreground">Grand Total</p><p className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString()}</p></div>
                     <div><p className="text-muted-foreground">Paid</p><p className="font-semibold text-success">₹{(b.paidAmount || 0).toLocaleString()}</p></div>
                     <div><p className="text-muted-foreground">Due</p><p className="font-semibold text-warning">₹{(b.outstandingAmount || 0).toLocaleString()}</p></div>
                   </div>
