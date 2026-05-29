@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState } from "react";
 import { getExpenses, saveExpense, updateExpense, deleteExpense, type Expense, type ExpenseCategory } from "../lib/store";
-import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, Check } from "lucide-react";
+import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, Check, UtensilsCrossed } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/expenses")({
@@ -12,9 +12,10 @@ export const Route = createFileRoute("/expenses")({
 const CATEGORIES: { value: ExpenseCategory; label: string; icon: typeof Fuel }[] = [
   { value: "fuel", label: "Fuel", icon: Fuel },
   { value: "salary", label: "Salary", icon: Users },
-  { value: "maintenance", label: "Maint.", icon: Wrench },
-  { value: "miscellaneous", label: "Misc", icon: MoreHorizontal },
   { value: "tips", label: "Tips", icon: Coins },
+  { value: "food", label: "Food", icon: UtensilsCrossed },
+  { value: "maintenance", label: "Maint.", icon: Wrench },
+  { value: "miscellaneous", label: "Other", icon: MoreHorizontal },
 ];
 
 function ExpensesPage() {
@@ -70,7 +71,7 @@ function ExpensesPage() {
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editingId ? "Edit" : "New"} Expense</h3><button onClick={resetForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
             <div>
               <label className="field-label">Category</label>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {CATEGORIES.map((c) => (
                   <button key={c.value} onClick={() => setCategory(c.value)} className={`flex flex-col items-center gap-1 rounded-md border p-2 text-xs font-medium transition-colors ${category === c.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
                     <c.icon className="h-4 w-4" />{c.label}

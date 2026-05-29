@@ -56,6 +56,7 @@ function BillsPage() {
     const q = search.toLowerCase();
     const matchSearch = !q ||
       (b.companyName || "").toLowerCase().includes(q) ||
+      (b.invoiceNumber || "").toLowerCase().includes(q) ||
       b.id.includes(search) ||
       (b.vehicleNumber || "").toLowerCase().includes(q) ||
       (b.driverName || "").toLowerCase().includes(q);
@@ -179,7 +180,7 @@ function BillsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search invoice #, company, vehicle..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search company, driver, vehicle..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -190,6 +191,7 @@ function BillsPage() {
             <div key={bill.id} className="stat-card">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-mono font-semibold text-primary tracking-wider">INV {bill.invoiceNumber || bill.id.slice(-6).toUpperCase()}</p>
                   <p className="font-medium text-foreground truncate">{bill.companyName || "Walk-in"}</p>
                   {bill.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {bill.vehicleNumber} {bill.vehicleCapacity > 0 && `(${bill.vehicleCapacity}t)`}</p>}
                   {bill.driverName && <p className="text-xs text-muted-foreground">Driver: {bill.driverName}</p>}
@@ -299,7 +301,7 @@ function BillsPage() {
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className="bg-card border border-border rounded-lg w-full max-w-lg max-h-[95vh] overflow-y-auto">
             <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
-              <h2 className="font-semibold text-foreground">Edit Bill #{editBill.id.slice(-6)}</h2>
+              <h2 className="font-semibold text-foreground">Edit Invoice {editBill.invoiceNumber || `#${editBill.id.slice(-6)}`}</h2>
               <button onClick={() => { setEditBill(null); setEditForm(null); }} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-4 space-y-4">

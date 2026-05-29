@@ -38,8 +38,13 @@ export function exportInvoicePDF(bill: Bill) {
     .paid{color:#047857;font-weight:bold}
     .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e}
   </style></head><body>
-  <h1>SJ Minerals Invoice</h1>
-  <p class="muted">#${bill.id} · ${new Date(bill.createdAt).toLocaleString()}</p>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #111;padding-bottom:10px">
+    <div><h1>SJ Minerals Invoice</h1><p class="muted">${new Date(bill.createdAt).toLocaleString()}</p></div>
+    <div style="text-align:right">
+      <p class="muted" style="margin:0;font-size:10px;letter-spacing:1px;text-transform:uppercase">Invoice No.</p>
+      <p style="margin:2px 0 0;font-size:20px;font-weight:bold;font-family:ui-monospace,Menlo,monospace;color:#111">${bill.invoiceNumber || bill.id.slice(-10).toUpperCase()}</p>
+    </div>
+  </div>
 
   <div class="meta">
     <div><b>Company:</b> ${bill.companyName || "Walk-in"}</div>
@@ -128,7 +133,7 @@ export function exportCompanyStatementPDF(
   ordered.forEach((b, i) => events.push({
     ts: new Date(b.createdAt).getTime(),
     date: b.createdAt,
-    desc: `Invoice #${i + 1} — ${b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ") || "Sale"}${b.passEnabled ? " + Pass" : ""}`,
+    desc: `Invoice ${b.invoiceNumber || `#${i + 1}`} — ${b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ") || "Sale"}${b.passEnabled ? " + Pass" : ""}`,
     debit: b.totalAmount || 0, credit: 0,
   }));
   payments.forEach((p) => events.push({

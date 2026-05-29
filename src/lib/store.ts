@@ -15,7 +15,7 @@ export interface BillItem {
   total: number; tipsRate: number; tipsAmount: number;
 }
 export interface Bill {
-  id: string; items: BillItem[]; totalAmount: number;
+  id: string; invoiceNumber: string; items: BillItem[]; totalAmount: number;
   paymentMode: "cash" | "upi" | "credit" | "split";
   paidAmount: number; outstandingAmount: number;
   companyId: string; companyName: string; driverName: string;
@@ -41,7 +41,7 @@ export interface HitachiFuel {
   id: string; machineId: string; machineName: string; liters: number;
   hourReading: number; date: string; createdAt: string;
 }
-export type ExpenseCategory = "fuel" | "salary" | "maintenance" | "miscellaneous" | "tips";
+export type ExpenseCategory = "fuel" | "salary" | "maintenance" | "miscellaneous" | "tips" | "food";
 export interface Expense {
   id: string; category: ExpenseCategory; amount: number; date: string; notes: string;
   linkedBillId?: string; linkedCompanyId?: string; linkedOperatorId?: string; linkedMachineId?: string;
@@ -103,7 +103,8 @@ const companyToDb = (c: Company) => ({
   vehicle_capacity: c.vehicleCapacity, contact_number: c.contactNumber,
 });
 const mapBill = (r: any): Omit<Bill, "items"> => ({
-  id: r.id, totalAmount: Number(r.total_amount) || 0, paymentMode: r.payment_mode,
+  id: r.id, invoiceNumber: r.invoice_number ?? "",
+  totalAmount: Number(r.total_amount) || 0, paymentMode: r.payment_mode,
   paidAmount: Number(r.paid_amount) || 0, outstandingAmount: Number(r.outstanding_amount) || 0,
   companyId: r.company_id, companyName: r.company_name, driverName: r.driver_name ?? "",
   vehicleNumber: r.vehicle_number, vehicleCapacity: Number(r.vehicle_capacity) || 0,
@@ -113,7 +114,8 @@ const mapBill = (r: any): Omit<Bill, "items"> => ({
   createdAt: r.created_at,
 });
 const billToDb = (b: Omit<Bill, "items">) => ({
-  id: b.id, total_amount: b.totalAmount, payment_mode: b.paymentMode,
+  id: b.id, invoice_number: b.invoiceNumber || null,
+  total_amount: b.totalAmount, payment_mode: b.paymentMode,
   paid_amount: b.paidAmount, outstanding_amount: b.outstandingAmount,
   company_id: b.companyId, company_name: b.companyName, driver_name: b.driverName,
   vehicle_number: b.vehicleNumber, vehicle_capacity: b.vehicleCapacity,
@@ -323,9 +325,32 @@ export function getBills(): Bill[] { return cache.bills.map(assembleBill); }
 export function getBillsByCompany(companyId: string): Bill[] {
   return cache.bills.filter((b) => b.companyId === companyId).map(assembleBill);
 }
-export function saveBill(b: Omit<Bill, "id" | "createdAt">): Bill {
+// Generate invoice number: SSDDMMYYYY (sequence-per-day + DDMMYYYY).
+// Increments until unique within current cache.
+function nextInvoiceNumber(now: Date): string {
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(now.getFullYear());
+  const dayKey = `${dd}${mm}${yyyy}`;
+  const existing = new Set(cache.bills.map((b) => b.invoiceNumber).filter(Boolean));
+  // Start from count-of-bills-today + 1, then bump until unique
+  const sameDay = cache.bills.filter((b) => (b.invoiceNumber || "").endsWith(dayKey)).length;
+  let seq = sameDay + 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const num = `${String(seq).padStart(2, "0")}${dayKey}`;
+    if (!existing.has(num)) return num;
+    seq++;
+  }
+}
+
+export function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber">): Bill {
   const { items, ...rest } = b;
-  const billRow: Omit<Bill, "items"> = { ...rest, id: uid(), createdAt: new Date().toISOString() };
+  const now = new Date();
+  const billRow: Omit<Bill, "items"> = {
+    ...rest, id: uid(), createdAt: now.toISOString(),
+    invoiceNumber: nextInvoiceNumber(now),
+  };
   cache.bills.push(billRow);
   const stamped = items.map((i) => ({ ...i, id: uid(), billId: billRow.id }));
   cache.billItems.push(...stamped);
@@ -335,7 +360,7 @@ export function saveBill(b: Omit<Bill, "id" | "createdAt">): Bill {
   return assembleBill(billRow);
 }
 export function updateBill(id: string, updates: Partial<Bill>): void {
-  const { items, ...rest } = updates;
+  const { items, invoiceNumber: _ignore, ...rest } = updates; // invoice number is immutable
   cache.bills = cache.bills.map((b) => (b.id === id ? { ...b, ...rest } : b));
   if (items) {
     cache.billItems = cache.billItems.filter((i) => i.billId !== id);
