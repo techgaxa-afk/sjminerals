@@ -6,8 +6,8 @@ import {
   getCompanyOutstanding, saveCompanyPayment, useCloudData,
   type Bill, type Payment,
 } from "../lib/store";
-import { exportInvoicePDF } from "../lib/pdf";
-import { ArrowLeft, Building2, Truck, Phone, User, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck } from "lucide-react";
+import { exportInvoicePDF, exportCompanyStatementPDF } from "../lib/pdf";
+import { ArrowLeft, Building2, Truck, Phone, User, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
@@ -105,9 +105,12 @@ function CompanyDetailsPage() {
               {company.driverName && <p className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> {company.driverName}</p>}
               {company.contactNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> {company.contactNumber}</p>}
             </div>
-            <span className={`text-xs font-semibold px-2 py-1 rounded ${outstanding <= 0 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
-              {outstanding <= 0 ? <span className="inline-flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Settled</span> : `Due ₹${outstanding.toLocaleString()}`}
-            </span>
+            <div className="flex flex-col items-end gap-1.5">
+              <span className={`text-xs font-semibold px-2 py-1 rounded ${outstanding <= 0 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
+                {outstanding <= 0 ? <span className="inline-flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Settled</span> : `Due ₹${outstanding.toLocaleString()}`}
+              </span>
+              <button onClick={() => exportCompanyStatementPDF(company, bills, payments, outstanding)} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] text-foreground hover:bg-secondary/70"><FileDown className="h-3 w-3" /> Statement</button>
+            </div>
           </div>
         </div>
 
@@ -126,11 +129,11 @@ function CompanyDetailsPage() {
         <div>
           {!showPayForm ? (
             <button onClick={() => setShowPayForm(true)} className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-              <Plus className="h-4 w-4" /> Add Payment
+              <Plus className="h-4 w-4" /> Receive Payment
             </button>
           ) : (
             <div className="stat-card space-y-3">
-              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">Record Payment</h3><button onClick={() => setShowPayForm(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
+              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">Receive Payment</h3><button onClick={() => setShowPayForm(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
               <div className="grid grid-cols-2 gap-2">
                 <div><label className="field-label">Date</label><input type="date" value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <div><label className="field-label">Amount *</label><input type="number" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} placeholder="₹" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
@@ -184,11 +187,16 @@ function CompanyDetailsPage() {
                       <p className="font-medium text-sm text-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" /> Invoice #{bills.length - i}</p>
                       <p className="text-xs text-muted-foreground">{format(parseISO(b.createdAt), "dd MMM yyyy · HH:mm")}</p>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ")}</p>
+                      <div className="flex gap-3 mt-1 text-[11px] text-muted-foreground">
+                        <span>Qty: <span className="text-foreground font-medium">{b.items.reduce((s, it) => s + (it.quantity || 0), 0)}</span></span>
+                        <span>Tips: <span className="text-foreground font-medium">₹{(b.tipsAmount || 0).toLocaleString()}</span></span>
+                        <span>Pass: <span className={`font-medium ${b.passEnabled ? "text-foreground" : "text-muted-foreground"}`}>{b.passEnabled ? `₹${(b.passAmount || 0).toLocaleString()}` : "—"}</span></span>
+                      </div>
                     </div>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${st.cls}`}>{st.label}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div><p className="text-muted-foreground">Total</p><p className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString()}</p></div>
+                    <div><p className="text-muted-foreground">Grand Total</p><p className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString()}</p></div>
                     <div><p className="text-muted-foreground">Paid</p><p className="font-semibold text-success">₹{(b.paidAmount || 0).toLocaleString()}</p></div>
                     <div><p className="text-muted-foreground">Due</p><p className="font-semibold text-warning">₹{(b.outstandingAmount || 0).toLocaleString()}</p></div>
                   </div>
