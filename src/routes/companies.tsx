@@ -78,6 +78,9 @@ function CompaniesPage() {
         <div className="space-y-2">
           {filtered.map((c) => {
             const outstanding = getCompanyOutstanding(c.id);
+            const cBills = getBillsByCompany(c.id);
+            const totalSales = cBills.reduce((s, b) => s + (b.totalAmount || 0), 0);
+            const totalPaid = cBills.reduce((s, b) => s + (b.paidAmount || 0), 0);
             return (
               <Link key={c.id} to="/companies/$id" params={{ id: c.id }} className="stat-card flex items-start justify-between hover:border-primary/40 transition-colors">
                 <div className="flex-1 min-w-0">
@@ -85,9 +88,11 @@ function CompaniesPage() {
                   <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Truck className="h-3 w-3" /> {c.vehicleNumber} {c.vehicleCapacity > 0 && `(${c.vehicleCapacity} tons)`}</p>
                   {c.driverName && <p className="text-xs text-muted-foreground">Driver: {c.driverName}</p>}
                   {c.contactNumber && <p className="text-xs text-muted-foreground">{c.contactNumber}</p>}
-                  {outstanding > 0
-                    ? <p className="text-xs font-semibold text-warning mt-1">Outstanding: ₹{outstanding.toLocaleString()}</p>
-                    : <p className="text-xs font-semibold text-success mt-1">Settled</p>}
+                  <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                    <div><p className="text-muted-foreground">Sales</p><p className="font-semibold text-foreground">₹{totalSales.toLocaleString()}</p></div>
+                    <div><p className="text-muted-foreground">Paid</p><p className="font-semibold text-success">₹{totalPaid.toLocaleString()}</p></div>
+                    <div><p className="text-muted-foreground">Due</p><p className={`font-semibold ${outstanding > 0 ? "text-warning" : "text-success"}`}>₹{outstanding.toLocaleString()}</p></div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 ml-2">
                   <button onClick={(e) => handleEdit(e, c)} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button>
