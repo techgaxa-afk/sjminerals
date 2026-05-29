@@ -56,6 +56,7 @@ function BillsPage() {
     const q = search.toLowerCase();
     const matchSearch = !q ||
       (b.companyName || "").toLowerCase().includes(q) ||
+      (b.invoiceNumber || "").toLowerCase().includes(q) ||
       b.id.includes(search) ||
       (b.vehicleNumber || "").toLowerCase().includes(q) ||
       (b.driverName || "").toLowerCase().includes(q);
