@@ -133,7 +133,7 @@ export function exportCompanyStatementPDF(
   ordered.forEach((b, i) => events.push({
     ts: new Date(b.createdAt).getTime(),
     date: b.createdAt,
-    desc: `Invoice #${i + 1} — ${b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ") || "Sale"}${b.passEnabled ? " + Pass" : ""}`,
+    desc: `Invoice ${b.invoiceNumber || `#${i + 1}`} — ${b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ") || "Sale"}${b.passEnabled ? " + Pass" : ""}`,
     debit: b.totalAmount || 0, credit: 0,
   }));
   payments.forEach((p) => events.push({
