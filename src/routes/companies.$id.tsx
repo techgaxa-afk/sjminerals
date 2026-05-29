@@ -105,9 +105,12 @@ function CompanyDetailsPage() {
               {company.driverName && <p className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> {company.driverName}</p>}
               {company.contactNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> {company.contactNumber}</p>}
             </div>
-            <span className={`text-xs font-semibold px-2 py-1 rounded ${outstanding <= 0 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
-              {outstanding <= 0 ? <span className="inline-flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Settled</span> : `Due ₹${outstanding.toLocaleString()}`}
-            </span>
+            <div className="flex flex-col items-end gap-1.5">
+              <span className={`text-xs font-semibold px-2 py-1 rounded ${outstanding <= 0 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
+                {outstanding <= 0 ? <span className="inline-flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Settled</span> : `Due ₹${outstanding.toLocaleString()}`}
+              </span>
+              <button onClick={() => exportCompanyStatementPDF(company, bills, payments, outstanding)} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] text-foreground hover:bg-secondary/70"><FileDown className="h-3 w-3" /> Statement</button>
+            </div>
           </div>
         </div>
 
