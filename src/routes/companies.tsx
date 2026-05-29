@@ -1,17 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState } from "react";
 import {
   getCompanies, saveCompany, updateCompany, deleteCompany,
-  getBillsByCompany, getCompanyOutstanding, savePayment, getPaymentsByCompany,
-  type Company, type Payment,
+  getCompanyOutstanding, useCloudData,
+  type Company,
 } from "../lib/store";
-import { Plus, Search, Pencil, Trash2, X, Building2, CreditCard, TrendingUp, Truck } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/companies")({
   component: CompaniesPage,
 });
+
 
 function CompaniesPage() {
   const [companies, setCompanies] = useState(getCompanies);
