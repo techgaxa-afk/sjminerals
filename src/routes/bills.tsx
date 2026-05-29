@@ -188,7 +188,7 @@ function BillsPage() {
 
         <div className="space-y-2">
           {filtered.map((bill) => (
-            <div key={bill.id} className="stat-card">
+              <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-mono font-semibold text-primary tracking-wider">INV {bill.invoiceNumber || bill.id.slice(-6).toUpperCase()}</p>
                   <p className="font-medium text-foreground truncate">{bill.companyName || "Walk-in"}</p>
