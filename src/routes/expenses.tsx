@@ -71,7 +71,7 @@ function ExpensesPage() {
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editingId ? "Edit" : "New"} Expense</h3><button onClick={resetForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
             <div>
               <label className="field-label">Category</label>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {CATEGORIES.map((c) => (
                   <button key={c.value} onClick={() => setCategory(c.value)} className={`flex flex-col items-center gap-1 rounded-md border p-2 text-xs font-medium transition-colors ${category === c.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
                     <c.icon className="h-4 w-4" />{c.label}
