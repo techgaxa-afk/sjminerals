@@ -147,31 +147,37 @@ export type Database = {
       }
       companies: {
         Row: {
+          address: string
           contact_number: string
           created_at: string
           driver_name: string
           id: string
           name: string
+          notes: string
           updated_at: string
           vehicle_capacity: number
           vehicle_number: string
         }
         Insert: {
+          address?: string
           contact_number?: string
           created_at?: string
           driver_name?: string
           id?: string
           name: string
+          notes?: string
           updated_at?: string
           vehicle_capacity?: number
           vehicle_number: string
         }
         Update: {
+          address?: string
           contact_number?: string
           created_at?: string
           driver_name?: string
           id?: string
           name?: string
+          notes?: string
           updated_at?: string
           vehicle_capacity?: number
           vehicle_number?: string
@@ -523,6 +529,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vehicles: {
+        Row: {
+          company_id: string
+          created_at: string
+          driver_name: string
+          id: string
+          updated_at: string
+          vehicle_capacity: number
+          vehicle_number: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          driver_name?: string
+          id?: string
+          updated_at?: string
+          vehicle_capacity?: number
+          vehicle_number: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          driver_name?: string
+          id?: string
+          updated_at?: string
+          vehicle_capacity?: number
+          vehicle_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
