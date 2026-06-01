@@ -3,9 +3,10 @@ import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
   getProducts, getCompanies, saveCompany, saveBill, saveExpense,
-  type BillItem, type Company,
+  getVehicles, getVehiclesByCompany, saveVehicle,
+  type BillItem, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search } from "lucide-react";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, Building2 } from "lucide-react";
 
 export const Route = createFileRoute("/billing")({
   component: BillingPage,
