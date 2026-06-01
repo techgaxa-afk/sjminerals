@@ -3,18 +3,19 @@ import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
   getCompanies, getBillsByCompany, getPaymentsByCompany,
-  getCompanyOutstanding, saveCompanyPayment, useCloudData,
-  type Bill, type Payment,
+  getCompanyOutstanding, saveCompanyPayment,
+  getVehiclesByCompany, saveVehicle, updateVehicle, deleteVehicle,
+  useCloudData, type Bill, type Vehicle,
 } from "../lib/store";
 import { exportInvoicePDF, exportCompanyStatementPDF } from "../lib/pdf";
-import { ArrowLeft, Building2, Truck, Phone, User, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown } from "lucide-react";
+import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
   component: CompanyDetailsPage,
 });
 
-type Tab = "overview" | "invoices" | "payments" | "ledger";
+type Tab = "overview" | "vehicles" | "invoices" | "payments" | "ledger";
 
 function CompanyDetailsPage() {
   useCloudData();
@@ -26,13 +27,15 @@ function CompanyDetailsPage() {
   const [showPayForm, setShowPayForm] = useState(false);
   const [payForm, setPayForm] = useState({
     date: new Date().toISOString().split("T")[0],
-    amount: "",
-    method: "cash" as "cash" | "upi" | "bank",
-    notes: "",
+    amount: "", method: "cash" as "cash" | "upi" | "bank", notes: "",
   });
 
-  const bills = useMemo(() => getBillsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id, useCloudData()]);
-  const payments = useMemo(() => getPaymentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id, useCloudData()]);
+  // Vehicle form state
+  const [vehForm, setVehForm] = useState<{ id?: string; vehicleNumber: string; vehicleCapacity: string; driverName: string } | null>(null);
+
+  const bills = useMemo(() => getBillsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
+  const payments = useMemo(() => getPaymentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
+  const vehicles = useMemo(() => getVehiclesByCompany(id), [id]);
   const outstanding = getCompanyOutstanding(id);
   const totalSales = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
   const totalPaid = bills.reduce((s, b) => s + (b.paidAmount || 0), 0);
@@ -58,28 +61,40 @@ function CompanyDetailsPage() {
     setShowPayForm(false);
   };
 
-  // Build ledger (chronological)
+  const handleSaveVehicle = () => {
+    if (!vehForm || !vehForm.vehicleNumber.trim()) return;
+    const data = {
+      vehicleNumber: vehForm.vehicleNumber.trim(),
+      vehicleCapacity: Number(vehForm.vehicleCapacity) || 0,
+      driverName: vehForm.driverName.trim(),
+    };
+    if (vehForm.id) updateVehicle(vehForm.id, data);
+    else saveVehicle({ ...data, companyId: id });
+    setVehForm(null);
+  };
+
+  const handleDeleteVehicle = (v: Vehicle) => {
+    if (!confirm(`Delete vehicle ${v.vehicleNumber}? Past bills are kept.`)) return;
+    deleteVehicle(v.id);
+  };
+
+  // Ledger combining all vehicles under this company
   type LedgerRow = { date: string; description: string; debit: number; credit: number; balance: number };
   const ledger: LedgerRow[] = useMemo(() => {
     const events: { ts: number; date: string; description: string; debit: number; credit: number }[] = [];
-    bills.forEach((b, i) => {
-      events.push({
-        ts: new Date(b.createdAt).getTime(),
-        date: b.createdAt,
-        description: `Invoice #${bills.length - i} — ${b.items.map((it) => it.productName).join(", ") || "Sale"}`,
-        debit: b.totalAmount || 0,
-        credit: 0,
-      });
-    });
-    payments.forEach((p) => {
-      events.push({
-        ts: new Date(p.createdAt).getTime(),
-        date: p.createdAt,
-        description: `Payment received${p.notes ? ` — ${p.notes}` : ""}`,
-        debit: 0,
-        credit: p.amount || 0,
-      });
-    });
+    const asc = [...bills].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    asc.forEach((b) => events.push({
+      ts: new Date(b.createdAt).getTime(),
+      date: b.createdAt,
+      description: `Invoice ${b.invoiceNumber || b.id.slice(-6).toUpperCase()}${b.vehicleNumber ? ` · ${b.vehicleNumber}` : ""} — ${b.items.map((it) => it.productName).join(", ") || "Sale"}`,
+      debit: b.totalAmount || 0, credit: 0,
+    }));
+    payments.forEach((p) => events.push({
+      ts: new Date(p.createdAt).getTime(),
+      date: p.createdAt,
+      description: `Payment received${p.notes ? ` — ${p.notes}` : ""}`,
+      debit: 0, credit: p.amount || 0,
+    }));
     events.sort((a, b) => a.ts - b.ts);
     let bal = 0;
     return events.map((e) => { bal += e.debit - e.credit; return { date: e.date, description: e.description, debit: e.debit, credit: e.credit, balance: bal }; });
@@ -101,9 +116,9 @@ function CompanyDetailsPage() {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-lg font-semibold text-foreground flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" /> {company.name}</h1>
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Truck className="h-3 w-3" /> {company.vehicleNumber}{company.vehicleCapacity > 0 ? ` · ${company.vehicleCapacity} tons` : ""}</p>
-              {company.driverName && <p className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> {company.driverName}</p>}
-              {company.contactNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> {company.contactNumber}</p>}
+              {company.contactNumber && <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Phone className="h-3 w-3" /> {company.contactNumber}</p>}
+              {company.address && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> {company.address}</p>}
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Truck className="h-3 w-3" /> {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"}</p>
             </div>
             <div className="flex flex-col items-end gap-1.5">
               <span className={`text-xs font-semibold px-2 py-1 rounded ${outstanding <= 0 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
@@ -125,7 +140,7 @@ function CompanyDetailsPage() {
           </div>
         </div>
 
-        {/* Add payment */}
+        {/* Receive payment */}
         <div>
           {!showPayForm ? (
             <button onClick={() => setShowPayForm(true)} className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
@@ -139,15 +154,15 @@ function CompanyDetailsPage() {
                 <div><label className="field-label">Amount *</label><input type="number" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} placeholder="₹" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               </div>
               <div>
-                <label className="field-label">Payment Method</label>
+                <label className="field-label">Payment Mode</label>
                 <div className="grid grid-cols-3 gap-1 rounded-md bg-secondary p-1">
                   {(["cash", "upi", "bank"] as const).map((m) => (
-                    <button key={m} onClick={() => setPayForm({ ...payForm, method: m })} className={`rounded-md px-2 py-1.5 text-xs font-medium capitalize transition-colors ${payForm.method === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{m === "bank" ? "Bank Transfer" : m.toUpperCase()}</button>
+                    <button key={m} onClick={() => setPayForm({ ...payForm, method: m })} className={`rounded-md px-2 py-1.5 text-xs font-medium capitalize transition-colors ${payForm.method === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{m === "bank" ? "Bank" : m.toUpperCase()}</button>
                   ))}
                 </div>
               </div>
               <div><label className="field-label">Notes</label><input value={payForm.notes} onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-              <p className="text-xs text-muted-foreground">Allocates against oldest outstanding invoices first.</p>
+              <p className="text-xs text-muted-foreground">Allocates against oldest outstanding invoices first across all vehicles.</p>
               <button onClick={handleSavePayment} className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">Save Payment</button>
             </div>
           )}
@@ -155,7 +170,7 @@ function CompanyDetailsPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 rounded-md bg-secondary p-1 overflow-x-auto">
-          {(["overview", "invoices", "payments", "ledger"] as Tab[]).map((t) => (
+          {(["overview", "vehicles", "invoices", "payments", "ledger"] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize whitespace-nowrap transition-colors ${tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{t}</button>
           ))}
         </div>
@@ -176,27 +191,55 @@ function CompanyDetailsPage() {
           </div>
         )}
 
+        {tab === "vehicles" && (
+          <div className="space-y-2">
+            {vehForm === null ? (
+              <button onClick={() => setVehForm({ vehicleNumber: "", vehicleCapacity: "", driverName: "" })} className="w-full flex items-center justify-center gap-1.5 rounded-md bg-secondary px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"><Plus className="h-4 w-4" /> Add Vehicle</button>
+            ) : (
+              <div className="stat-card space-y-2">
+                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{vehForm.id ? "Edit" : "New"} Vehicle</h3><button onClick={() => setVehForm(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
+                <input value={vehForm.vehicleNumber} onChange={(e) => setVehForm({ ...vehForm, vehicleNumber: e.target.value })} placeholder="Vehicle Number *" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={vehForm.driverName} onChange={(e) => setVehForm({ ...vehForm, driverName: e.target.value })} placeholder="Driver Name" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input type="number" step="0.01" value={vehForm.vehicleCapacity} onChange={(e) => setVehForm({ ...vehForm, vehicleCapacity: e.target.value })} placeholder="Capacity (tons)" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
+                <button onClick={handleSaveVehicle} className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">{vehForm.id ? "Update" : "Save"} Vehicle</button>
+              </div>
+            )}
+            {vehicles.map((v) => (
+              <div key={v.id} className="stat-card flex items-start justify-between">
+                <div>
+                  <p className="font-medium text-foreground flex items-center gap-1.5"><Truck className="h-4 w-4 text-primary" /> {v.vehicleNumber}</p>
+                  {v.driverName && <p className="text-xs text-muted-foreground">Driver: {v.driverName}</p>}
+                  {v.vehicleCapacity > 0 && <p className="text-xs text-muted-foreground">Capacity: {v.vehicleCapacity} tons</p>}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setVehForm({ id: v.id, vehicleNumber: v.vehicleNumber, vehicleCapacity: String(v.vehicleCapacity), driverName: v.driverName })} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => handleDeleteVehicle(v)} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              </div>
+            ))}
+            {vehicles.length === 0 && <p className="text-center text-sm text-muted-foreground py-6">No vehicles yet.</p>}
+          </div>
+        )}
+
         {tab === "invoices" && (
           <div className="space-y-2">
-            {bills.map((b, i) => {
+            {bills.map((b) => {
               const st = billStatus(b);
               return (
                 <div key={b.id} className="stat-card space-y-2">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium text-sm text-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" /> <span className="font-mono text-xs tracking-wider">{b.invoiceNumber || `#${bills.length - i}`}</span></p>
+                      <p className="font-medium text-sm text-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" /> <span className="font-mono text-xs tracking-wider">{b.invoiceNumber || b.id.slice(-6).toUpperCase()}</span></p>
                       <p className="text-xs text-muted-foreground">{format(parseISO(b.createdAt), "dd MMM yyyy · HH:mm")}</p>
+                      {b.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {b.vehicleNumber}{b.driverName ? ` · ${b.driverName}` : ""}</p>}
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ")}</p>
-                      <div className="flex gap-3 mt-1 text-[11px] text-muted-foreground">
-                        <span>Qty: <span className="text-foreground font-medium">{b.items.reduce((s, it) => s + (it.quantity || 0), 0)}</span></span>
-                        <span>Tips: <span className="text-foreground font-medium">₹{(b.tipsAmount || 0).toLocaleString()}</span></span>
-                        <span>Pass: <span className={`font-medium ${b.passEnabled ? "text-foreground" : "text-muted-foreground"}`}>{b.passEnabled ? `₹${(b.passAmount || 0).toLocaleString()}` : "—"}</span></span>
-                      </div>
                     </div>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${st.cls}`}>{st.label}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div><p className="text-muted-foreground">Grand Total</p><p className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString()}</p></div>
+                    <div><p className="text-muted-foreground">Total</p><p className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString()}</p></div>
                     <div><p className="text-muted-foreground">Paid</p><p className="font-semibold text-success">₹{(b.paidAmount || 0).toLocaleString()}</p></div>
                     <div><p className="text-muted-foreground">Due</p><p className="font-semibold text-warning">₹{(b.outstandingAmount || 0).toLocaleString()}</p></div>
                   </div>
@@ -213,28 +256,17 @@ function CompanyDetailsPage() {
 
         {tab === "payments" && (
           <div className="space-y-2">
-            <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
-              <span>Date</span><span className="text-right">Amount</span><span>Mode</span><span className="text-right">Balance</span>
-            </div>
-            {(() => {
-              let runBal = totalSales - totalPaid; // current outstanding
-              // We'll compute running balance going forward from oldest to newest:
-              const asc = [...payments].reverse();
-              // Start balance before any payments = totalSales (debit) — we want post-payment balance per row
-              let bal = totalSales;
-              const rows = asc.map((p) => { bal -= p.amount; return { p, bal }; }).reverse();
-              return rows.map(({ p, bal }) => {
-                const mode = p.notes.match(/\[(CASH|UPI|BANK)\]/)?.[1] ?? "—";
-                return (
-                  <div key={p.id} className="stat-card grid grid-cols-4 gap-2 items-center text-sm">
-                    <span className="text-xs text-muted-foreground">{format(parseISO(p.createdAt), "dd MMM yy")}</span>
-                    <span className="text-right font-medium text-success">₹{p.amount.toLocaleString()}</span>
-                    <span className="text-xs text-foreground">{mode}</span>
-                    <span className="text-right text-xs text-warning">₹{Math.max(0, bal).toLocaleString()}</span>
-                  </div>
-                );
-              });
-            })()}
+            {payments.map((p) => {
+              const mode = p.notes.match(/\[(CASH|UPI|BANK)\]/)?.[1] ?? "—";
+              return (
+                <div key={p.id} className="stat-card grid grid-cols-4 gap-2 items-center text-sm">
+                  <span className="text-xs text-muted-foreground">{format(parseISO(p.createdAt), "dd MMM yy")}</span>
+                  <span className="text-right font-medium text-success">₹{p.amount.toLocaleString()}</span>
+                  <span className="text-xs text-foreground">{mode}</span>
+                  <span className="text-right text-xs text-muted-foreground truncate">{p.notes.replace(/\[(CASH|UPI|BANK)\]\s*/, "")}</span>
+                </div>
+              );
+            })}
             {payments.length === 0 && <p className="text-center text-sm text-muted-foreground py-6">No payments recorded.</p>}
           </div>
         )}

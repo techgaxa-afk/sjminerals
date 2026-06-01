@@ -3,9 +3,10 @@ import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
   getProducts, getCompanies, saveCompany, saveBill, saveExpense,
-  type BillItem, type Company,
+  getVehicles, getVehiclesByCompany, saveVehicle,
+  type BillItem, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search } from "lucide-react";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, Building2 } from "lucide-react";
 
 export const Route = createFileRoute("/billing")({
   component: BillingPage,
@@ -60,10 +61,26 @@ function BillingPage() {
     setVehicleSearch(value);
     setVehicleNumber(value);
     if (value.length >= 2) {
-      const companies = getCompanies();
-      const matches = companies.filter((c) => c.vehicleNumber.toLowerCase().includes(value.toLowerCase()));
+      const v = value.toLowerCase();
+      const vehs = getVehicles().filter((x) => x.vehicleNumber.toLowerCase().includes(v));
+      const cos = getCompanies();
+      const matches: Company[] = [];
+      const seen = new Set<string>();
+      vehs.forEach((vh) => {
+        const c = cos.find((co) => co.id === vh.companyId);
+        if (c && !seen.has(c.id + "|" + vh.id)) {
+          seen.add(c.id + "|" + vh.id);
+          // Synthesize a Company-like row carrying this specific vehicle
+          matches.push({ ...c, driverName: vh.driverName, vehicleNumber: vh.vehicleNumber, vehicleCapacity: vh.vehicleCapacity });
+        }
+      });
+      // Legacy fallback (companies whose own vehicle_number matches)
+      cos.filter((c) => c.vehicleNumber.toLowerCase().includes(v) && !seen.has(c.id + "|legacy")).forEach((c) => {
+        seen.add(c.id + "|legacy");
+        matches.push(c);
+      });
       setSuggestions(matches);
-      const exact = companies.find((c) => c.vehicleNumber.toLowerCase() === value.toLowerCase());
+      const exact = matches.find((c) => c.vehicleNumber.toLowerCase() === v);
       if (exact) selectCompany(exact);
     } else {
       setSuggestions([]);
@@ -85,10 +102,29 @@ function BillingPage() {
     }
   };
 
+  const pickVehicle = (companyId: string, v: Vehicle) => {
+    const c = getCompanies().find((x) => x.id === companyId);
+    if (!c) return;
+    selectCompany({ ...c, driverName: v.driverName, vehicleNumber: v.vehicleNumber, vehicleCapacity: v.vehicleCapacity });
+  };
+
   const handleAddCompany = () => {
     if (!newComp.name.trim() || !newComp.vehicleNumber.trim()) return;
-    const c = saveCompany({ ...newComp, vehicleCapacity: Number(newComp.vehicleCapacity) || 0 });
-    selectCompany(c);
+    // Reuse existing company by name if one already exists (case-insensitive)
+    const existing = getCompanies().find((c) => c.name.toLowerCase() === newComp.name.trim().toLowerCase());
+    const company = existing ?? saveCompany({
+      name: newComp.name.trim(),
+      contactNumber: newComp.contactNumber,
+      address: "", notes: "",
+      driverName: "", vehicleNumber: "", vehicleCapacity: 0,
+    });
+    const vehicle = saveVehicle({
+      companyId: company.id,
+      vehicleNumber: newComp.vehicleNumber.trim(),
+      vehicleCapacity: Number(newComp.vehicleCapacity) || 0,
+      driverName: newComp.driverName,
+    });
+    selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
     setNewComp({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
     setShowNewCompany(false);
   };
