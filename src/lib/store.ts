@@ -8,7 +8,12 @@ export interface Product {
 }
 export interface Company {
   id: string; name: string; driverName: string; vehicleNumber: string;
-  vehicleCapacity: number; contactNumber: string; createdAt: string;
+  vehicleCapacity: number; contactNumber: string;
+  address: string; notes: string; createdAt: string;
+}
+export interface Vehicle {
+  id: string; companyId: string; vehicleNumber: string;
+  vehicleCapacity: number; driverName: string; createdAt: string;
 }
 export interface BillItem {
   productId: string; productName: string; price: number; quantity: number;
@@ -56,6 +61,7 @@ export interface JCBLog {
 type Cache = {
   products: Product[];
   companies: Company[];
+  vehicles: Vehicle[];
   bills: Omit<Bill, "items">[];
   billItems: (BillItem & { id: string; billId: string })[];
   payments: Payment[];
@@ -66,7 +72,7 @@ type Cache = {
   expenses: Expense[];
 };
 const cache: Cache = {
-  products: [], companies: [], bills: [], billItems: [], payments: [],
+  products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
 };
 let version = 0;
@@ -96,11 +102,22 @@ const productToDb = (p: Product) => ({
 });
 const mapCompany = (r: any): Company => ({
   id: r.id, name: r.name, driverName: r.driver_name ?? "", vehicleNumber: r.vehicle_number ?? "",
-  vehicleCapacity: Number(r.vehicle_capacity) || 0, contactNumber: r.contact_number ?? "", createdAt: r.created_at,
+  vehicleCapacity: Number(r.vehicle_capacity) || 0, contactNumber: r.contact_number ?? "",
+  address: r.address ?? "", notes: r.notes ?? "", createdAt: r.created_at,
 });
 const companyToDb = (c: Company) => ({
   id: c.id, name: c.name, driver_name: c.driverName, vehicle_number: c.vehicleNumber,
   vehicle_capacity: c.vehicleCapacity, contact_number: c.contactNumber,
+  address: c.address ?? "", notes: c.notes ?? "",
+});
+const mapVehicle = (r: any): Vehicle => ({
+  id: r.id, companyId: r.company_id, vehicleNumber: r.vehicle_number,
+  vehicleCapacity: Number(r.vehicle_capacity) || 0, driverName: r.driver_name ?? "",
+  createdAt: r.created_at,
+});
+const vehicleToDb = (v: Vehicle) => ({
+  id: v.id, company_id: v.companyId, vehicle_number: v.vehicleNumber,
+  vehicle_capacity: v.vehicleCapacity, driver_name: v.driverName,
 });
 const mapBill = (r: any): Omit<Bill, "items"> => ({
   id: r.id, invoiceNumber: r.invoice_number ?? "",
@@ -192,10 +209,11 @@ export async function loadAll(): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const [
-      products, companies, bills, billItems, payments, machines, operators, entries, fuel, expenses,
+      products, companies, vehicles, bills, billItems, payments, machines, operators, entries, fuel, expenses,
     ] = await Promise.all([
       supabase.from("products").select("*"),
       supabase.from("companies").select("*"),
+      supabase.from("vehicles").select("*"),
       supabase.from("bills").select("*"),
       supabase.from("bill_items").select("*"),
       supabase.from("payments").select("*"),
@@ -207,6 +225,7 @@ export async function loadAll(): Promise<void> {
     ]);
     cache.products = (products.data ?? []).map(mapProduct);
     cache.companies = (companies.data ?? []).map(mapCompany);
+    cache.vehicles = (vehicles.data ?? []).map(mapVehicle);
     cache.bills = (bills.data ?? []).map(mapBill);
     cache.billItems = (billItems.data ?? []).map(mapBillItem);
     cache.payments = (payments.data ?? []).map(mapPayment);
@@ -229,6 +248,7 @@ function setupRealtime() {
   const tables: Array<{ table: keyof Cache | string; map: (r: any) => any; key: keyof Cache }> = [
     { table: "products", map: mapProduct, key: "products" },
     { table: "companies", map: mapCompany, key: "companies" },
+    { table: "vehicles", map: mapVehicle, key: "vehicles" },
     { table: "bills", map: mapBill, key: "bills" },
     { table: "bill_items", map: mapBillItem, key: "billItems" },
     { table: "payments", map: mapPayment, key: "payments" },
@@ -260,7 +280,7 @@ function setupRealtime() {
 }
 
 export function resetStore() {
-  cache.products = []; cache.companies = []; cache.bills = []; cache.billItems = [];
+  cache.products = []; cache.companies = []; cache.vehicles = []; cache.bills = []; cache.billItems = [];
   cache.payments = []; cache.hitachi_machines = []; cache.hitachi_entries = [];
   cache.hitachi_fuel = []; cache.operators = []; cache.expenses = [];
   loaded = false; loadingPromise = null;
@@ -310,7 +330,34 @@ export function deleteCompany(id: string): void {
   bg(supabase.from("companies").delete().eq("id", id));
 }
 export function getCompanyByVehicle(vehicleNumber: string): Company | undefined {
+  const v = cache.vehicles.find((x) => x.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
+  if (v) return cache.companies.find((c) => c.id === v.companyId);
   return cache.companies.find((c) => c.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
+}
+
+// ============ Vehicles ============
+export function getVehicles(): Vehicle[] { return cache.vehicles.slice(); }
+export function getVehiclesByCompany(companyId: string): Vehicle[] {
+  return cache.vehicles.filter((v) => v.companyId === companyId);
+}
+export function getVehicleByNumber(vehicleNumber: string): Vehicle | undefined {
+  return cache.vehicles.find((v) => v.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
+}
+export function saveVehicle(v: Omit<Vehicle, "id" | "createdAt">): Vehicle {
+  const vehicle: Vehicle = { ...v, id: uid(), createdAt: new Date().toISOString() };
+  cache.vehicles.push(vehicle); bump();
+  bg(supabase.from("vehicles").insert(vehicleToDb(vehicle)));
+  return vehicle;
+}
+export function updateVehicle(id: string, updates: Partial<Vehicle>): void {
+  cache.vehicles = cache.vehicles.map((v) => (v.id === id ? { ...v, ...updates } : v));
+  bump();
+  const merged = cache.vehicles.find((v) => v.id === id);
+  if (merged) bg(supabase.from("vehicles").update(vehicleToDb(merged)).eq("id", id));
+}
+export function deleteVehicle(id: string): void {
+  cache.vehicles = cache.vehicles.filter((v) => v.id !== id); bump();
+  bg(supabase.from("vehicles").delete().eq("id", id));
 }
 
 // ============ Bills ============
