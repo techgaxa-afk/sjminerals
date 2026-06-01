@@ -1,8 +1,18 @@
 import type { Bill, Company, Payment } from "./store";
 
+// HTML-escape to prevent stored XSS via fields like company/driver/product names and notes.
+function esc(s: unknown): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function tipsLabel(rate: number): string {
   if (!rate) return "No Tips";
-  return `₹${rate} per Unit`;
+  return `\u20B9${rate} per Unit`;
 }
 
 export function exportInvoicePDF(bill: Bill) {
@@ -14,14 +24,14 @@ export function exportInvoicePDF(bill: Bill) {
 
   const itemRows = bill.items.map((i) =>
     `<tr>
-      <td style="padding:8px;border-bottom:1px solid #e5e7eb">${i.productName}</td>
-      <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:center">${i.quantity}</td>
+      <td style="padding:8px;border-bottom:1px solid #e5e7eb">${esc(i.productName)}</td>
+      <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:center">${esc(i.quantity)}</td>
       <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">₹${i.price.toLocaleString()}</td>
       <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">₹${i.total.toLocaleString()}</td>
     </tr>`
   ).join("");
 
-  w.document.write(`<!DOCTYPE html><html><head><title>Invoice #${bill.id}</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>Invoice ${esc(bill.invoiceNumber || bill.id.slice(-10))}</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111}
     h1{margin:0 0 4px;font-size:24px}
@@ -39,20 +49,20 @@ export function exportInvoicePDF(bill: Bill) {
     .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e}
   </style></head><body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #111;padding-bottom:10px">
-    <div><h1>SJ Minerals Invoice</h1><p class="muted">${new Date(bill.createdAt).toLocaleString()}</p></div>
+    <div><h1>SJ Minerals Invoice</h1><p class="muted">${esc(new Date(bill.createdAt).toLocaleString())}</p></div>
     <div style="text-align:right">
       <p class="muted" style="margin:0;font-size:10px;letter-spacing:1px;text-transform:uppercase">Invoice No.</p>
-      <p style="margin:2px 0 0;font-size:20px;font-weight:bold;font-family:ui-monospace,Menlo,monospace;color:#111">${bill.invoiceNumber || bill.id.slice(-10).toUpperCase()}</p>
+      <p style="margin:2px 0 0;font-size:20px;font-weight:bold;font-family:ui-monospace,Menlo,monospace;color:#111">${esc(bill.invoiceNumber || bill.id.slice(-10).toUpperCase())}</p>
     </div>
   </div>
 
   <div class="meta">
-    <div><b>Company:</b> ${bill.companyName || "Walk-in"}</div>
-    <div><b>Driver:</b> ${bill.driverName || "—"}</div>
-    <div><b>Vehicle No:</b> ${bill.vehicleNumber || "—"}</div>
-    <div><b>Capacity:</b> ${bill.vehicleCapacity > 0 ? `${bill.vehicleCapacity} units` : "—"}</div>
-    <div><b>Payment Mode:</b> ${bill.paymentMode.toUpperCase()}</div>
-    <div><b>Date:</b> ${new Date(bill.createdAt).toLocaleDateString()}</div>
+    <div><b>Company:</b> ${esc(bill.companyName || "Walk-in")}</div>
+    <div><b>Driver:</b> ${esc(bill.driverName || "—")}</div>
+    <div><b>Vehicle No:</b> ${esc(bill.vehicleNumber || "—")}</div>
+    <div><b>Capacity:</b> ${bill.vehicleCapacity > 0 ? `${esc(bill.vehicleCapacity)} units` : "—"}</div>
+    <div><b>Payment Mode:</b> ${esc((bill.paymentMode || "").toUpperCase())}</div>
+    <div><b>Date:</b> ${esc(new Date(bill.createdAt).toLocaleDateString())}</div>
   </div>
 
   <h3 style="margin:16px 0 4px;font-size:14px">Product Details</h3>
@@ -69,7 +79,7 @@ export function exportInvoicePDF(bill: Bill) {
   <div class="breakup">
     <div class="row"><span>Subtotal (Products)</span><span>₹${subtotal.toLocaleString()}</span></div>
     <div class="row">
-      <span>Tips <span class="tag">${tipsLabel(bill.tipsRate)}</span></span>
+      <span>Tips <span class="tag">${esc(tipsLabel(bill.tipsRate))}</span></span>
       <span>₹${bill.tipsAmount.toLocaleString()}</span>
     </div>
     ${bill.tipsRate > 0 ? `<div class="row muted" style="font-size:11px"><span>↳ ₹${bill.tipsRate} × ${tipsBase} units</span><span></span></div>` : ""}
@@ -86,7 +96,7 @@ export function exportInvoicePDF(bill: Bill) {
   </div>
 
   <p class="muted" style="margin-top:20px;text-align:center">Thank you for your business.</p>
-  <script>setTimeout(()=>window.print(),300)</script></body></html>`);
+  <script>setTimeout(function(){window.print()},300)</script></body></html>`);
   w.document.close();
 }
 
@@ -94,25 +104,25 @@ export function exportReportPDF(filter: string, stats: any) {
   const w = window.open("", "_blank");
   if (!w) return;
   const billRows = (stats.bills || []).map((b: any) =>
-    `<tr><td style="padding:4px 8px;border-bottom:1px solid #ddd">${b.customerName || b.companyName || "—"}</td>
-     <td style="padding:4px 8px;border-bottom:1px solid #ddd;text-align:right">₹${b.totalAmount.toLocaleString()}</td>
-     <td style="padding:4px 8px;border-bottom:1px solid #ddd">${new Date(b.createdAt).toLocaleDateString()}</td></tr>`
+    `<tr><td style="padding:4px 8px;border-bottom:1px solid #ddd">${esc(b.customerName || b.companyName || "—")}</td>
+     <td style="padding:4px 8px;border-bottom:1px solid #ddd;text-align:right">₹${(b.totalAmount || 0).toLocaleString()}</td>
+     <td style="padding:4px 8px;border-bottom:1px solid #ddd">${esc(new Date(b.createdAt).toLocaleDateString())}</td></tr>`
   ).join("");
 
-  w.document.write(`<!DOCTYPE html><html><head><title>SJ Minerals ${filter} Report</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>SJ Minerals ${esc(filter)} Report</title>
   <style>body{font-family:system-ui;max-width:700px;margin:0 auto;padding:20px}
   h1{color:#333} table{width:100%;border-collapse:collapse;margin-top:12px}
   th{padding:6px 8px;text-align:left;border-bottom:2px solid #999;color:#666;font-size:12px}
   .stat{display:inline-block;margin:8px 16px 8px 0;padding:10px 16px;border:1px solid #ddd;border-radius:8px}</style></head><body>
-  <h1>SJ Minerals ${filter.charAt(0).toUpperCase() + filter.slice(1)} Report</h1>
-  <div class="stat"><small style="color:#999">Revenue</small><br><strong>₹${stats.totalRevenue.toLocaleString()}</strong></div>
-  <div class="stat"><small style="color:#999">Expenses</small><br><strong>₹${stats.totalExpenses.toLocaleString()}</strong></div>
-  <div class="stat"><small style="color:#999">Net Profit</small><br><strong>₹${stats.netProfit.toLocaleString()}</strong></div>
-  <div class="stat"><small style="color:#999">Outstanding</small><br><strong>₹${stats.totalOutstanding.toLocaleString()}</strong></div>
+  <h1>SJ Minerals ${esc(filter.charAt(0).toUpperCase() + filter.slice(1))} Report</h1>
+  <div class="stat"><small style="color:#999">Revenue</small><br><strong>₹${(stats.totalRevenue || 0).toLocaleString()}</strong></div>
+  <div class="stat"><small style="color:#999">Expenses</small><br><strong>₹${(stats.totalExpenses || 0).toLocaleString()}</strong></div>
+  <div class="stat"><small style="color:#999">Net Profit</small><br><strong>₹${(stats.netProfit || 0).toLocaleString()}</strong></div>
+  <div class="stat"><small style="color:#999">Outstanding</small><br><strong>₹${(stats.totalOutstanding || 0).toLocaleString()}</strong></div>
   <h3>Transactions</h3>
   <table><thead><tr><th>Company</th><th style="text-align:right">Amount</th><th>Date</th></tr></thead>
   <tbody>${billRows}</tbody></table>
-  <script>setTimeout(()=>window.print(),300)</script></body></html>`);
+  <script>setTimeout(function(){window.print()},300)</script></body></html>`);
   w.document.close();
 }
 
@@ -133,7 +143,7 @@ export function exportCompanyStatementPDF(
   ordered.forEach((b, i) => events.push({
     ts: new Date(b.createdAt).getTime(),
     date: b.createdAt,
-    desc: `Invoice ${b.invoiceNumber || `#${i + 1}`} — ${b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ") || "Sale"}${b.passEnabled ? " + Pass" : ""}`,
+    desc: `Invoice ${b.invoiceNumber || `#${i + 1}`}${b.vehicleNumber ? ` (${b.vehicleNumber})` : ""} — ${b.items.map((it) => `${it.productName} ×${it.quantity}`).join(", ") || "Sale"}${b.passEnabled ? " + Pass" : ""}`,
     debit: b.totalAmount || 0, credit: 0,
   }));
   payments.forEach((p) => events.push({
@@ -147,15 +157,15 @@ export function exportCompanyStatementPDF(
   const ledgerRows = events.map((e) => {
     bal += e.debit - e.credit;
     return `<tr>
-      <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px">${new Date(e.date).toLocaleDateString()}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px">${e.desc}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px">${esc(new Date(e.date).toLocaleDateString())}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px">${esc(e.desc)}</td>
       <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;color:#b45309">${e.debit > 0 ? `₹${e.debit.toLocaleString()}` : "—"}</td>
       <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;color:#047857">${e.credit > 0 ? `₹${e.credit.toLocaleString()}` : "—"}</td>
       <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:600">₹${bal.toLocaleString()}</td>
     </tr>`;
   }).join("");
 
-  w.document.write(`<!DOCTYPE html><html><head><title>${company.name} Statement</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>${esc(company.name)} Statement</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:0 auto;padding:24px;color:#111}
     h1{margin:0 0 4px;font-size:22px}
@@ -169,14 +179,13 @@ export function exportCompanyStatementPDF(
     th{padding:8px;text-align:left;border-bottom:2px solid #111;font-size:11px;text-transform:uppercase;color:#374151;letter-spacing:0.5px}
     h3{margin:18px 0 6px;font-size:14px}
   </style></head><body>
-  <h1>${company.name} — Account Statement</h1>
-  <p class="muted">Generated ${new Date().toLocaleString()}</p>
+  <h1>${esc(company.name)} — Account Statement</h1>
+  <p class="muted">Generated ${esc(new Date().toLocaleString())}</p>
 
   <div class="meta">
-    <div><b>Driver:</b> ${company.driverName || "—"}</div>
-    <div><b>Vehicle:</b> ${company.vehicleNumber || "—"}</div>
-    <div><b>Capacity:</b> ${company.vehicleCapacity > 0 ? `${company.vehicleCapacity} tons` : "—"}</div>
-    <div><b>Contact:</b> ${company.contactNumber || "—"}</div>
+    <div><b>Contact:</b> ${esc(company.contactNumber || "—")}</div>
+    <div><b>Address:</b> ${esc(company.address || "—")}</div>
+    ${company.notes ? `<div style="grid-column:1 / -1"><b>Notes:</b> ${esc(company.notes)}</div>` : ""}
   </div>
 
   <div class="stats">
@@ -198,6 +207,6 @@ export function exportCompanyStatementPDF(
   </table>
 
   <p class="muted" style="margin-top:24px;text-align:center">SJ Minerals · Confidential</p>
-  <script>setTimeout(()=>window.print(),300)</script></body></html>`);
+  <script>setTimeout(function(){window.print()},300)</script></body></html>`);
   w.document.close();
 }
