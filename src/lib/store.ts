@@ -285,6 +285,7 @@ function setupRealtime() {
     { table: "hitachi_fuel", map: mapFuel, key: "hitachi_fuel" },
     { table: "operators", map: mapOperator, key: "operators" },
     { table: "expenses", map: mapExpense, key: "expenses" },
+    { table: "credit_adjustments", map: mapCreditAdjustment, key: "credit_adjustments" },
   ];
   for (const t of tables) {
     supabase.channel(`rt-${t.table}`).on(
@@ -310,15 +311,27 @@ function setupRealtime() {
 export function resetStore() {
   cache.products = []; cache.companies = []; cache.vehicles = []; cache.bills = []; cache.billItems = [];
   cache.payments = []; cache.hitachi_machines = []; cache.hitachi_entries = [];
-  cache.hitachi_fuel = []; cache.operators = []; cache.expenses = [];
+  cache.hitachi_fuel = []; cache.operators = []; cache.expenses = []; cache.credit_adjustments = [];
   loaded = false; loadingPromise = null;
   bump();
 }
 
-// Fire-and-forget write helper (logs on failure)
-function bg(promise: any): void {
-  Promise.resolve(promise).then((res: any) => { if (res?.error) console.error("[store]", res.error); }).catch((e) => console.error("[store]", e));
+// Fire-and-forget write helper. On failure: surface a toast via emitError + log.
+// (Realtime will reconcile cache from server state on reconnect.)
+function bg(promise: any, label = "save"): void {
+  Promise.resolve(promise)
+    .then((res: any) => {
+      if (res?.error) {
+        console.error(`[store:${label}]`, res.error);
+        emitError(res.error.message || `Cloud ${label} failed`);
+      }
+    })
+    .catch((e) => {
+      console.error(`[store:${label}]`, e);
+      emitError(e?.message || `Cloud ${label} failed`);
+    });
 }
+
 
 // ============ Products ============
 export function getProducts(): Product[] { return cache.products.slice(); }
