@@ -69,7 +69,7 @@ function CompanyDetailsPage() {
       driverName: vehForm.driverName.trim(),
     };
     if (vehForm.id) updateVehicle(vehForm.id, data);
-    else saveVehicle({ ...data, companyId: id });
+    else saveVehicle({ ...data, companyId: id, status: "active" });
     setVehForm(null);
   };
 
