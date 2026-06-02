@@ -9,12 +9,16 @@ export interface Product {
 export interface Company {
   id: string; name: string; driverName: string; vehicleNumber: string;
   vehicleCapacity: number; contactNumber: string;
-  address: string; notes: string; createdAt: string;
+  address: string; notes: string; openingBalance: number; createdAt: string;
 }
 export interface Vehicle {
   id: string; companyId: string; vehicleNumber: string;
-  vehicleCapacity: number; driverName: string; createdAt: string;
+  vehicleCapacity: number; driverName: string; status: "active" | "inactive"; createdAt: string;
 }
+export interface CreditAdjustment {
+  id: string; companyId: string; amount: number; reason: string; date: string; createdAt: string;
+}
+
 export interface BillItem {
   productId: string; productName: string; price: number; quantity: number;
   total: number; tipsRate: number; tipsAmount: number;
