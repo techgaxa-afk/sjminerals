@@ -28,31 +28,26 @@ function CompaniesPage() {
   );
 
   const resetForm = () => {
-    setForm({ name: "", contactNumber: "", address: "", notes: "" });
+    setForm({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
     setEditingId(null); setShowForm(false);
   };
 
   const handleSave = () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) { toast.error("Company name is required"); return; }
+    const payload = {
+      name: form.name.trim(),
+      contactNumber: form.contactNumber.trim(),
+      address: form.address.trim(),
+      notes: form.notes.trim(),
+      openingBalance: Number(form.openingBalance) || 0,
+    };
     if (editingId) {
-      updateCompany(editingId, {
-        name: form.name.trim(),
-        contactNumber: form.contactNumber.trim(),
-        address: form.address.trim(),
-        notes: form.notes.trim(),
-      });
+      updateCompany(editingId, payload);
+      toast.success("Company updated");
     } else {
-      // Keep legacy required fields satisfied; they're no longer used at company level.
-      saveCompany({
-        name: form.name.trim(),
-        contactNumber: form.contactNumber.trim(),
-        address: form.address.trim(),
-        notes: form.notes.trim(),
-        openingBalance: Number((form as any).openingBalance) || 0,
-        driverName: "", vehicleNumber: "", vehicleCapacity: 0,
-      });
+      saveCompany({ ...payload, driverName: "", vehicleNumber: "", vehicleCapacity: 0 });
+      toast.success("Company created");
     }
-
     resetForm();
   };
 
@@ -63,6 +58,7 @@ function CompaniesPage() {
       contactNumber: c.contactNumber,
       address: c.address || "",
       notes: c.notes || "",
+      openingBalance: c.openingBalance ? String(c.openingBalance) : "",
     });
     setEditingId(c.id);
     setShowForm(true);
@@ -72,7 +68,9 @@ function CompaniesPage() {
     e.preventDefault(); e.stopPropagation();
     if (!confirm("Delete this company and all its vehicles? Bills remain linked to this company id.")) return;
     deleteCompany(id);
+    toast.success("Company deleted");
   };
+
 
   return (
     <AppLayout>
