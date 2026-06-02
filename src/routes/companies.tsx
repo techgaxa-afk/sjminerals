@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
+
 import {
   getCompanies, saveCompany, updateCompany, deleteCompany,
   getCompanyOutstanding, getBillsByCompany, getVehiclesByCompany,
@@ -18,7 +20,7 @@ function CompaniesPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", contactNumber: "", address: "", notes: "" });
+  const [form, setForm] = useState({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
 
   const filtered = useMemo(() =>
     companies.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())),
@@ -26,28 +28,25 @@ function CompaniesPage() {
   );
 
   const resetForm = () => {
-    setForm({ name: "", contactNumber: "", address: "", notes: "" });
+    setForm({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
     setEditingId(null); setShowForm(false);
   };
 
   const handleSave = () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) { toast.error("Company name is required"); return; }
+    const payload = {
+      name: form.name.trim(),
+      contactNumber: form.contactNumber.trim(),
+      address: form.address.trim(),
+      notes: form.notes.trim(),
+      openingBalance: Number(form.openingBalance) || 0,
+    };
     if (editingId) {
-      updateCompany(editingId, {
-        name: form.name.trim(),
-        contactNumber: form.contactNumber.trim(),
-        address: form.address.trim(),
-        notes: form.notes.trim(),
-      });
+      updateCompany(editingId, payload);
+      toast.success("Company updated");
     } else {
-      // Keep legacy required fields satisfied; they're no longer used at company level.
-      saveCompany({
-        name: form.name.trim(),
-        contactNumber: form.contactNumber.trim(),
-        address: form.address.trim(),
-        notes: form.notes.trim(),
-        driverName: "", vehicleNumber: "", vehicleCapacity: 0,
-      });
+      saveCompany({ ...payload, driverName: "", vehicleNumber: "", vehicleCapacity: 0 });
+      toast.success("Company created");
     }
     resetForm();
   };
@@ -59,6 +58,7 @@ function CompaniesPage() {
       contactNumber: c.contactNumber,
       address: c.address || "",
       notes: c.notes || "",
+      openingBalance: c.openingBalance ? String(c.openingBalance) : "",
     });
     setEditingId(c.id);
     setShowForm(true);
@@ -68,7 +68,9 @@ function CompaniesPage() {
     e.preventDefault(); e.stopPropagation();
     if (!confirm("Delete this company and all its vehicles? Bills remain linked to this company id.")) return;
     deleteCompany(id);
+    toast.success("Company deleted");
   };
+
 
   return (
     <AppLayout>
@@ -90,6 +92,8 @@ function CompaniesPage() {
             <div><label className="field-label">Contact Number</label><input value={form.contactNumber} onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} placeholder="Phone number" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
             <div><label className="field-label">Address (optional)</label><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
             <div><label className="field-label">Notes (optional)</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Internal notes" rows={2} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+            <div><label className="field-label">Opening Balance / Previous Due (₹)</label><input type="number" value={form.openingBalance} onChange={(e) => setForm({ ...form, openingBalance: e.target.value })} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /><p className="text-[11px] text-muted-foreground mt-1">Adds to the company's outstanding balance immediately.</p></div>
+
             <p className="text-xs text-muted-foreground">Vehicles are managed inside the company's page.</p>
             <button onClick={handleSave} className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">{editingId ? "Update" : "Save"} Company</button>
           </div>

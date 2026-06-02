@@ -9,12 +9,16 @@ export interface Product {
 export interface Company {
   id: string; name: string; driverName: string; vehicleNumber: string;
   vehicleCapacity: number; contactNumber: string;
-  address: string; notes: string; createdAt: string;
+  address: string; notes: string; openingBalance: number; createdAt: string;
 }
 export interface Vehicle {
   id: string; companyId: string; vehicleNumber: string;
-  vehicleCapacity: number; driverName: string; createdAt: string;
+  vehicleCapacity: number; driverName: string; status: "active" | "inactive"; createdAt: string;
 }
+export interface CreditAdjustment {
+  id: string; companyId: string; amount: number; reason: string; date: string; createdAt: string;
+}
+
 export interface BillItem {
   productId: string; productName: string; price: number; quantity: number;
   total: number; tipsRate: number; tipsAmount: number;
@@ -70,10 +74,12 @@ type Cache = {
   hitachi_fuel: HitachiFuel[];
   operators: Operator[];
   expenses: Expense[];
+  credit_adjustments: CreditAdjustment[];
 };
 const cache: Cache = {
   products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
+  credit_adjustments: [],
 };
 let version = 0;
 const listeners = new Set<() => void>();
@@ -84,12 +90,19 @@ export function useCloudData(): number {
   return useSyncExternalStore(subscribe, getVersion, getVersion);
 }
 
+// ===== Error toast bridge (subscribed by AppLayout) =====
+type WriteErrorListener = (msg: string) => void;
+const errorListeners = new Set<WriteErrorListener>();
+export function onWriteError(l: WriteErrorListener) { errorListeners.add(l); return () => { errorListeners.delete(l); }; }
+function emitError(msg: string) { errorListeners.forEach((l) => { try { l(msg); } catch { /* noop */ } }); }
+
 function uid(): string {
   if (typeof crypto !== "undefined" && (crypto as any).randomUUID) return (crypto as any).randomUUID();
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0; const v = c === "x" ? r : (r & 0x3) | 0x8; return v.toString(16);
   });
 }
+
 
 // ============ Mappers (db <-> ts) ============
 const mapProduct = (r: any): Product => ({
@@ -103,22 +116,34 @@ const productToDb = (p: Product) => ({
 const mapCompany = (r: any): Company => ({
   id: r.id, name: r.name, driverName: r.driver_name ?? "", vehicleNumber: r.vehicle_number ?? "",
   vehicleCapacity: Number(r.vehicle_capacity) || 0, contactNumber: r.contact_number ?? "",
-  address: r.address ?? "", notes: r.notes ?? "", createdAt: r.created_at,
+  address: r.address ?? "", notes: r.notes ?? "",
+  openingBalance: Number(r.opening_balance) || 0, createdAt: r.created_at,
 });
 const companyToDb = (c: Company) => ({
   id: c.id, name: c.name, driver_name: c.driverName, vehicle_number: c.vehicleNumber,
   vehicle_capacity: c.vehicleCapacity, contact_number: c.contactNumber,
   address: c.address ?? "", notes: c.notes ?? "",
+  opening_balance: c.openingBalance || 0,
 });
 const mapVehicle = (r: any): Vehicle => ({
   id: r.id, companyId: r.company_id, vehicleNumber: r.vehicle_number,
   vehicleCapacity: Number(r.vehicle_capacity) || 0, driverName: r.driver_name ?? "",
+  status: r.status === "inactive" ? "inactive" : "active",
   createdAt: r.created_at,
 });
 const vehicleToDb = (v: Vehicle) => ({
   id: v.id, company_id: v.companyId, vehicle_number: v.vehicleNumber,
   vehicle_capacity: v.vehicleCapacity, driver_name: v.driverName,
+  status: v.status || "active",
 });
+const mapCreditAdjustment = (r: any): CreditAdjustment => ({
+  id: r.id, companyId: r.company_id, amount: Number(r.amount) || 0,
+  reason: r.reason ?? "", date: r.date, createdAt: r.created_at,
+});
+const creditAdjustmentToDb = (a: CreditAdjustment) => ({
+  id: a.id, company_id: a.companyId, amount: a.amount, reason: a.reason, date: a.date,
+});
+
 const mapBill = (r: any): Omit<Bill, "items"> => ({
   id: r.id, invoiceNumber: r.invoice_number ?? "",
   totalAmount: Number(r.total_amount) || 0, paymentMode: r.payment_mode,
@@ -209,7 +234,7 @@ export async function loadAll(): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const [
-      products, companies, vehicles, bills, billItems, payments, machines, operators, entries, fuel, expenses,
+      products, companies, vehicles, bills, billItems, payments, machines, operators, entries, fuel, expenses, adjustments,
     ] = await Promise.all([
       supabase.from("products").select("*"),
       supabase.from("companies").select("*"),
@@ -222,6 +247,7 @@ export async function loadAll(): Promise<void> {
       supabase.from("hitachi_entries").select("*"),
       supabase.from("hitachi_fuel").select("*"),
       supabase.from("expenses").select("*"),
+      supabase.from("credit_adjustments").select("*"),
     ]);
     cache.products = (products.data ?? []).map(mapProduct);
     cache.companies = (companies.data ?? []).map(mapCompany);
@@ -234,12 +260,14 @@ export async function loadAll(): Promise<void> {
     cache.hitachi_entries = (entries.data ?? []).map(mapEntry);
     cache.hitachi_fuel = (fuel.data ?? []).map(mapFuel);
     cache.expenses = (expenses.data ?? []).map(mapExpense);
+    cache.credit_adjustments = (adjustments.data ?? []).map(mapCreditAdjustment);
     loaded = true;
     bump();
     setupRealtime();
   })();
   return loadingPromise;
 }
+
 
 let realtimeReady = false;
 function setupRealtime() {
@@ -257,6 +285,7 @@ function setupRealtime() {
     { table: "hitachi_fuel", map: mapFuel, key: "hitachi_fuel" },
     { table: "operators", map: mapOperator, key: "operators" },
     { table: "expenses", map: mapExpense, key: "expenses" },
+    { table: "credit_adjustments", map: mapCreditAdjustment, key: "credit_adjustments" },
   ];
   for (const t of tables) {
     supabase.channel(`rt-${t.table}`).on(
@@ -282,15 +311,27 @@ function setupRealtime() {
 export function resetStore() {
   cache.products = []; cache.companies = []; cache.vehicles = []; cache.bills = []; cache.billItems = [];
   cache.payments = []; cache.hitachi_machines = []; cache.hitachi_entries = [];
-  cache.hitachi_fuel = []; cache.operators = []; cache.expenses = [];
+  cache.hitachi_fuel = []; cache.operators = []; cache.expenses = []; cache.credit_adjustments = [];
   loaded = false; loadingPromise = null;
   bump();
 }
 
-// Fire-and-forget write helper (logs on failure)
-function bg(promise: any): void {
-  Promise.resolve(promise).then((res: any) => { if (res?.error) console.error("[store]", res.error); }).catch((e) => console.error("[store]", e));
+// Fire-and-forget write helper. On failure: surface a toast via emitError + log.
+// (Realtime will reconcile cache from server state on reconnect.)
+function bg(promise: any, label = "save"): void {
+  Promise.resolve(promise)
+    .then((res: any) => {
+      if (res?.error) {
+        console.error(`[store:${label}]`, res.error);
+        emitError(res.error.message || `Cloud ${label} failed`);
+      }
+    })
+    .catch((e) => {
+      console.error(`[store:${label}]`, e);
+      emitError(e?.message || `Cloud ${label} failed`);
+    });
 }
+
 
 // ============ Products ============
 export function getProducts(): Product[] { return cache.products.slice(); }
@@ -567,6 +608,22 @@ export function deleteExpense(id: string): void {
   bg(supabase.from("expenses").delete().eq("id", id));
 }
 
+// ============ Credit Adjustments ============
+export function getCreditAdjustments(): CreditAdjustment[] { return cache.credit_adjustments.slice(); }
+export function getCreditAdjustmentsByCompany(companyId: string): CreditAdjustment[] {
+  return cache.credit_adjustments.filter((a) => a.companyId === companyId);
+}
+export function saveCreditAdjustment(a: Omit<CreditAdjustment, "id" | "createdAt">): CreditAdjustment {
+  const adj: CreditAdjustment = { ...a, id: uid(), createdAt: new Date().toISOString() };
+  cache.credit_adjustments.push(adj); bump();
+  bg(supabase.from("credit_adjustments").insert(creditAdjustmentToDb(adj)), "save adjustment");
+  return adj;
+}
+export function deleteCreditAdjustment(id: string): void {
+  cache.credit_adjustments = cache.credit_adjustments.filter((a) => a.id !== id); bump();
+  bg(supabase.from("credit_adjustments").delete().eq("id", id), "delete adjustment");
+}
+
 // ============ Dashboard helpers ============
 export function getDateRange(filter: "daily" | "weekly" | "monthly"): { start: Date; end: Date } {
   const end = new Date();
@@ -576,10 +633,18 @@ export function getDateRange(filter: "daily" | "weekly" | "monthly"): { start: D
   else start.setMonth(start.getMonth() - 1);
   return { start, end };
 }
+// Outstanding = opening balance + Σ bill outstanding + Σ adjustments (signed)
 export function getCompanyOutstanding(companyId: string): number {
-  return getBillsByCompany(companyId).reduce((s, b) => s + (b.outstandingAmount ?? 0), 0);
+  const company = cache.companies.find((c) => c.id === companyId);
+  const opening = company?.openingBalance || 0;
+  const bills = cache.bills.filter((b) => b.companyId === companyId)
+    .reduce((s, b) => s + (b.outstandingAmount ?? 0), 0);
+  const adj = cache.credit_adjustments.filter((a) => a.companyId === companyId)
+    .reduce((s, a) => s + (a.amount ?? 0), 0);
+  return opening + bills + adj;
 }
 export function getJCBLogs(): JCBLog[] { return []; }
+
 
 // ============ Import / Export ============
 export function exportData(): string {

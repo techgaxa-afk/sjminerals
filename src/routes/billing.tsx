@@ -115,7 +115,7 @@ function BillingPage() {
     const company = existing ?? saveCompany({
       name: newComp.name.trim(),
       contactNumber: newComp.contactNumber,
-      address: "", notes: "",
+      address: "", notes: "", openingBalance: 0,
       driverName: "", vehicleNumber: "", vehicleCapacity: 0,
     });
     const vehicle = saveVehicle({
@@ -123,8 +123,10 @@ function BillingPage() {
       vehicleNumber: newComp.vehicleNumber.trim(),
       vehicleCapacity: Number(newComp.vehicleCapacity) || 0,
       driverName: newComp.driverName,
+      status: "active",
     });
     selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
+
     setNewComp({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
     setShowNewCompany(false);
   };
