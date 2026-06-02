@@ -234,7 +234,7 @@ export async function loadAll(): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const [
-      products, companies, vehicles, bills, billItems, payments, machines, operators, entries, fuel, expenses,
+      products, companies, vehicles, bills, billItems, payments, machines, operators, entries, fuel, expenses, adjustments,
     ] = await Promise.all([
       supabase.from("products").select("*"),
       supabase.from("companies").select("*"),
@@ -247,6 +247,7 @@ export async function loadAll(): Promise<void> {
       supabase.from("hitachi_entries").select("*"),
       supabase.from("hitachi_fuel").select("*"),
       supabase.from("expenses").select("*"),
+      supabase.from("credit_adjustments").select("*"),
     ]);
     cache.products = (products.data ?? []).map(mapProduct);
     cache.companies = (companies.data ?? []).map(mapCompany);
@@ -259,12 +260,14 @@ export async function loadAll(): Promise<void> {
     cache.hitachi_entries = (entries.data ?? []).map(mapEntry);
     cache.hitachi_fuel = (fuel.data ?? []).map(mapFuel);
     cache.expenses = (expenses.data ?? []).map(mapExpense);
+    cache.credit_adjustments = (adjustments.data ?? []).map(mapCreditAdjustment);
     loaded = true;
     bump();
     setupRealtime();
   })();
   return loadingPromise;
 }
+
 
 let realtimeReady = false;
 function setupRealtime() {
