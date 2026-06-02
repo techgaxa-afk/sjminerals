@@ -74,10 +74,12 @@ type Cache = {
   hitachi_fuel: HitachiFuel[];
   operators: Operator[];
   expenses: Expense[];
+  credit_adjustments: CreditAdjustment[];
 };
 const cache: Cache = {
   products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
+  credit_adjustments: [],
 };
 let version = 0;
 const listeners = new Set<() => void>();
@@ -88,12 +90,19 @@ export function useCloudData(): number {
   return useSyncExternalStore(subscribe, getVersion, getVersion);
 }
 
+// ===== Error toast bridge (subscribed by AppLayout) =====
+type WriteErrorListener = (msg: string) => void;
+const errorListeners = new Set<WriteErrorListener>();
+export function onWriteError(l: WriteErrorListener) { errorListeners.add(l); return () => { errorListeners.delete(l); }; }
+function emitError(msg: string) { errorListeners.forEach((l) => { try { l(msg); } catch { /* noop */ } }); }
+
 function uid(): string {
   if (typeof crypto !== "undefined" && (crypto as any).randomUUID) return (crypto as any).randomUUID();
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0; const v = c === "x" ? r : (r & 0x3) | 0x8; return v.toString(16);
   });
 }
+
 
 // ============ Mappers (db <-> ts) ============
 const mapProduct = (r: any): Product => ({
