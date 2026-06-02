@@ -18,7 +18,7 @@ function CompaniesPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", contactNumber: "", address: "", notes: "" });
+  const [form, setForm] = useState({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
 
   const filtered = useMemo(() =>
     companies.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())),
