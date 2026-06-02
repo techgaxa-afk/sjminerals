@@ -154,6 +154,7 @@ export type Database = {
           id: string
           name: string
           notes: string
+          opening_balance: number
           updated_at: string
           vehicle_capacity: number
           vehicle_number: string
@@ -166,6 +167,7 @@ export type Database = {
           id?: string
           name: string
           notes?: string
+          opening_balance?: number
           updated_at?: string
           vehicle_capacity?: number
           vehicle_number: string
@@ -178,9 +180,37 @@ export type Database = {
           id?: string
           name?: string
           notes?: string
+          opening_balance?: number
           updated_at?: string
           vehicle_capacity?: number
           vehicle_number?: string
+        }
+        Relationships: []
+      }
+      credit_adjustments: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          date: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          amount: number
+          company_id: string
+          created_at?: string
+          date?: string
+          id?: string
+          reason?: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          reason?: string
         }
         Relationships: []
       }
@@ -536,6 +566,7 @@ export type Database = {
           created_at: string
           driver_name: string
           id: string
+          status: string
           updated_at: string
           vehicle_capacity: number
           vehicle_number: string
@@ -545,6 +576,7 @@ export type Database = {
           created_at?: string
           driver_name?: string
           id?: string
+          status?: string
           updated_at?: string
           vehicle_capacity?: number
           vehicle_number: string
@@ -554,6 +586,7 @@ export type Database = {
           created_at?: string
           driver_name?: string
           id?: string
+          status?: string
           updated_at?: string
           vehicle_capacity?: number
           vehicle_number?: string
