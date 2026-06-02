@@ -608,6 +608,22 @@ export function deleteExpense(id: string): void {
   bg(supabase.from("expenses").delete().eq("id", id));
 }
 
+// ============ Credit Adjustments ============
+export function getCreditAdjustments(): CreditAdjustment[] { return cache.credit_adjustments.slice(); }
+export function getCreditAdjustmentsByCompany(companyId: string): CreditAdjustment[] {
+  return cache.credit_adjustments.filter((a) => a.companyId === companyId);
+}
+export function saveCreditAdjustment(a: Omit<CreditAdjustment, "id" | "createdAt">): CreditAdjustment {
+  const adj: CreditAdjustment = { ...a, id: uid(), createdAt: new Date().toISOString() };
+  cache.credit_adjustments.push(adj); bump();
+  bg(supabase.from("credit_adjustments").insert(creditAdjustmentToDb(adj)), "save adjustment");
+  return adj;
+}
+export function deleteCreditAdjustment(id: string): void {
+  cache.credit_adjustments = cache.credit_adjustments.filter((a) => a.id !== id); bump();
+  bg(supabase.from("credit_adjustments").delete().eq("id", id), "delete adjustment");
+}
+
 // ============ Dashboard helpers ============
 export function getDateRange(filter: "daily" | "weekly" | "monthly"): { start: Date; end: Date } {
   const end = new Date();
@@ -617,10 +633,18 @@ export function getDateRange(filter: "daily" | "weekly" | "monthly"): { start: D
   else start.setMonth(start.getMonth() - 1);
   return { start, end };
 }
+// Outstanding = opening balance + Σ bill outstanding + Σ adjustments (signed)
 export function getCompanyOutstanding(companyId: string): number {
-  return getBillsByCompany(companyId).reduce((s, b) => s + (b.outstandingAmount ?? 0), 0);
+  const company = cache.companies.find((c) => c.id === companyId);
+  const opening = company?.openingBalance || 0;
+  const bills = cache.bills.filter((b) => b.companyId === companyId)
+    .reduce((s, b) => s + (b.outstandingAmount ?? 0), 0);
+  const adj = cache.credit_adjustments.filter((a) => a.companyId === companyId)
+    .reduce((s, a) => s + (a.amount ?? 0), 0);
+  return opening + bills + adj;
 }
 export function getJCBLogs(): JCBLog[] { return []; }
+
 
 // ============ Import / Export ============
 export function exportData(): string {
