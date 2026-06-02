@@ -46,9 +46,11 @@ function CompaniesPage() {
         contactNumber: form.contactNumber.trim(),
         address: form.address.trim(),
         notes: form.notes.trim(),
+        openingBalance: Number((form as any).openingBalance) || 0,
         driverName: "", vehicleNumber: "", vehicleCapacity: 0,
       });
     }
+
     resetForm();
   };
 
