@@ -37,6 +37,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [session]);
 
+  useEffect(() => {
+    return onWriteError((msg) => toast.error("Cloud save failed", { description: msg }));
+  }, []);
+
+
   if (loading || !session || !dataReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
