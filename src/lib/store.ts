@@ -107,22 +107,34 @@ const productToDb = (p: Product) => ({
 const mapCompany = (r: any): Company => ({
   id: r.id, name: r.name, driverName: r.driver_name ?? "", vehicleNumber: r.vehicle_number ?? "",
   vehicleCapacity: Number(r.vehicle_capacity) || 0, contactNumber: r.contact_number ?? "",
-  address: r.address ?? "", notes: r.notes ?? "", createdAt: r.created_at,
+  address: r.address ?? "", notes: r.notes ?? "",
+  openingBalance: Number(r.opening_balance) || 0, createdAt: r.created_at,
 });
 const companyToDb = (c: Company) => ({
   id: c.id, name: c.name, driver_name: c.driverName, vehicle_number: c.vehicleNumber,
   vehicle_capacity: c.vehicleCapacity, contact_number: c.contactNumber,
   address: c.address ?? "", notes: c.notes ?? "",
+  opening_balance: c.openingBalance || 0,
 });
 const mapVehicle = (r: any): Vehicle => ({
   id: r.id, companyId: r.company_id, vehicleNumber: r.vehicle_number,
   vehicleCapacity: Number(r.vehicle_capacity) || 0, driverName: r.driver_name ?? "",
+  status: r.status === "inactive" ? "inactive" : "active",
   createdAt: r.created_at,
 });
 const vehicleToDb = (v: Vehicle) => ({
   id: v.id, company_id: v.companyId, vehicle_number: v.vehicleNumber,
   vehicle_capacity: v.vehicleCapacity, driver_name: v.driverName,
+  status: v.status || "active",
 });
+const mapCreditAdjustment = (r: any): CreditAdjustment => ({
+  id: r.id, companyId: r.company_id, amount: Number(r.amount) || 0,
+  reason: r.reason ?? "", date: r.date, createdAt: r.created_at,
+});
+const creditAdjustmentToDb = (a: CreditAdjustment) => ({
+  id: a.id, company_id: a.companyId, amount: a.amount, reason: a.reason, date: a.date,
+});
+
 const mapBill = (r: any): Omit<Bill, "items"> => ({
   id: r.id, invoiceNumber: r.invoice_number ?? "",
   totalAmount: Number(r.total_amount) || 0, paymentMode: r.payment_mode,
