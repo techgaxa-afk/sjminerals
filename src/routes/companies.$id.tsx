@@ -35,9 +35,13 @@ function CompanyDetailsPage() {
   // Vehicle form state
   const [vehForm, setVehForm] = useState<{ id?: string; vehicleNumber: string; vehicleCapacity: string; driverName: string } | null>(null);
 
+  // Adjustment form
+  const [adjForm, setAdjForm] = useState<{ amount: string; reason: string; date: string } | null>(null);
+
   const bills = useMemo(() => getBillsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const payments = useMemo(() => getPaymentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const vehicles = useMemo(() => getVehiclesByCompany(id), [id]);
+  const adjustments = useMemo(() => getCreditAdjustmentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const outstanding = getCompanyOutstanding(id);
   const totalSales = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
   const totalPaid = bills.reduce((s, b) => s + (b.paidAmount || 0), 0);
