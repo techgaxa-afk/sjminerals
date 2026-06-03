@@ -343,6 +343,7 @@ function CompanyDetailsPage() {
           </div>
         )}
 
+        {tab === "ledger" && (
           <div className="space-y-2">
             <div className="stat-card grid grid-cols-12 gap-1 text-[10px] font-medium text-muted-foreground uppercase">
               <span className="col-span-2">Date</span>
