@@ -210,7 +210,7 @@ function CompanyDetailsPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 rounded-md bg-secondary p-1 overflow-x-auto">
-          {(["overview", "vehicles", "invoices", "payments", "ledger"] as Tab[]).map((t) => (
+          {(["overview", "vehicles", "invoices", "payments", "adjustments", "ledger"] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize whitespace-nowrap transition-colors ${tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{t}</button>
           ))}
         </div>
