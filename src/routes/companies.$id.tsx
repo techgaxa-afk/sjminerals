@@ -1,21 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import {
   getCompanies, getBillsByCompany, getPaymentsByCompany,
   getCompanyOutstanding, saveCompanyPayment,
   getVehiclesByCompany, saveVehicle, updateVehicle, deleteVehicle,
+  getCreditAdjustmentsByCompany, saveCreditAdjustment, deleteCreditAdjustment,
   useCloudData, type Bill, type Vehicle,
 } from "../lib/store";
 import { exportInvoicePDF, exportCompanyStatementPDF } from "../lib/pdf";
-import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
   component: CompanyDetailsPage,
 });
 
-type Tab = "overview" | "vehicles" | "invoices" | "payments" | "ledger";
+type Tab = "overview" | "vehicles" | "invoices" | "payments" | "adjustments" | "ledger";
 
 function CompanyDetailsPage() {
   useCloudData();
