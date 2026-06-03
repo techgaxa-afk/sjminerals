@@ -311,7 +311,38 @@ function CompanyDetailsPage() {
           </div>
         )}
 
-        {tab === "ledger" && (
+        {tab === "adjustments" && (
+          <div className="space-y-2">
+            {adjForm === null ? (
+              <button onClick={() => setAdjForm({ amount: "", reason: "", date: new Date().toISOString().split("T")[0] })} className="w-full flex items-center justify-center gap-1.5 rounded-md bg-secondary px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"><Plus className="h-4 w-4" /> Add Adjustment</button>
+            ) : (
+              <div className="stat-card space-y-2">
+                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5"><Scale className="h-4 w-4 text-primary" /> New Adjustment</h3><button onClick={() => setAdjForm(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="field-label">Date</label><input type="date" value={adjForm.date} onChange={(e) => setAdjForm({ ...adjForm, date: e.target.value })} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  <div><label className="field-label">Amount (₹) *</label><input type="number" value={adjForm.amount} onChange={(e) => setAdjForm({ ...adjForm, amount: e.target.value })} placeholder="+ debit / - credit" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                </div>
+                <div><label className="field-label">Reason</label><input value={adjForm.reason} onChange={(e) => setAdjForm({ ...adjForm, reason: e.target.value })} placeholder="e.g. Discount, write-off, prior due" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                <p className="text-[11px] text-muted-foreground">Positive amount increases outstanding (debit); negative reduces it (credit).</p>
+                <button onClick={handleSaveAdjustment} className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save Adjustment</button>
+              </div>
+            )}
+            {adjustments.map((a) => (
+              <div key={a.id} className="stat-card flex items-start justify-between text-sm">
+                <div>
+                  <p className="text-foreground">{a.reason || "Adjustment"}</p>
+                  <p className="text-xs text-muted-foreground">{format(parseISO(a.date), "dd MMM yyyy")}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`font-semibold ${a.amount > 0 ? "text-warning" : "text-success"}`}>{a.amount > 0 ? "+" : ""}₹{a.amount.toLocaleString()}</span>
+                  <button onClick={() => handleDeleteAdjustment(a.id)} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              </div>
+            ))}
+            {adjustments.length === 0 && <p className="text-center text-sm text-muted-foreground py-6">No adjustments recorded.</p>}
+          </div>
+        )}
+
           <div className="space-y-2">
             <div className="stat-card grid grid-cols-12 gap-1 text-[10px] font-medium text-muted-foreground uppercase">
               <span className="col-span-2">Date</span>
