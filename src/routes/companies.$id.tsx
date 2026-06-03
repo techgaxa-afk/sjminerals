@@ -105,6 +105,16 @@ function CompanyDetailsPage() {
   type LedgerRow = { date: string; description: string; debit: number; credit: number; balance: number };
   const ledger: LedgerRow[] = useMemo(() => {
     const events: { ts: number; date: string; description: string; debit: number; credit: number }[] = [];
+    const opening = company?.openingBalance || 0;
+    if (opening !== 0) {
+      events.push({
+        ts: new Date(company!.createdAt).getTime(),
+        date: company!.createdAt,
+        description: "Opening balance / previous outstanding",
+        debit: opening > 0 ? opening : 0,
+        credit: opening < 0 ? -opening : 0,
+      });
+    }
     const asc = [...bills].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     asc.forEach((b) => events.push({
       ts: new Date(b.createdAt).getTime(),
@@ -118,10 +128,17 @@ function CompanyDetailsPage() {
       description: `Payment received${p.notes ? ` — ${p.notes}` : ""}`,
       debit: 0, credit: p.amount || 0,
     }));
+    adjustments.forEach((a) => events.push({
+      ts: new Date(a.createdAt).getTime(),
+      date: a.createdAt,
+      description: `Adjustment${a.reason ? ` — ${a.reason}` : ""}`,
+      debit: a.amount > 0 ? a.amount : 0,
+      credit: a.amount < 0 ? -a.amount : 0,
+    }));
     events.sort((a, b) => a.ts - b.ts);
     let bal = 0;
     return events.map((e) => { bal += e.debit - e.credit; return { date: e.date, description: e.description, debit: e.debit, credit: e.credit, balance: bal }; });
-  }, [bills, payments]);
+  }, [bills, payments, adjustments, company]);
 
   const billStatus = (b: Bill): { label: string; cls: string } => {
     if ((b.outstandingAmount || 0) <= 0) return { label: "Paid", cls: "bg-success/20 text-success" };
