@@ -60,28 +60,45 @@ function CompanyDetailsPage() {
 
   const handleSavePayment = () => {
     const amt = Number(payForm.amount);
-    if (!amt || amt <= 0) return;
+    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
     const notes = `[${payForm.method.toUpperCase()}] ${payForm.notes}`.trim();
     saveCompanyPayment({ companyId: id, amount: amt, date: payForm.date, notes });
+    toast.success(`Payment of ₹${amt.toLocaleString()} recorded`);
     setPayForm({ date: new Date().toISOString().split("T")[0], amount: "", method: "cash", notes: "" });
     setShowPayForm(false);
   };
 
   const handleSaveVehicle = () => {
-    if (!vehForm || !vehForm.vehicleNumber.trim()) return;
+    if (!vehForm || !vehForm.vehicleNumber.trim()) { toast.error("Vehicle number required"); return; }
     const data = {
       vehicleNumber: vehForm.vehicleNumber.trim(),
       vehicleCapacity: Number(vehForm.vehicleCapacity) || 0,
       driverName: vehForm.driverName.trim(),
     };
-    if (vehForm.id) updateVehicle(vehForm.id, data);
-    else saveVehicle({ ...data, companyId: id, status: "active" });
+    if (vehForm.id) { updateVehicle(vehForm.id, data); toast.success("Vehicle updated"); }
+    else { saveVehicle({ ...data, companyId: id, status: "active" }); toast.success("Vehicle added"); }
     setVehForm(null);
   };
 
   const handleDeleteVehicle = (v: Vehicle) => {
     if (!confirm(`Delete vehicle ${v.vehicleNumber}? Past bills are kept.`)) return;
     deleteVehicle(v.id);
+    toast.success("Vehicle deleted");
+  };
+
+  const handleSaveAdjustment = () => {
+    if (!adjForm) return;
+    const amt = Number(adjForm.amount);
+    if (!amt || amt === 0) { toast.error("Enter a non-zero amount"); return; }
+    saveCreditAdjustment({ companyId: id, amount: amt, reason: adjForm.reason.trim(), date: adjForm.date });
+    toast.success(amt > 0 ? "Debit adjustment added" : "Credit adjustment added");
+    setAdjForm(null);
+  };
+
+  const handleDeleteAdjustment = (aid: string) => {
+    if (!confirm("Delete this adjustment?")) return;
+    deleteCreditAdjustment(aid);
+    toast.success("Adjustment deleted");
   };
 
   // Ledger combining all vehicles under this company
