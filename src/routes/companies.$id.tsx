@@ -1,21 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import {
   getCompanies, getBillsByCompany, getPaymentsByCompany,
   getCompanyOutstanding, saveCompanyPayment,
   getVehiclesByCompany, saveVehicle, updateVehicle, deleteVehicle,
+  getCreditAdjustmentsByCompany, saveCreditAdjustment, deleteCreditAdjustment,
   useCloudData, type Bill, type Vehicle,
 } from "../lib/store";
 import { exportInvoicePDF, exportCompanyStatementPDF } from "../lib/pdf";
-import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
   component: CompanyDetailsPage,
 });
 
-type Tab = "overview" | "vehicles" | "invoices" | "payments" | "ledger";
+type Tab = "overview" | "vehicles" | "invoices" | "payments" | "adjustments" | "ledger";
 
 function CompanyDetailsPage() {
   useCloudData();
@@ -33,9 +35,13 @@ function CompanyDetailsPage() {
   // Vehicle form state
   const [vehForm, setVehForm] = useState<{ id?: string; vehicleNumber: string; vehicleCapacity: string; driverName: string } | null>(null);
 
+  // Adjustment form
+  const [adjForm, setAdjForm] = useState<{ amount: string; reason: string; date: string } | null>(null);
+
   const bills = useMemo(() => getBillsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const payments = useMemo(() => getPaymentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const vehicles = useMemo(() => getVehiclesByCompany(id), [id]);
+  const adjustments = useMemo(() => getCreditAdjustmentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const outstanding = getCompanyOutstanding(id);
   const totalSales = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
   const totalPaid = bills.reduce((s, b) => s + (b.paidAmount || 0), 0);
@@ -54,34 +60,61 @@ function CompanyDetailsPage() {
 
   const handleSavePayment = () => {
     const amt = Number(payForm.amount);
-    if (!amt || amt <= 0) return;
+    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
     const notes = `[${payForm.method.toUpperCase()}] ${payForm.notes}`.trim();
     saveCompanyPayment({ companyId: id, amount: amt, date: payForm.date, notes });
+    toast.success(`Payment of ₹${amt.toLocaleString()} recorded`);
     setPayForm({ date: new Date().toISOString().split("T")[0], amount: "", method: "cash", notes: "" });
     setShowPayForm(false);
   };
 
   const handleSaveVehicle = () => {
-    if (!vehForm || !vehForm.vehicleNumber.trim()) return;
+    if (!vehForm || !vehForm.vehicleNumber.trim()) { toast.error("Vehicle number required"); return; }
     const data = {
       vehicleNumber: vehForm.vehicleNumber.trim(),
       vehicleCapacity: Number(vehForm.vehicleCapacity) || 0,
       driverName: vehForm.driverName.trim(),
     };
-    if (vehForm.id) updateVehicle(vehForm.id, data);
-    else saveVehicle({ ...data, companyId: id, status: "active" });
+    if (vehForm.id) { updateVehicle(vehForm.id, data); toast.success("Vehicle updated"); }
+    else { saveVehicle({ ...data, companyId: id, status: "active" }); toast.success("Vehicle added"); }
     setVehForm(null);
   };
 
   const handleDeleteVehicle = (v: Vehicle) => {
     if (!confirm(`Delete vehicle ${v.vehicleNumber}? Past bills are kept.`)) return;
     deleteVehicle(v.id);
+    toast.success("Vehicle deleted");
+  };
+
+  const handleSaveAdjustment = () => {
+    if (!adjForm) return;
+    const amt = Number(adjForm.amount);
+    if (!amt || amt === 0) { toast.error("Enter a non-zero amount"); return; }
+    saveCreditAdjustment({ companyId: id, amount: amt, reason: adjForm.reason.trim(), date: adjForm.date });
+    toast.success(amt > 0 ? "Debit adjustment added" : "Credit adjustment added");
+    setAdjForm(null);
+  };
+
+  const handleDeleteAdjustment = (aid: string) => {
+    if (!confirm("Delete this adjustment?")) return;
+    deleteCreditAdjustment(aid);
+    toast.success("Adjustment deleted");
   };
 
   // Ledger combining all vehicles under this company
   type LedgerRow = { date: string; description: string; debit: number; credit: number; balance: number };
   const ledger: LedgerRow[] = useMemo(() => {
     const events: { ts: number; date: string; description: string; debit: number; credit: number }[] = [];
+    const opening = company?.openingBalance || 0;
+    if (opening !== 0) {
+      events.push({
+        ts: new Date(company!.createdAt).getTime(),
+        date: company!.createdAt,
+        description: "Opening balance / previous outstanding",
+        debit: opening > 0 ? opening : 0,
+        credit: opening < 0 ? -opening : 0,
+      });
+    }
     const asc = [...bills].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     asc.forEach((b) => events.push({
       ts: new Date(b.createdAt).getTime(),
@@ -95,10 +128,17 @@ function CompanyDetailsPage() {
       description: `Payment received${p.notes ? ` — ${p.notes}` : ""}`,
       debit: 0, credit: p.amount || 0,
     }));
+    adjustments.forEach((a) => events.push({
+      ts: new Date(a.createdAt).getTime(),
+      date: a.createdAt,
+      description: `Adjustment${a.reason ? ` — ${a.reason}` : ""}`,
+      debit: a.amount > 0 ? a.amount : 0,
+      credit: a.amount < 0 ? -a.amount : 0,
+    }));
     events.sort((a, b) => a.ts - b.ts);
     let bal = 0;
     return events.map((e) => { bal += e.debit - e.credit; return { date: e.date, description: e.description, debit: e.debit, credit: e.credit, balance: bal }; });
-  }, [bills, payments]);
+  }, [bills, payments, adjustments, company]);
 
   const billStatus = (b: Bill): { label: string; cls: string } => {
     if ((b.outstandingAmount || 0) <= 0) return { label: "Paid", cls: "bg-success/20 text-success" };
@@ -170,7 +210,7 @@ function CompanyDetailsPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 rounded-md bg-secondary p-1 overflow-x-auto">
-          {(["overview", "vehicles", "invoices", "payments", "ledger"] as Tab[]).map((t) => (
+          {(["overview", "vehicles", "invoices", "payments", "adjustments", "ledger"] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize whitespace-nowrap transition-colors ${tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{t}</button>
           ))}
         </div>
@@ -268,6 +308,38 @@ function CompanyDetailsPage() {
               );
             })}
             {payments.length === 0 && <p className="text-center text-sm text-muted-foreground py-6">No payments recorded.</p>}
+          </div>
+        )}
+
+        {tab === "adjustments" && (
+          <div className="space-y-2">
+            {adjForm === null ? (
+              <button onClick={() => setAdjForm({ amount: "", reason: "", date: new Date().toISOString().split("T")[0] })} className="w-full flex items-center justify-center gap-1.5 rounded-md bg-secondary px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary/70 transition-colors"><Plus className="h-4 w-4" /> Add Adjustment</button>
+            ) : (
+              <div className="stat-card space-y-2">
+                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5"><Scale className="h-4 w-4 text-primary" /> New Adjustment</h3><button onClick={() => setAdjForm(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="field-label">Date</label><input type="date" value={adjForm.date} onChange={(e) => setAdjForm({ ...adjForm, date: e.target.value })} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  <div><label className="field-label">Amount (₹) *</label><input type="number" value={adjForm.amount} onChange={(e) => setAdjForm({ ...adjForm, amount: e.target.value })} placeholder="+ debit / - credit" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                </div>
+                <div><label className="field-label">Reason</label><input value={adjForm.reason} onChange={(e) => setAdjForm({ ...adjForm, reason: e.target.value })} placeholder="e.g. Discount, write-off, prior due" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                <p className="text-[11px] text-muted-foreground">Positive amount increases outstanding (debit); negative reduces it (credit).</p>
+                <button onClick={handleSaveAdjustment} className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save Adjustment</button>
+              </div>
+            )}
+            {adjustments.map((a) => (
+              <div key={a.id} className="stat-card flex items-start justify-between text-sm">
+                <div>
+                  <p className="text-foreground">{a.reason || "Adjustment"}</p>
+                  <p className="text-xs text-muted-foreground">{format(parseISO(a.date), "dd MMM yyyy")}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`font-semibold ${a.amount > 0 ? "text-warning" : "text-success"}`}>{a.amount > 0 ? "+" : ""}₹{a.amount.toLocaleString()}</span>
+                  <button onClick={() => handleDeleteAdjustment(a.id)} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              </div>
+            ))}
+            {adjustments.length === 0 && <p className="text-center text-sm text-muted-foreground py-6">No adjustments recorded.</p>}
           </div>
         )}
 
