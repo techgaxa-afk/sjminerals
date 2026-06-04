@@ -67,7 +67,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <span className="text-lg font-bold tracking-tight text-foreground">SJ Minerals</span>
         </div>
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active = location.pathname === item.to;
             return (
               <Link key={item.to} to={item.to} className={`nav-item ${active ? "nav-item-active" : "nav-item-inactive"}`}>
@@ -90,7 +90,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {menuOpen && (
         <nav className="border-b border-border bg-card px-4 py-2 md:hidden">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active = location.pathname === item.to;
             return (
               <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)} className={`nav-item ${active ? "nav-item-active" : "nav-item-inactive"}`}>
