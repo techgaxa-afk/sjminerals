@@ -65,7 +65,7 @@ function UsersInner() {
     );
   }
 
-  const filtered = (data ?? []).filter((u) => {
+  const filtered = (users ?? []).filter((u) => {
     const q = search.toLowerCase();
     return !q || u.email?.toLowerCase().includes(q) || u.fullName?.toLowerCase().includes(q);
   });
@@ -90,11 +90,11 @@ function UsersInner() {
 
       {error && (
         <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-          {(error as Error).message}
+          {error}
         </div>
       )}
 
-      {isLoading ? (
+      {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -113,8 +113,8 @@ function UsersInner() {
                   key={u.id}
                   u={u}
                   isSelf={u.id === user?.id}
-                  busy={mut.isPending}
-                  onToggle={(role, enabled) => mut.mutate({ userId: u.id, role, enabled })}
+                  busy={busy}
+                  onToggle={(role, enabled) => onToggle(u.id, role, enabled)}
                 />
               ))}
               {filtered.length === 0 && (
