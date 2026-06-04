@@ -1,7 +1,8 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Building2, Settings, BarChart3, LogOut, Loader2 } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Building2, Settings, BarChart3, LogOut, Loader2, UserCog } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useUserRoles } from "@/hooks/use-roles";
 import { loadAll, isLoaded, resetStore, useCloudData, onWriteError } from "@/lib/store";
 import { toast } from "sonner";
 
@@ -17,12 +18,18 @@ const navItems = [
   { to: "/reports", label: "Reports", icon: BarChart3 },
 ] as const;
 
+const adminNavItems = [
+  { to: "/users", label: "Users", icon: UserCog },
+] as const;
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { session, loading, signOut, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   useCloudData();
+  const { isAdmin } = useUserRoles();
+  const items = isAdmin ? [...navItems, ...adminNavItems] : navItems;
   const [dataReady, setDataReady] = useState(isLoaded());
 
   useEffect(() => {
@@ -60,7 +67,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <span className="text-lg font-bold tracking-tight text-foreground">SJ Minerals</span>
         </div>
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active = location.pathname === item.to;
             return (
               <Link key={item.to} to={item.to} className={`nav-item ${active ? "nav-item-active" : "nav-item-inactive"}`}>
@@ -83,7 +90,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {menuOpen && (
         <nav className="border-b border-border bg-card px-4 py-2 md:hidden">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active = location.pathname === item.to;
             return (
               <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)} className={`nav-item ${active ? "nav-item-active" : "nav-item-inactive"}`}>
