@@ -21,26 +21,35 @@ function UsersPage() {
 function UsersInner() {
   const { isAdmin, loading: rolesLoading } = useUserRoles();
   const { user } = useAuth();
-  const qc = useQueryClient();
   const fetchUsers = useServerFn(listAllUsers);
   const mutateRole = useServerFn(setUserRole);
   const [search, setSearch] = useState("");
+  const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["admin-users"],
-    queryFn: () => fetchUsers({}),
-    enabled: isAdmin,
-  });
+  const reload = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { setUsers(await fetchUsers({})); }
+    catch (e) { setError((e as Error).message); }
+    finally { setLoading(false); }
+  }, [fetchUsers]);
 
-  const mut = useMutation({
-    mutationFn: (vars: { userId: string; role: "admin" | "staff"; enabled: boolean }) =>
-      mutateRole({ data: vars }),
-    onSuccess: (_d, vars) => {
-      toast.success(`${vars.enabled ? "Granted" : "Revoked"} ${vars.role}`);
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  useEffect(() => { if (isAdmin) reload(); }, [isAdmin, reload]);
+
+  const onToggle = async (userId: string, role: "admin" | "staff", enabled: boolean) => {
+    setBusy(true);
+    try {
+      await mutateRole({ data: { userId, role, enabled } });
+      toast.success(`${enabled ? "Granted" : "Revoked"} ${role}`);
+      await reload();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (rolesLoading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
