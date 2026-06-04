@@ -28,6 +28,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, loading, signOut, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   useCloudData();
+  const { isAdmin } = useUserRoles();
+  const items = isAdmin ? [...navItems, ...adminNavItems] : navItems;
   const [dataReady, setDataReady] = useState(isLoaded());
 
   useEffect(() => {
