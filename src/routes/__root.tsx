@@ -1,5 +1,6 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/hooks/use-auth";
+import { SessionErrorBanner } from "@/components/SessionErrorBanner";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
@@ -75,6 +76,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <AuthProvider>
+      <SessionErrorBanner />
       <Outlet />
       <Toaster richColors position="top-right" />
     </AuthProvider>
