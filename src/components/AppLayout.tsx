@@ -62,12 +62,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-50 border-b border-border bg-card px-4 py-3">
-        <div className="flex flex-wrap items-center gap-3 xl:flex-nowrap xl:justify-between">
+        <div className="flex flex-wrap items-center gap-3 md:justify-between">
           <div className="flex min-w-0 items-center gap-2">
           <Truck className="h-6 w-6 text-primary" />
             <span className="truncate text-lg font-bold tracking-tight text-foreground">SJ Minerals</span>
           </div>
-          <nav className="hidden min-w-0 flex-1 flex-wrap items-center gap-1 xl:flex xl:justify-center">
+          <nav className="hidden basis-full flex-wrap items-center gap-1 pt-1 md:flex xl:basis-auto xl:flex-1 xl:justify-center xl:pt-0">
             {items.map((item) => {
               const active = location.pathname === item.to;
               return (
@@ -83,7 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <button onClick={handleLogout} title="Sign out" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
               <LogOut className="h-4 w-4" />
             </button>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary xl:hidden">
+            <button onClick={() => setMenuOpen(!menuOpen)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary md:hidden">
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
@@ -91,7 +91,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {menuOpen && (
-        <nav className="border-b border-border bg-card px-4 py-2 xl:hidden">
+        <nav className="border-b border-border bg-card px-4 py-2 md:hidden">
           {items.map((item) => {
             const active = location.pathname === item.to;
             return (
