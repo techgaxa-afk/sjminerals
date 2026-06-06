@@ -28,7 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, loading, signOut, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   useCloudData();
-  const { isAdmin } = useUserRoles();
+  const { isAdmin, loading: rolesLoading } = useUserRoles();
   const items = isAdmin ? [...navItems, ...adminNavItems] : navItems;
   const [dataReady, setDataReady] = useState(isLoaded());
 
@@ -49,7 +49,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
 
-  if (loading || !session || !dataReady) {
+  if (loading || !session || !dataReady || rolesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -61,35 +61,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-border bg-card px-4 py-3">
-        <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-50 border-b border-border bg-card px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 xl:flex-nowrap xl:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
           <Truck className="h-6 w-6 text-primary" />
-          <span className="text-lg font-bold tracking-tight text-foreground">SJ Minerals</span>
-        </div>
-        <nav className="hidden md:flex items-center gap-1">
-          {items.map((item) => {
-            const active = location.pathname === item.to;
-            return (
-              <Link key={item.to} to={item.to} className={`nav-item ${active ? "nav-item-active" : "nav-item-inactive"}`}>
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="flex items-center gap-2">
-          <span className="hidden md:inline text-xs text-muted-foreground max-w-[160px] truncate">{user?.email}</span>
-          <button onClick={handleLogout} title="Sign out" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-            <LogOut className="h-4 w-4" />
-          </button>
-          <button onClick={() => setMenuOpen(!menuOpen)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary md:hidden">
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+            <span className="truncate text-lg font-bold tracking-tight text-foreground">SJ Minerals</span>
+          </div>
+          <nav className="hidden min-w-0 flex-1 flex-wrap items-center gap-1 xl:flex xl:justify-center">
+            {items.map((item) => {
+              const active = location.pathname === item.to;
+              return (
+                <Link key={item.to} to={item.to} className={`nav-item ${active ? "nav-item-active" : "nav-item-inactive"}`}>
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="hidden xl:inline text-xs text-muted-foreground max-w-[160px] truncate">{user?.email}</span>
+            <button onClick={handleLogout} title="Sign out" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+              <LogOut className="h-4 w-4" />
+            </button>
+            <button onClick={() => setMenuOpen(!menuOpen)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary xl:hidden">
+              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
       </header>
 
       {menuOpen && (
-        <nav className="border-b border-border bg-card px-4 py-2 md:hidden">
+        <nav className="border-b border-border bg-card px-4 py-2 xl:hidden">
           {items.map((item) => {
             const active = location.pathname === item.to;
             return (
