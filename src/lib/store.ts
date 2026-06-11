@@ -443,8 +443,30 @@ export function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber">): B
   const stamped = items.map((i) => ({ ...i, id: uid(), billId: billRow.id }));
   cache.billItems.push(...stamped);
   bump();
-  bg(supabase.from("bills").insert(billToDb(billRow)));
-  if (stamped.length) bg(supabase.from("bill_items").insert(stamped.map(billItemToDb)));
+  // Chain: items must wait for bill insert to commit (FK), and must not run if bill fails.
+  bg(
+    (async () => {
+      const billPayload = billToDb(billRow);
+      console.log("[saveBill] inserting bill", { id: billRow.id, invoice: billRow.invoiceNumber });
+      const billRes = await supabase.from("bills").insert(billPayload).select("id").single();
+      if (billRes.error) {
+        console.error("[saveBill] bill insert failed", billRes.error, billPayload);
+        return billRes;
+      }
+      console.log("[saveBill] bill inserted, id=", billRes.data?.id);
+      if (stamped.length) {
+        const itemsPayload = stamped.map(billItemToDb);
+        console.log("[saveBill] inserting bill_items", itemsPayload.length, "for bill", billRow.id);
+        const itemsRes = await supabase.from("bill_items").insert(itemsPayload);
+        if (itemsRes.error) {
+          console.error("[saveBill] bill_items insert failed", itemsRes.error, itemsPayload);
+          return itemsRes;
+        }
+      }
+      return { error: null };
+    })(),
+    "bill+items"
+  );
   return assembleBill(billRow);
 }
 export function updateBill(id: string, updates: Partial<Bill>): void {
