@@ -432,6 +432,12 @@ function nextInvoiceNumber(now: Date): string {
   }
 }
 
+// Track in-flight bill inserts so dependent writes (bill_items, payments, updates) wait for FK target.
+const billInsertPromises = new Map<string, Promise<{ error: any }>>();
+function awaitBill(id: string): Promise<{ error: any }> {
+  return billInsertPromises.get(id) ?? Promise.resolve({ error: null });
+}
+
 export function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber">): Bill {
   const { items, ...rest } = b;
   const now = new Date();
@@ -443,8 +449,39 @@ export function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber">): B
   const stamped = items.map((i) => ({ ...i, id: uid(), billId: billRow.id }));
   cache.billItems.push(...stamped);
   bump();
-  bg(supabase.from("bills").insert(billToDb(billRow)));
-  if (stamped.length) bg(supabase.from("bill_items").insert(stamped.map(billItemToDb)));
+
+  const billInsert = (async () => {
+    const payload = billToDb(billRow);
+    console.log("[saveBill] inserting bill", { id: billRow.id, invoice: billRow.invoiceNumber });
+    const res = await supabase.from("bills").insert(payload).select("id").single();
+    if (res.error) {
+      console.error("[saveBill] bill insert failed", res.error, payload);
+      return { error: res.error };
+    }
+    console.log("[saveBill] bill inserted id=", res.data?.id);
+    return { error: null };
+  })();
+  billInsertPromises.set(billRow.id, billInsert);
+
+  bg(
+    (async () => {
+      const billRes = await billInsert;
+      if (billRes.error) return billRes;
+      if (stamped.length) {
+        const itemsPayload = stamped.map(billItemToDb);
+        console.log("[saveBill] inserting bill_items", itemsPayload.length, "for bill", billRow.id);
+        const itemsRes = await supabase.from("bill_items").insert(itemsPayload);
+        if (itemsRes.error) {
+          console.error("[saveBill] bill_items insert failed", itemsRes.error, itemsPayload);
+          return itemsRes;
+        }
+      }
+      // Free the map entry after a short delay to keep dependent writes safe.
+      setTimeout(() => billInsertPromises.delete(billRow.id), 30_000);
+      return { error: null };
+    })(),
+    "bill+items"
+  );
   return assembleBill(billRow);
 }
 export function updateBill(id: string, updates: Partial<Bill>): void {
@@ -454,13 +491,22 @@ export function updateBill(id: string, updates: Partial<Bill>): void {
     cache.billItems = cache.billItems.filter((i) => i.billId !== id);
     const stamped = items.map((i) => ({ ...i, id: uid(), billId: id }));
     cache.billItems.push(...stamped);
-    bg(supabase.from("bill_items").delete().eq("bill_id", id).then(() => {
+    bg((async () => {
+      const wait = await awaitBill(id);
+      if (wait.error) return wait;
+      const del = await supabase.from("bill_items").delete().eq("bill_id", id);
+      if (del.error) return del;
       if (stamped.length) return supabase.from("bill_items").insert(stamped.map(billItemToDb));
-    }) as any);
+      return { error: null };
+    })(), "update-items");
   }
   bump();
   const merged = cache.bills.find((b) => b.id === id);
-  if (merged) bg(supabase.from("bills").update(billToDb(merged)).eq("id", id));
+  if (merged) bg((async () => {
+    const wait = await awaitBill(id);
+    if (wait.error) return wait;
+    return supabase.from("bills").update(billToDb(merged)).eq("id", id);
+  })(), "bill-update");
 }
 export function deleteBill(id: string): void {
   cache.bills = cache.bills.filter((b) => b.id !== id);
@@ -487,10 +533,25 @@ export function savePayment(p: Omit<Payment, "id" | "createdAt">): Payment {
     const newPaid = (bill.paidAmount || 0) + p.amount;
     const newOut = Math.max(0, bill.totalAmount - newPaid);
     cache.bills = cache.bills.map((b) => b.id === p.billId ? { ...b, paidAmount: newPaid, outstandingAmount: newOut } : b);
-    bg(supabase.from("bills").update({ paid_amount: newPaid, outstanding_amount: newOut }).eq("id", p.billId));
+    bg((async () => {
+      const wait = await awaitBill(p.billId);
+      if (wait.error) return wait;
+      return supabase.from("bills").update({ paid_amount: newPaid, outstanding_amount: newOut }).eq("id", p.billId);
+    })(), "bill-paid-update");
   }
   bump();
-  bg(supabase.from("payments").insert(paymentToDb(payment)));
+  bg((async () => {
+    const wait = await awaitBill(p.billId);
+    if (wait.error) {
+      console.error("[savePayment] skipping payment insert; bill insert failed", p.billId);
+      return wait;
+    }
+    const payload = paymentToDb(payment);
+    console.log("[savePayment] inserting payment for bill", p.billId, payload);
+    const res = await supabase.from("payments").insert(payload);
+    if (res.error) console.error("[savePayment] payment insert failed", res.error, payload);
+    return res;
+  })(), "payment");
   return payment;
 }
 export function getPaymentsByBill(billId: string): Payment[] { return cache.payments.filter((p) => p.billId === billId); }
