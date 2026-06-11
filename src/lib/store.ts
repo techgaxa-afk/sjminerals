@@ -533,10 +533,25 @@ export function savePayment(p: Omit<Payment, "id" | "createdAt">): Payment {
     const newPaid = (bill.paidAmount || 0) + p.amount;
     const newOut = Math.max(0, bill.totalAmount - newPaid);
     cache.bills = cache.bills.map((b) => b.id === p.billId ? { ...b, paidAmount: newPaid, outstandingAmount: newOut } : b);
-    bg(supabase.from("bills").update({ paid_amount: newPaid, outstanding_amount: newOut }).eq("id", p.billId));
+    bg((async () => {
+      const wait = await awaitBill(p.billId);
+      if (wait.error) return wait;
+      return supabase.from("bills").update({ paid_amount: newPaid, outstanding_amount: newOut }).eq("id", p.billId);
+    })(), "bill-paid-update");
   }
   bump();
-  bg(supabase.from("payments").insert(paymentToDb(payment)));
+  bg((async () => {
+    const wait = await awaitBill(p.billId);
+    if (wait.error) {
+      console.error("[savePayment] skipping payment insert; bill insert failed", p.billId);
+      return wait;
+    }
+    const payload = paymentToDb(payment);
+    console.log("[savePayment] inserting payment for bill", p.billId, payload);
+    const res = await supabase.from("payments").insert(payload);
+    if (res.error) console.error("[savePayment] payment insert failed", res.error, payload);
+    return res;
+  })(), "payment");
   return payment;
 }
 export function getPaymentsByBill(billId: string): Payment[] { return cache.payments.filter((p) => p.billId === billId); }
