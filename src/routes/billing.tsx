@@ -153,37 +153,41 @@ function BillingPage() {
     setItems(items.map((i) => i.productId === productId ? { ...i, quantity: newQty, total: newQty * i.price } : i));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (items.length === 0) return;
     const effectiveMode: "cash" | "upi" | "credit" | "split" = splitEnabled ? "split" : paymentMode;
     const cashAmt = splitEnabled ? splitCashNum : (paymentMode === "cash" ? paid : 0);
     const upiAmt = splitEnabled ? splitUpiNum : (paymentMode === "upi" ? paid : 0);
-    const bill = saveBill({
-      items, totalAmount: grandTotal, paymentMode: effectiveMode,
-      paidAmount: paid, outstandingAmount: outstanding,
-      companyId: selectedCompany?.id || "",
-      companyName: companyName.trim(), driverName: driverName.trim(),
-      vehicleNumber: vehicleNumber.trim(), vehicleCapacity,
-      tipsRate, tipsAmount: totalTips,
-      splitPayment: splitEnabled, cashAmount: cashAmt, upiAmount: upiAmt,
-      passEnabled, passAmount: passCharge,
-    });
-    if (totalTips > 0) {
-      saveExpense({
-        category: "tips", amount: totalTips,
-        date: new Date().toISOString().split("T")[0],
-        notes: `Tips ₹${tipsRate}/unit × ${tipsBase} — ${companyName.trim() || vehicleNumber.trim() || "Walk-in"} — Bill #${bill.id}`,
-        linkedBillId: bill.id, linkedCompanyId: selectedCompany?.id,
+    try {
+      const bill = await saveBill({
+        items, totalAmount: grandTotal, paymentMode: effectiveMode,
+        paidAmount: paid, outstandingAmount: outstanding,
+        companyId: selectedCompany?.id || "",
+        companyName: companyName.trim(), driverName: driverName.trim(),
+        vehicleNumber: vehicleNumber.trim(), vehicleCapacity,
+        tipsRate, tipsAmount: totalTips,
+        splitPayment: splitEnabled, cashAmount: cashAmt, upiAmount: upiAmt,
+        passEnabled, passAmount: passCharge,
       });
+      if (totalTips > 0) {
+        saveExpense({
+          category: "tips", amount: totalTips,
+          date: new Date().toISOString().split("T")[0],
+          notes: `Tips ₹${tipsRate}/unit × ${tipsBase} — ${companyName.trim() || vehicleNumber.trim() || "Walk-in"} — Bill #${bill.id}`,
+          linkedBillId: bill.id, linkedCompanyId: selectedCompany?.id,
+        });
+      }
+      setSaved(true);
+      setTimeout(() => {
+        setItems([]); setCompanyName(""); setDriverName(""); setVehicleNumber(""); setVehicleCapacity(0);
+        setSelectedCompany(null); setPaidAmount(""); setPaymentMode("cash"); setSaved(false);
+        setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
+        setSplitEnabled(false); setSplitCash(""); setSplitUpi("");
+        setPassEnabled(false); setPassAmount(DEFAULT_PASS_AMOUNT);
+      }, 2000);
+    } catch (error) {
+      console.error("BILLING SAVE UI FAILED", error);
     }
-    setSaved(true);
-    setTimeout(() => {
-      setItems([]); setCompanyName(""); setDriverName(""); setVehicleNumber(""); setVehicleCapacity(0);
-      setSelectedCompany(null); setPaidAmount(""); setPaymentMode("cash"); setSaved(false);
-      setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
-      setSplitEnabled(false); setSplitCash(""); setSplitUpi("");
-      setPassEnabled(false); setPassAmount(DEFAULT_PASS_AMOUNT);
-    }, 2000);
   };
 
   return (
