@@ -264,17 +264,20 @@ function ExpensesPage() {
         <div className="space-y-2">
           {filtered.map((exp) => {
             const Icon = getCatIcon(exp.category);
+            const bal = balanceAfter[exp.id] ?? 0;
+            const isCredit = bal < 0;
             return (
               <div key={exp.id} className="stat-card flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="rounded-md bg-secondary p-2"><Icon className="h-4 w-4 text-muted-foreground" /></div>
                   <div>
-                    <p className="font-medium text-foreground capitalize flex items-center gap-2">
+                    <p className="font-medium text-foreground capitalize flex items-center gap-2 flex-wrap">
                       {exp.category}
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${exp.paymentMode === "upi" ? "bg-primary/15 text-primary" : "bg-success/15 text-success"}`}>{(exp.paymentMode || "cash").toUpperCase()}</span>
+                      {isCredit && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-500">CREDIT EXPENSE</span>}
                     </p>
                     <p className="text-xs text-muted-foreground">{format(parseISO(exp.date + "T00:00:00"), "dd MMM yyyy")}{exp.notes ? ` · ${exp.notes}` : ""}</p>
-                    <p className="text-[10px] text-muted-foreground">Logged {format(new Date(exp.createdAt), "dd MMM, hh:mm a")}</p>
+                    <p className="text-[10px] text-muted-foreground">Logged {format(new Date(exp.createdAt), "dd MMM, hh:mm a")} · Balance After: <span className={`font-semibold ${bal < 0 ? "text-destructive" : "text-foreground"}`}>₹{bal.toLocaleString()}</span></p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
