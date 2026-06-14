@@ -176,6 +176,21 @@ function UsersInner() {
               className="pl-8 pr-3 py-2 text-sm rounded-md border border-border bg-background w-56"
             />
           </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value as "all" | Role)}
+            className="px-2 py-2 text-sm rounded-md border border-border bg-background"
+          >
+            <option value="all">All roles</option>
+            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <button
+            onClick={exportCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border hover:bg-accent"
+            title="Export CSV"
+          >
+            <Download className="h-4 w-4" /> Export
+          </button>
           <button
             onClick={() => setShowAdd(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
@@ -183,6 +198,14 @@ function UsersInner() {
             <UserPlus className="h-4 w-4" /> Add User
           </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <Stat label="Total" value={stats.total} />
+        <Stat label="Active" value={stats.active} tone="green" />
+        <Stat label="Disabled" value={stats.disabled} tone="red" />
+        <Stat label="Pending" value={stats.pending} tone="amber" />
+        <Stat label="Today's Logins" value={stats.todayLogins} tone="blue" />
       </div>
 
       <div className="flex items-center gap-1 border-b border-border">
@@ -198,6 +221,30 @@ function UsersInner() {
           </button>
         ))}
       </div>
+
+      {selected.size > 0 && (
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-primary bg-primary/5">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => bulkRun((id) => disable({ data: { userId: id, disabled: false } }), "Enabled")}
+              disabled={busy}
+              className="px-2.5 py-1 text-xs rounded-md border border-border bg-background hover:bg-accent disabled:opacity-50"
+            >Enable</button>
+            <button
+              onClick={() => bulkRun((id) => disable({ data: { userId: id, disabled: true } }), "Disabled")}
+              disabled={busy}
+              className="px-2.5 py-1 text-xs rounded-md border border-border bg-background hover:bg-accent disabled:opacity-50"
+            >Disable</button>
+            <button
+              onClick={() => { if (confirm(`Delete ${selected.size} user(s)?`)) bulkRun((id) => remove({ data: { userId: id } }), "Deleted"); }}
+              disabled={busy}
+              className="px-2.5 py-1 text-xs rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >Delete</button>
+            <button onClick={clearSel} className="px-2.5 py-1 text-xs rounded-md hover:bg-accent">Clear</button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
