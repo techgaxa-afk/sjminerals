@@ -10,6 +10,9 @@ import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, Li
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 import { format } from "date-fns";
 
+
+export const Route = createFileRoute("/reports")({ component: ReportsPage });
+
 type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics";
 type FilterType = "daily" | "weekly" | "monthly";
 
