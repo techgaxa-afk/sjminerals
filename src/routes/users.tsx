@@ -1,14 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 import { useUserRoles } from "@/hooks/use-roles";
 import { useAuth } from "@/hooks/use-auth";
-import { listAllUsers, setUserRole, type AdminUser } from "@/lib/admin-users.functions";
-import { Shield, ShieldOff, Loader2, Search, UserCog } from "lucide-react";
+import {
+  listAllUsers,
+  setUserRole,
+  inviteUser,
+  updateUser,
+  setUserDisabled,
+  deleteUser,
+  resendInvite,
+  type AdminUser,
+  type UserStatus,
+} from "@/lib/admin-users.functions";
+import { Shield, Loader2, Search, UserCog, UserPlus, Pencil, Trash2, Ban, CheckCircle2, Mail, X } from "lucide-react";
 
 export const Route = createFileRoute("/users")({ component: UsersPage });
+
+const ROLES = ["admin", "staff", "accountant", "operator", "viewer"] as const;
+type Role = typeof ROLES[number];
+
+const ROLE_BADGE: Record<Role, string> = {
+  admin: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
+  staff: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
+  accountant: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
+  operator: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
+  viewer: "bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30",
+};
+
+const STATUS_BADGE: Record<UserStatus, string> = {
+  active: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
+  pending: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  disabled: "bg-destructive/10 text-destructive border-destructive/30",
+};
 
 function UsersPage() {
   return (
@@ -23,33 +50,49 @@ function UsersInner() {
   const { user } = useAuth();
   const fetchUsers = useServerFn(listAllUsers);
   const mutateRole = useServerFn(setUserRole);
+  const invite = useServerFn(inviteUser);
+  const update = useServerFn(updateUser);
+  const disable = useServerFn(setUserDisabled);
+  const remove = useServerFn(deleteUser);
+  const resend = useServerFn(resendInvite);
+
   const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<"all" | UserStatus>("all");
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [deleting, setDeleting] = useState<AdminUser | null>(null);
 
   const reload = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true);
     try { setUsers(await fetchUsers({})); }
-    catch (e) { setError((e as Error).message); }
+    catch (e) { toast.error((e as Error).message); }
     finally { setLoading(false); }
   }, [fetchUsers]);
 
   useEffect(() => { if (isAdmin) reload(); }, [isAdmin, reload]);
 
-  const onToggle = async (userId: string, role: AdminUser["roles"][number], enabled: boolean) => {
+  const runAction = async (fn: () => Promise<unknown>, okMsg: string) => {
     setBusy(true);
-    try {
-      await mutateRole({ data: { userId, role, enabled } });
-      toast.success(`${enabled ? "Granted" : "Revoked"} ${role}`);
-      await reload();
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    try { await fn(); toast.success(okMsg); await reload(); }
+    catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
   };
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return (users ?? [])
+      .filter((u) => tab === "all" || u.status === tab)
+      .filter((u) => !q || u.email?.toLowerCase().includes(q) || u.fullName?.toLowerCase().includes(q) || u.roles.some((r) => r.includes(q)));
+  }, [users, search, tab]);
+
+  const counts = useMemo(() => {
+    const c = { all: users?.length ?? 0, active: 0, pending: 0, disabled: 0 };
+    for (const u of users ?? []) c[u.status]++;
+    return c;
+  }, [users]);
 
   if (rolesLoading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -65,150 +108,316 @@ function UsersInner() {
     );
   }
 
-  const filtered = (users ?? []).filter((u) => {
-    const q = search.toLowerCase();
-    return !q || u.email?.toLowerCase().includes(q) || u.fullName?.toLowerCase().includes(q);
-  });
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <UserCog className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">User Management</h1>
         </div>
-        <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search users..."
-            className="pl-8 pr-3 py-2 text-sm rounded-md border border-border bg-background w-64"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search users..."
+              className="pl-8 pr-3 py-2 text-sm rounded-md border border-border bg-background w-56"
+            />
+          </div>
+          <button
+            onClick={() => setShowAdd(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <UserPlus className="h-4 w-4" /> Add User
+          </button>
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      <div className="flex items-center gap-1 border-b border-border">
+        {(["all", "active", "pending", "disabled"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-3 py-1.5 text-xs font-medium border-b-2 -mb-px capitalize transition-colors ${
+              tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t} <span className="ml-1 text-[10px] opacity-70">({counts[t]})</span>
+          </button>
+        ))}
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
                 <th className="text-left p-3 font-medium">User</th>
-                <th className="text-left p-3 font-medium">Roles</th>
+                <th className="text-left p-3 font-medium">Role</th>
+                <th className="text-left p-3 font-medium">Status</th>
                 <th className="text-left p-3 font-medium hidden md:table-cell">Last sign-in</th>
                 <th className="text-right p-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((u) => (
-                <UserRow
-                  key={u.id}
-                  u={u}
-                  isSelf={u.id === user?.id}
-                  busy={busy}
-                  onToggle={(role, enabled) => onToggle(u.id, role, enabled)}
-                />
-              ))}
+              {filtered.map((u) => {
+                const isSelf = u.id === user?.id;
+                return (
+                  <tr key={u.id} className="border-t border-border">
+                    <td className="p-3">
+                      <div className="font-medium text-foreground">{u.fullName ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">{u.email ?? u.id}</div>
+                      {isSelf && <span className="text-[10px] uppercase tracking-wide text-primary">you</span>}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-1 flex-wrap">
+                        {u.roles.length === 0 && <span className="text-xs text-muted-foreground">no role</span>}
+                        {u.roles.map((r) => (
+                          <span key={r} className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border ${ROLE_BADGE[r]}`}>
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase border ${STATUS_BADGE[u.status]}`}>
+                        {u.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground hidden md:table-cell">
+                      {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleString() : "—"}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-1 justify-end flex-wrap">
+                        {u.status === "pending" && u.email && (
+                          <IconBtn title="Resend invite" onClick={() => runAction(() => resend({ data: { email: u.email! } }), "Invitation resent")} disabled={busy}>
+                            <Mail className="h-3.5 w-3.5" />
+                          </IconBtn>
+                        )}
+                        <IconBtn title="Edit" onClick={() => setEditing(u)} disabled={busy}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </IconBtn>
+                        {u.status === "disabled" ? (
+                          <IconBtn title="Enable user" onClick={() => runAction(() => disable({ data: { userId: u.id, disabled: false } }), "User enabled")} disabled={busy} variant="success">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </IconBtn>
+                        ) : (
+                          <IconBtn title="Disable user" onClick={() => runAction(() => disable({ data: { userId: u.id, disabled: true } }), "User disabled")} disabled={busy || isSelf} variant="warn">
+                            <Ban className="h-3.5 w-3.5" />
+                          </IconBtn>
+                        )}
+                        <IconBtn title="Delete" onClick={() => setDeleting(u)} disabled={busy || isSelf} variant="danger">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </IconBtn>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
-                <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">No users found.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No users found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       )}
+
+      {showAdd && (
+        <AddUserModal
+          onClose={() => setShowAdd(false)}
+          onSubmit={async (payload) => {
+            await runAction(() => invite({ data: payload }), "Invitation sent");
+            setShowAdd(false);
+          }}
+          busy={busy}
+        />
+      )}
+
+      {editing && (
+        <EditUserModal
+          user={editing}
+          onClose={() => setEditing(null)}
+          onSubmit={async (payload) => {
+            await runAction(() => update({ data: { userId: editing.id, ...payload } }), "User updated");
+            // Also sync role via setUserRole if simple toggle path needed - update already handles role
+            setEditing(null);
+          }}
+          onToggleRole={async (role, enabled) => {
+            await runAction(() => mutateRole({ data: { userId: editing.id, role, enabled } }), `${enabled ? "Granted" : "Revoked"} ${role}`);
+          }}
+          busy={busy}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDelete
+          user={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={async () => {
+            await runAction(() => remove({ data: { userId: deleting.id } }), "User deleted");
+            setDeleting(null);
+          }}
+          busy={busy}
+        />
+      )}
     </div>
   );
 }
 
-const ROLE_LABELS: { role: AdminUser["roles"][number]; label: string; hint: string }[] = [
-  { role: "admin", label: "Admin", hint: "Full access incl. user management" },
-  { role: "staff", label: "Staff", hint: "Full operational write" },
-  { role: "accountant", label: "Accountant", hint: "Payments & financial write" },
-  { role: "operator", label: "Operator", hint: "Bills, Hitachi, expenses write" },
-  { role: "viewer", label: "Viewer", hint: "Read-only" },
-];
-
-function UserRow({
-  u, isSelf, busy, onToggle,
-}: {
-  u: AdminUser;
-  isSelf: boolean;
-  busy: boolean;
-  onToggle: (role: AdminUser["roles"][number], enabled: boolean) => void;
+function IconBtn({ children, onClick, disabled, title, variant = "default" }: {
+  children: React.ReactNode; onClick: () => void; disabled?: boolean; title: string;
+  variant?: "default" | "danger" | "warn" | "success";
 }) {
+  const v = {
+    default: "hover:bg-accent",
+    danger: "text-destructive hover:bg-destructive/10",
+    warn: "text-amber-600 hover:bg-amber-500/10",
+    success: "text-green-600 hover:bg-green-500/10",
+  }[variant];
   return (
-    <tr className="border-t border-border">
-      <td className="p-3">
-        <div className="font-medium text-foreground">{u.fullName ?? "—"}</div>
-        <div className="text-xs text-muted-foreground">{u.email ?? u.id}</div>
-        {isSelf && <span className="text-[10px] uppercase tracking-wide text-primary">you</span>}
-      </td>
-      <td className="p-3">
-        <div className="flex gap-1 flex-wrap">
-          {u.roles.length === 0 && <span className="text-xs text-muted-foreground">no access</span>}
-          {u.roles.map((r) => (
-            <span key={r} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${r === "admin" ? "bg-primary/10 text-primary" : "bg-secondary text-secondary-foreground"}`}>
-              {r === "admin" && <Shield className="h-3 w-3" />}
-              {r}
-            </span>
-          ))}
-        </div>
-      </td>
-      <td className="p-3 text-xs text-muted-foreground hidden md:table-cell">
-        {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleString() : "—"}
-      </td>
-      <td className="p-3">
-        <div className="flex gap-1.5 justify-end flex-wrap">
-          {ROLE_LABELS.map(({ role, label, hint }) => {
-            const active = u.roles.includes(role);
-            const disabledSelf = role === "admin" && active && isSelf;
-            return (
-              <RoleButton
-                key={role}
-                label={label}
-                active={active}
-                disabled={busy || disabledSelf}
-                title={disabledSelf ? "Cannot revoke your own admin role" : hint}
-                onClick={() => onToggle(role, !active)}
-              />
-            );
-          })}
-        </div>
-      </td>
-    </tr>
+    <button onClick={onClick} disabled={disabled} title={title} className={`inline-flex items-center p-1.5 rounded-md border border-border bg-background disabled:opacity-40 disabled:cursor-not-allowed ${v}`}>
+      {children}
+    </button>
   );
 }
 
-function RoleButton({
-  label, active, disabled, onClick, title,
-}: {
-  label: string;
-  active: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  title?: string;
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h3 className="text-base font-semibold">{title}</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-accent"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function AddUserModal({ onClose, onSubmit, busy }: {
+  onClose: () => void;
+  onSubmit: (p: { email: string; fullName?: string; role?: Role }) => Promise<void>;
+  busy: boolean;
+}) {
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState<Role>("viewer");
+
+  return (
+    <Modal title="Add New User" onClose={onClose}>
+      <div className="space-y-3">
+        <Field label="Email Address *">
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="user@example.com" />
+        </Field>
+        <Field label="Full Name">
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" placeholder="John Doe" />
+        </Field>
+        <Field label="Assign Role">
+          <div className="grid grid-cols-2 gap-1.5">
+            {ROLES.map((r) => (
+              <label key={r} className={`flex items-center gap-2 px-2 py-1.5 rounded-md border cursor-pointer text-sm ${role === r ? "border-primary bg-primary/5" : "border-border"}`}>
+                <input type="radio" name="role" checked={role === r} onChange={() => setRole(r)} />
+                <span className="capitalize">{r}</span>
+              </label>
+            ))}
+          </div>
+        </Field>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-accent">Cancel</button>
+          <button
+            disabled={busy || !email}
+            onClick={() => onSubmit({ email, fullName: fullName || undefined, role })}
+            className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {busy ? "Creating..." : "Create User"}
+          </button>
+        </div>
+      </div>
+      <style>{`.input{width:100%;padding:.5rem .625rem;border-radius:.375rem;border:1px solid hsl(var(--border));background:hsl(var(--background));font-size:.875rem}`}</style>
+    </Modal>
+  );
+}
+
+function EditUserModal({ user, onClose, onSubmit, busy }: {
+  user: AdminUser;
+  onClose: () => void;
+  onSubmit: (p: { fullName?: string; email?: string; role?: Role }) => Promise<void>;
+  onToggleRole: (role: Role, enabled: boolean) => Promise<void>;
+  busy: boolean;
+}) {
+  const [fullName, setFullName] = useState(user.fullName ?? "");
+  const [email, setEmail] = useState(user.email ?? "");
+  const [role, setRole] = useState<Role>((user.roles[0] as Role) ?? "viewer");
+
+  return (
+    <Modal title="Edit User" onClose={onClose}>
+      <div className="space-y-3">
+        <Field label="Full Name">
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" />
+        </Field>
+        <Field label="Email Address">
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
+        </Field>
+        <Field label="Role">
+          <div className="grid grid-cols-2 gap-1.5">
+            {ROLES.map((r) => (
+              <label key={r} className={`flex items-center gap-2 px-2 py-1.5 rounded-md border cursor-pointer text-sm ${role === r ? "border-primary bg-primary/5" : "border-border"}`}>
+                <input type="radio" name="erole" checked={role === r} onChange={() => setRole(r)} />
+                <span className="capitalize">{r}</span>
+              </label>
+            ))}
+          </div>
+        </Field>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-accent">Cancel</button>
+          <button
+            disabled={busy}
+            onClick={() => onSubmit({
+              fullName: fullName !== (user.fullName ?? "") ? fullName : undefined,
+              email: email !== (user.email ?? "") ? email : undefined,
+              role,
+            })}
+            className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {busy ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </div>
+      <style>{`.input{width:100%;padding:.5rem .625rem;border-radius:.375rem;border:1px solid hsl(var(--border));background:hsl(var(--background));font-size:.875rem}`}</style>
+    </Modal>
+  );
+}
+
+function ConfirmDelete({ user, onClose, onConfirm, busy }: {
+  user: AdminUser; onClose: () => void; onConfirm: () => Promise<void>; busy: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-        active
-          ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-          : "bg-primary/10 text-primary hover:bg-primary/20"
-      }`}
-    >
-      {active ? <ShieldOff className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
-      {label}
-    </button>
+    <Modal title="Delete User" onClose={onClose}>
+      <p className="text-sm text-muted-foreground">Are you sure you want to permanently remove:</p>
+      <div className="my-3 p-3 rounded-md border border-border bg-muted/30">
+        <div className="font-medium">{user.fullName ?? "—"}</div>
+        <div className="text-xs text-muted-foreground">{user.email}</div>
+      </div>
+      <p className="text-sm text-destructive">This action cannot be undone.</p>
+      <div className="flex justify-end gap-2 pt-4">
+        <button onClick={onClose} className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-accent">Cancel</button>
+        <button disabled={busy} onClick={onConfirm} className="px-3 py-1.5 text-sm rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50">
+          {busy ? "Deleting..." : "Delete User"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      {children}
+    </div>
   );
 }
