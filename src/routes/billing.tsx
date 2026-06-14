@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import {
   getProducts, getCompanies, saveCompany, saveBill, saveExpense,
   getVehicles, getVehiclesByCompany, saveVehicle,
@@ -108,27 +109,31 @@ function BillingPage() {
     selectCompany({ ...c, driverName: v.driverName, vehicleNumber: v.vehicleNumber, vehicleCapacity: v.vehicleCapacity });
   };
 
-  const handleAddCompany = () => {
+  const handleAddCompany = async () => {
     if (!newComp.name.trim() || !newComp.vehicleNumber.trim()) return;
-    // Reuse existing company by name if one already exists (case-insensitive)
-    const existing = getCompanies().find((c) => c.name.toLowerCase() === newComp.name.trim().toLowerCase());
-    const company = existing ?? saveCompany({
-      name: newComp.name.trim(),
-      contactNumber: newComp.contactNumber,
-      address: "", notes: "", openingBalance: 0,
-      driverName: "", vehicleNumber: "", vehicleCapacity: 0,
-    });
-    const vehicle = saveVehicle({
-      companyId: company.id,
-      vehicleNumber: newComp.vehicleNumber.trim(),
-      vehicleCapacity: Number(newComp.vehicleCapacity) || 0,
-      driverName: newComp.driverName,
-      status: "active",
-    });
-    selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
+    try {
+      // Reuse existing company by name if one already exists (case-insensitive)
+      const existing = getCompanies().find((c) => c.name.toLowerCase() === newComp.name.trim().toLowerCase());
+      const company = existing ?? (await saveCompany({
+        name: newComp.name.trim(),
+        contactNumber: newComp.contactNumber,
+        address: "", notes: "", openingBalance: 0,
+        driverName: "", vehicleNumber: "", vehicleCapacity: 0,
+      }));
+      const vehicle = await saveVehicle({
+        companyId: company.id,
+        vehicleNumber: newComp.vehicleNumber.trim(),
+        vehicleCapacity: Number(newComp.vehicleCapacity) || 0,
+        driverName: newComp.driverName,
+        status: "active",
+      });
+      selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
 
-    setNewComp({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
-    setShowNewCompany(false);
+      setNewComp({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
+      setShowNewCompany(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to create company/vehicle");
+    }
   };
 
   const addItem = (productId: string) => {

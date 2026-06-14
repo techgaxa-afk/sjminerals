@@ -354,10 +354,25 @@ export function deleteProduct(id: string): void {
 
 // ============ Companies ============
 export function getCompanies(): Company[] { return cache.companies.slice(); }
-export function saveCompany(c: Omit<Company, "id" | "createdAt">): Company {
+export async function saveCompany(c: Omit<Company, "id" | "createdAt">): Promise<Company> {
   const company: Company = { ...c, id: uid(), createdAt: new Date().toISOString() };
+  const payload = companyToDb(company);
+  console.log("[COMPANY STEP 1] inserting company", payload);
+  const insertRes = await supabase.from("companies").insert(payload).select("id").single();
+  if (insertRes.error) {
+    console.error("COMPANY INSERT FAILED", insertRes.error);
+    emitError(insertRes.error.message || "Company insert failed");
+    throw insertRes.error;
+  }
+  console.log("[COMPANY STEP 2] company inserted", insertRes.data?.id);
+  const verify = await supabase.from("companies").select("id").eq("id", company.id).single();
+  if (verify.error) {
+    console.error("COMPANY VERIFY FAILED", verify.error);
+    emitError(verify.error.message || "Company verify failed");
+    throw verify.error;
+  }
+  console.log("[COMPANY STEP 3] company verified", verify.data);
   cache.companies.push(company); bump();
-  bg(supabase.from("companies").insert(companyToDb(company)));
   return company;
 }
 export function updateCompany(id: string, updates: Partial<Company>): void {
@@ -384,10 +399,25 @@ export function getVehiclesByCompany(companyId: string): Vehicle[] {
 export function getVehicleByNumber(vehicleNumber: string): Vehicle | undefined {
   return cache.vehicles.find((v) => v.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
 }
-export function saveVehicle(v: Omit<Vehicle, "id" | "createdAt">): Vehicle {
+export async function saveVehicle(v: Omit<Vehicle, "id" | "createdAt">): Promise<Vehicle> {
   const vehicle: Vehicle = { ...v, id: uid(), createdAt: new Date().toISOString() };
+  const payload = vehicleToDb(vehicle);
+  console.log("[VEHICLE STEP 1] inserting vehicle", payload);
+  const insertRes = await supabase.from("vehicles").insert(payload).select("id").single();
+  if (insertRes.error) {
+    console.error("VEHICLE INSERT FAILED", insertRes.error);
+    emitError(insertRes.error.message || "Vehicle insert failed");
+    throw insertRes.error;
+  }
+  console.log("[VEHICLE STEP 2] vehicle inserted", insertRes.data?.id);
+  const verify = await supabase.from("vehicles").select("id").eq("id", vehicle.id).single();
+  if (verify.error) {
+    console.error("VEHICLE VERIFY FAILED", verify.error);
+    emitError(verify.error.message || "Vehicle verify failed");
+    throw verify.error;
+  }
+  console.log("[VEHICLE STEP 3] vehicle verified", verify.data);
   cache.vehicles.push(vehicle); bump();
-  bg(supabase.from("vehicles").insert(vehicleToDb(vehicle)));
   return vehicle;
 }
 export function updateVehicle(id: string, updates: Partial<Vehicle>): void {
