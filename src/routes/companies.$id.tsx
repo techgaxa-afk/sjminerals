@@ -24,11 +24,20 @@ type Tab = "overview" | "vehicles" | "invoices" | "payments" | "adjustments" | "
 function CompanyDetailsPage() {
   useCloudData();
   const { id } = Route.useParams();
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const company = getCompanies().find((c) => c.id === id);
 
   const [tab, setTab] = useState<Tab>("overview");
   const [showPayForm, setShowPayForm] = useState(false);
+
+  useEffect(() => {
+    if (search.pay === 1) {
+      setShowPayForm(true);
+      navigate({ to: "/companies/$id", params: { id }, search: { pay: undefined }, replace: true });
+    }
+  }, [search.pay, id, navigate]);
+
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [payForm, setPayForm] = useState({
     paymentDate: new Date().toISOString().split("T")[0],
