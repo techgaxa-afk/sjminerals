@@ -935,7 +935,7 @@ export function writeAuditLog(action: string, entityType: string, entityId: stri
       await supabase.from("audit_log").insert({
         action, entity_type: entityType, entity_id: entityId,
         user_id: u?.user?.id ?? null,
-        details: details ?? {},
+        details: (details ?? {}) as any,
       });
     } catch { /* audit failures should never break user flow */ }
   })();
