@@ -66,14 +66,67 @@ function CompanyDetailsPage() {
     );
   }
 
-  const handleSavePayment = () => {
-    const amt = Number(payForm.amount);
-    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
-    const notes = `[${payForm.method.toUpperCase()}] ${payForm.notes}`.trim();
-    saveCompanyPayment({ companyId: id, amount: amt, date: payForm.date, notes });
-    toast.success(`Payment of ₹${amt.toLocaleString()} recorded`);
-    setPayForm({ date: new Date().toISOString().split("T")[0], amount: "", method: "cash", notes: "" });
+  const resetPayForm = () => {
+    setPayForm({
+      paymentDate: new Date().toISOString().split("T")[0],
+      amount: "", paymentMethod: "Cash", referenceNumber: "", notes: "",
+    });
+    setEditingPaymentId(null);
     setShowPayForm(false);
+  };
+
+  const handleSavePayment = async () => {
+    const amt = Number(payForm.amount);
+    if (!amt || amt <= 0) { toast.error("Amount must be greater than zero"); return; }
+    if (!payForm.paymentDate) { toast.error("Date is required"); return; }
+    try {
+      if (editingPaymentId) {
+        await updateCompanyPayment(editingPaymentId, {
+          amount: amt,
+          paymentDate: payForm.paymentDate,
+          paymentMethod: payForm.paymentMethod,
+          referenceNumber: payForm.referenceNumber.trim() || undefined,
+          notes: payForm.notes.trim() || undefined,
+        });
+        toast.success("Payment updated");
+      } else {
+        await saveCompanyPayment({
+          companyId: id,
+          amount: amt,
+          paymentDate: payForm.paymentDate,
+          paymentMethod: payForm.paymentMethod,
+          referenceNumber: payForm.referenceNumber.trim() || undefined,
+          notes: payForm.notes.trim() || undefined,
+        });
+        toast.success(`Payment of ₹${amt.toLocaleString()} recorded`);
+      }
+      resetPayForm();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save payment");
+    }
+  };
+
+  const handleEditPayment = (p: CompanyPayment) => {
+    setEditingPaymentId(p.id);
+    setPayForm({
+      paymentDate: p.paymentDate,
+      amount: String(p.amount),
+      paymentMethod: (["Cash", "UPI", "Bank Transfer", "Cheque"].includes(p.paymentMethod || "") ? p.paymentMethod : "Cash") as any,
+      referenceNumber: p.referenceNumber || "",
+      notes: p.notes || "",
+    });
+    setShowPayForm(true);
+    setTab("payments");
+  };
+
+  const handleDeletePayment = async (p: CompanyPayment) => {
+    if (!confirm("Delete this payment?\nThis action cannot be undone.")) return;
+    try {
+      await deleteCompanyPayment(p.id);
+      toast.success("Payment deleted");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete payment");
+    }
   };
 
   const handleSaveVehicle = async () => {
