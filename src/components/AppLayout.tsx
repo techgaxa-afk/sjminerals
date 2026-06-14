@@ -20,6 +20,7 @@ const navItems: readonly NavItem[] = [
   { to: "/hitachi", label: "Hitachi", icon: Settings, needs: "writeOps" },
   { to: "/expenses", label: "Expenses", icon: Wallet, needs: "writeOps" },
   { to: "/cashbook", label: "Cashbook", icon: BookOpen, needs: "viewReports" },
+  { to: "/profitability", label: "Profitability", icon: TrendingUp, needs: "viewReports" },
   { to: "/reports", label: "Reports", icon: BarChart3, needs: "viewReports" },
 ];
 
