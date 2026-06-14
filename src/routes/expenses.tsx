@@ -81,7 +81,35 @@ function ExpensesPage() {
   const availableCash = getCashSales() - getCashExpenses();
   const availableUpi = getUpiSales() - getUpiExpenses();
 
+  // Running balance after each expense (chronological by date+createdAt, per mode)
+  const balanceAfter = useMemo(() => {
+    const map: Record<string, number> = {};
+    const chrono = [...expenses].sort((a, b) => {
+      const d = a.date.localeCompare(b.date);
+      return d !== 0 ? d : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+    const totalCash = getCashSales();
+    const totalUpi = getUpiSales();
+    let runCash = 0, runUpi = 0;
+    chrono.forEach((e) => {
+      if (e.paymentMode === "upi") { runUpi += e.amount; map[e.id] = totalUpi - runUpi; }
+      else { runCash += e.amount; map[e.id] = totalCash - runCash; }
+    });
+    return map;
+  }, [expenses]);
+
+  const amtNum = Number(amount) || 0;
+  const projectedBalance = paymentMode === "cash" ? availableCash - amtNum : availableUpi - amtNum;
+  const editingAmt = editingId ? (expenses.find((e) => e.id === editingId)?.amount ?? 0) : 0;
+  const editingMode = editingId ? expenses.find((e) => e.id === editingId)?.paymentMode : undefined;
+  const currentBalance = paymentMode === "cash"
+    ? availableCash + (editingMode === "cash" ? editingAmt : 0)
+    : availableUpi + (editingMode === "upi" ? editingAmt : 0);
+  const projected = currentBalance - amtNum;
+  const showOverdraftWarning = showForm && amtNum > 0 && projected < 0;
+
   const analytics = useMemo(() => {
+
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
