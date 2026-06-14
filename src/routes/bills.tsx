@@ -6,7 +6,7 @@ import {
   getProducts, getExpensesByBill, saveExpense, deleteExpense,
   type Bill, type BillItem,
 } from "../lib/store";
-import { Search, Banknote, CreditCard, FileDown, Truck, AlertTriangle, X, Pencil, Check, Trash2, Eye, Plus, Minus, Coins } from "lucide-react";
+import { Search, Banknote, CreditCard, FileDown, Truck, AlertTriangle, X, Pencil, Check, Trash2, Eye, Plus, Minus, Coins, CheckSquare } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { exportInvoicePDF } from "../lib/pdf";
 
@@ -49,8 +49,19 @@ function BillsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [payBillId, setPayBillId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
 
   const refresh = () => setBills(getBills().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
 
   const filtered = useMemo(() => bills.filter((b) => {
     const q = search.toLowerCase();
@@ -174,29 +185,85 @@ function BillsPage() {
     setDeleteId(null); refresh();
   };
 
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every((b) => selected.has(b.id));
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((b) => next.delete(b.id));
+        return next;
+      });
+    } else {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((b) => next.add(b.id));
+        return next;
+      });
+    }
+  };
+
+  const selectedBills = useMemo(() => bills.filter((b) => selected.has(b.id)), [bills, selected]);
+  const creditCount = selectedBills.filter((b) => b.outstandingAmount > 0).length;
+
+  const performBulkDelete = () => {
+    const ids = Array.from(selected);
+    const invoiceNumbers = selectedBills.map((b) => b.invoiceNumber || b.id.slice(-6).toUpperCase());
+    ids.forEach((id) => deleteBill(id));
+    try {
+      console.info(`[AUDIT] Bulk delete ${ids.length} invoices @ ${new Date().toISOString()}:`, invoiceNumbers);
+    } catch { /* noop */ }
+    clearSelection();
+    setBulkConfirm(false);
+    refresh();
+  };
+
+  const exportSelectedPDFs = async () => {
+    for (const b of selectedBills) {
+      // eslint-disable-next-line no-await-in-loop
+      await exportInvoicePDF(b);
+    }
+  };
+
   return (
     <AppLayout>
-      <div className="space-y-4">
+      <div className="space-y-4 pb-24">
         <h1 className="module-header">Bill History</h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search invoice #, company, vehicle..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search company, driver, vehicle..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
         </div>
 
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2">
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+              <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="h-4 w-4 rounded border-border accent-primary" />
+              <CheckSquare className="h-4 w-4 text-muted-foreground" />
+              Select All ({filtered.length})
+            </label>
+            <span className="text-xs text-muted-foreground">Selected: <span className="font-semibold text-foreground">{selected.size}</span></span>
+          </div>
+        )}
+
         <div className="space-y-2">
-          {filtered.map((bill) => (
-            <div key={bill.id} className="stat-card">
+          {filtered.map((bill) => {
+            const isSel = selected.has(bill.id);
+            return (
+            <div key={bill.id} className={`stat-card transition-colors ${isSel ? "border-primary bg-primary/5" : ""}`}>
               <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 flex items-start gap-2">
+                  <input type="checkbox" checked={isSel} onChange={() => toggleSelect(bill.id)} className="mt-1 h-4 w-4 rounded border-border accent-primary flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-mono font-semibold text-primary tracking-wider">INV {bill.invoiceNumber || bill.id.slice(-6).toUpperCase()}</p>
                   <p className="font-medium text-foreground truncate">{bill.companyName || "Walk-in"}</p>
                   {bill.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {bill.vehicleNumber} {bill.vehicleCapacity > 0 && `(${bill.vehicleCapacity}t)`}</p>}
                   {bill.driverName && <p className="text-xs text-muted-foreground">Driver: {bill.driverName}</p>}
                   <p className="text-xs text-muted-foreground">{format(parseISO(bill.createdAt), "dd MMM yyyy, hh:mm a")}</p>
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-primary">₹{bill.totalAmount.toLocaleString()}</p>
@@ -292,10 +359,47 @@ function BillsPage() {
                 );
               })()}
             </div>
-          ))}
+          );
+          })}
           {filtered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No bills found.</p>}
         </div>
       </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 px-3 sm:bottom-4">
+          <div className="mx-auto max-w-2xl rounded-lg border border-primary/40 bg-card shadow-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="text-sm font-medium text-foreground">
+              Selected: <span className="text-primary font-bold">{selected.size}</span> Bill{selected.size === 1 ? "" : "s"}
+              {creditCount > 0 && <span className="ml-2 text-xs text-warning">({creditCount} with outstanding)</span>}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={exportSelectedPDFs} className="flex-1 sm:flex-none flex items-center justify-center gap-1 rounded-md bg-secondary px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary/80"><FileDown className="h-3.5 w-3.5" /> Export PDFs</button>
+              <button onClick={() => setBulkConfirm(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 rounded-md bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90"><Trash2 className="h-3.5 w-3.5" /> Delete Selected</button>
+              <button onClick={clearSelection} className="rounded-md bg-secondary px-3 py-2 text-xs text-foreground hover:bg-secondary/80">Clear</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirm */}
+      {bulkConfirm && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-lg max-w-sm w-full p-4 space-y-3">
+            <h3 className="font-semibold text-foreground">Delete Selected Bills?</h3>
+            <p className="text-sm text-muted-foreground">You are about to delete <span className="font-bold text-foreground">{selected.size} bill{selected.size === 1 ? "" : "s"}</span>. This action cannot be undone.</p>
+            {creditCount > 0 && (
+              <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                {creditCount} selected bill{creditCount === 1 ? "" : "s"} contain outstanding balances. Deleting will reduce receivables.
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => setBulkConfirm(false)} className="flex-1 rounded-md bg-secondary px-3 py-2 text-sm text-foreground">Cancel</button>
+              <button onClick={performBulkDelete} className="flex-1 rounded-md bg-destructive px-3 py-2 text-sm font-semibold text-destructive-foreground">Delete Bills</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editBill && editForm && (
