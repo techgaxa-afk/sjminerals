@@ -6,7 +6,7 @@ import {
   getProducts, getExpensesByBill, saveExpense, deleteExpense,
   type Bill, type BillItem,
 } from "../lib/store";
-import { Search, Banknote, CreditCard, FileDown, Truck, AlertTriangle, X, Pencil, Check, Trash2, Eye, Plus, Minus, Coins } from "lucide-react";
+import { Search, Banknote, CreditCard, FileDown, Truck, AlertTriangle, X, Pencil, Check, Trash2, Eye, Plus, Minus, Coins, CheckSquare } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { exportInvoicePDF } from "../lib/pdf";
 
