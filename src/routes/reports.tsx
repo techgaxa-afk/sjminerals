@@ -158,6 +158,24 @@ function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const analytics = useMemo(() => {
+    if (reportType !== "analytics") return { monthly: [] as { month: string; collected: number; invoiced: number; outstanding: number; rate: number }[] };
+    const now = new Date();
+    const months: { key: string; month: string; collected: number; invoiced: number; outstanding: number; rate: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, month: format(d, "MMM yy"), collected: 0, invoiced: 0, outstanding: 0, rate: 0 });
+    }
+    const idx = (d: Date) => months.findIndex((m) => m.key === `${d.getFullYear()}-${d.getMonth()}`);
+    getAllCompanyPayments().filter((p) => p.status !== "reversed").forEach((p) => {
+      const i = idx(new Date(p.paymentDate)); if (i >= 0) months[i].collected += p.amount;
+    });
+    getBills().forEach((b) => { const i = idx(new Date(b.createdAt)); if (i >= 0) months[i].invoiced += b.totalAmount || 0; });
+    let running = 0;
+    months.forEach((m) => { running += m.invoiced - m.collected; m.outstanding = Math.max(0, running); m.rate = m.invoiced > 0 ? Math.round((m.collected / m.invoiced) * 100) : 0; });
+    return { monthly: months };
+  }, [reportType]);
+
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
     { id: "vehicle", label: "Vehicle", icon: Building2 },
@@ -165,6 +183,7 @@ function ReportsPage() {
     { id: "operator", label: "Operator", icon: Users },
     { id: "ledger", label: "Ledger", icon: Wallet },
     { id: "aging", label: "Aging", icon: AlertTriangle },
+    { id: "analytics", label: "Analytics", icon: LineChartIcon },
   ];
 
   return (
