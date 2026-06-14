@@ -256,7 +256,7 @@ export async function loadAll(): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const [
-      products, companies, vehicles, bills, billItems, payments, machines, operators, entries, fuel, expenses, adjustments,
+      products, companies, vehicles, bills, billItems, payments, companyPayments, machines, operators, entries, fuel, expenses, adjustments,
     ] = await Promise.all([
       supabase.from("products").select("*"),
       supabase.from("companies").select("*"),
@@ -264,6 +264,7 @@ export async function loadAll(): Promise<void> {
       supabase.from("bills").select("*"),
       supabase.from("bill_items").select("*"),
       supabase.from("payments").select("*"),
+      supabase.from("company_payments").select("*"),
       supabase.from("hitachi_machines").select("*"),
       supabase.from("operators").select("*"),
       supabase.from("hitachi_entries").select("*"),
@@ -277,6 +278,7 @@ export async function loadAll(): Promise<void> {
     cache.bills = (bills.data ?? []).map(mapBill);
     cache.billItems = (billItems.data ?? []).map(mapBillItem);
     cache.payments = (payments.data ?? []).map(mapPayment);
+    cache.company_payments = (companyPayments.data ?? []).map(mapCompanyPayment);
     cache.hitachi_machines = (machines.data ?? []).map(mapMachine);
     cache.operators = (operators.data ?? []).map(mapOperator);
     cache.hitachi_entries = (entries.data ?? []).map(mapEntry);
