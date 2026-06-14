@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses, getRecentActivity, type ActivityKind } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock, Activity, RotateCcw } from "lucide-react";
+import { format, parseISO, formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
