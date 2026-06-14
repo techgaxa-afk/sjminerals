@@ -77,6 +77,7 @@ function CompaniesPage() {
       address: c.address || "",
       notes: c.notes || "",
       openingBalance: c.openingBalance ? String(c.openingBalance) : "",
+      creditLimit: c.creditLimit ? String(c.creditLimit) : "",
     });
     setEditingId(c.id);
     setShowForm(true);
