@@ -111,32 +111,40 @@ function BillingPage() {
     selectCompany({ ...c, driverName: v.driverName, vehicleNumber: v.vehicleNumber, vehicleCapacity: v.vehicleCapacity });
   };
 
-  const handleAddCompany = async () => {
-    if (!newComp.name.trim() || !newComp.vehicleNumber.trim()) return;
+  const openCreateVehicle = () => {
+    const cos = getCompanies();
+    setNewVeh({
+      companyId: cos[0]?.id ?? "",
+      vehicleNumber: vehicleSearch.trim(),
+      driverName: "",
+      vehicleCapacity: "",
+    });
+    setShowCreateVehicle(true);
+  };
+
+  const handleCreateVehicle = async () => {
+    if (!newVeh.companyId) { toast.error("Select a company"); return; }
+    if (!newVeh.vehicleNumber.trim()) { toast.error("Vehicle number is required"); return; }
     try {
-      // Reuse existing company by name if one already exists (case-insensitive)
-      const existing = getCompanies().find((c) => c.name.toLowerCase() === newComp.name.trim().toLowerCase());
-      const company = existing ?? (await saveCompany({
-        name: newComp.name.trim(),
-        contactNumber: newComp.contactNumber,
-        address: "", notes: "", openingBalance: 0,
-        driverName: "", vehicleNumber: "", vehicleCapacity: 0,
-      }));
       const vehicle = await saveVehicle({
-        companyId: company.id,
-        vehicleNumber: newComp.vehicleNumber.trim(),
-        vehicleCapacity: Number(newComp.vehicleCapacity) || 0,
-        driverName: newComp.driverName,
+        companyId: newVeh.companyId,
+        vehicleNumber: newVeh.vehicleNumber.trim(),
+        driverName: newVeh.driverName.trim(),
+        vehicleCapacity: Number(newVeh.vehicleCapacity) || 0,
         status: "active",
       });
-      selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
-
-      setNewComp({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
-      setShowNewCompany(false);
+      const company = getCompanies().find((c) => c.id === newVeh.companyId);
+      if (company) {
+        selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
+      }
+      setShowCreateVehicle(false);
+      setNewVeh({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
+      toast.success("Vehicle created");
     } catch (e: any) {
-      toast.error(e?.message || "Failed to create company/vehicle");
+      toast.error(e?.message || "Failed to create vehicle");
     }
   };
+
 
   const addItem = (productId: string) => {
     const product = products.find((p) => p.id === productId);
