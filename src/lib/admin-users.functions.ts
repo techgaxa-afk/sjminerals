@@ -297,7 +297,7 @@ export const getUserActivity = createServerFn({ method: "POST" })
       action: r.action as string,
       entityType: r.entity_type as string,
       entityId: (r.entity_id as string | null) ?? null,
-      details: (r.details as Record<string, unknown> | null) ?? {},
+      details: (r.details ?? {}) as Record<string, unknown>,
       performedBy: (r.user_id as string | null) ?? null,
     }));
   });
