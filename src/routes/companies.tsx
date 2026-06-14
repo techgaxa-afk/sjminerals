@@ -7,6 +7,7 @@ import {
   getCompanies, saveCompany, updateCompany, deleteCompany,
   getCompanyOutstanding, getVehiclesByCompany, getVehicleTotals,
   saveVehicle, updateVehicle, deleteVehicle,
+  countBillsByCompany, countBillsByVehicle,
   useCloudData, type Company, type Vehicle,
 } from "../lib/store";
 import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/companies")({
 });
 
 type CompanyForm = { name: string; contactNumber: string; address: string; notes: string; openingBalance: string };
-type VehicleForm = { id?: string; companyId: string; vehicleNumber: string; driverName: string; vehicleCapacity: string; status: "active" | "inactive" };
+type VehicleForm = { id?: string; companyId: string; vehicleNumber: string; driverName: string; vehicleCapacity: string; status: "active" | "inactive" | "maintenance" };
 
 function CompaniesPage() {
   useCloudData();
@@ -78,11 +79,19 @@ function CompaniesPage() {
     setShowForm(true);
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, c: Company) => {
     e.preventDefault(); e.stopPropagation();
-    if (!confirm("Delete this company and all its vehicles? Bills remain linked to this company id.")) return;
-    deleteCompany(id);
-    toast.success("Company deleted");
+    const bc = countBillsByCompany(c.id);
+    const msg = bc > 0
+      ? `"${c.name}" has ${bc} historical bill${bc === 1 ? "" : "s"}. Deletion is blocked. Continue anyway? (Will fail)`
+      : `Delete "${c.name}" and all its vehicles? This cannot be undone.`;
+    if (!confirm(msg)) return;
+    try {
+      await deleteCompany(c.id);
+      toast.success("Company deleted");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete company");
+    }
   };
 
   const toggleExpanded = (id: string) => {
@@ -117,11 +126,20 @@ function CompaniesPage() {
     }
   };
 
-  const handleDeleteVehicle = (e: React.MouseEvent, v: Vehicle) => {
+  const handleDeleteVehicle = async (e: React.MouseEvent, v: Vehicle) => {
     e.preventDefault(); e.stopPropagation();
-    if (!confirm(`Delete vehicle ${v.vehicleNumber}? Past bills are kept.`)) return;
-    deleteVehicle(v.id);
-    toast.success("Vehicle deleted");
+    const bc = countBillsByVehicle(v.companyId, v.vehicleNumber);
+    const msg = bc > 0
+      ? `Vehicle ${v.vehicleNumber} has ${bc} historical bill${bc === 1 ? "" : "s"}. Deletion is blocked.`
+      : `Delete vehicle ${v.vehicleNumber}?`;
+    if (bc > 0) { toast.error(msg); return; }
+    if (!confirm(msg)) return;
+    try {
+      await deleteVehicle(v.id);
+      toast.success("Vehicle deleted");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete vehicle");
+    }
   };
 
   return (
