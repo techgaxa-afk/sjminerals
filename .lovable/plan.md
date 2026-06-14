@@ -1,63 +1,65 @@
-# Accounts Receivable Upgrade — Plan
+# Phase 2 — Financial Operations Upgrade
 
-This is a large, multi-area change. I'll do it in one migration + a focused code pass. Scope below.
+Builds on existing AR system. Will not touch AR math, payment storage, receipt numbering, audit log, or aging logic.
 
-## 1. Database migration (single migration)
+## 1. Auto Receipt Workflow
+After `saveCompanyPayment` succeeds, open a Receipt modal:
+- Live preview (iframe of receipt HTML)
+- **Download** — saves `RCPT-YYYY-NNNNN.pdf` via existing `exportReceiptPDF`
+- **Print** — same export (opens print dialog)
+- **Share** — `navigator.share` (Web Share API) with text fallback (copy link/details to clipboard) when unavailable
 
-- `companies`: add `credit_limit numeric NOT NULL DEFAULT 0`.
-- `company_payments`: add `receipt_number text UNIQUE`, `status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','reversed'))`, `reversal_reason text`, `reversed_at timestamptz`, `reversed_by uuid`.
-- Backfill existing rows with sequential receipt numbers `RCPT-YYYY-00001` based on `payment_date` year.
-- DB function `public.next_receipt_number()` (SECURITY DEFINER, `SET search_path = public`) that returns the next `RCPT-YYYY-NNNNN` using a yearly sequence table (`receipt_counters(year int pk, last_number int)`).
-- New table `public.audit_log` (id, ts, user_id, action text, entity_type text, entity_id uuid, details jsonb) with GRANTs + RLS (read: authenticated; insert: authenticated via `auth.uid()`; no update/delete).
-- Index `company_payments(status)` and `company_payments(payment_date desc)`.
+## 2. Management Dashboard
+Add to `/` (existing cards retained):
+- **Credit Limit Exceeded** card — count of companies where outstanding > creditLimit (links to a filterable list inside the card)
+- Confirm Total Receivables / Overdue / Today's / This Month already render (they do)
+- Top Outstanding table already exists; expand from 5 to 10 rows and add Last Payment column
 
-## 2. Store layer (`src/lib/store.ts`)
+## 3. Analytics Report Tab
+New tab `Analytics` in `/reports`:
+- **Monthly Collections** — bar chart, last 12 months of `company_payments.amount` (active only)
+- **Outstanding Trend** — line chart, total outstanding snapshot per month-end (computed from bills + payments history)
+- **Collection Performance** — grouped bar: Invoiced vs Collected per month, plus collection-rate %
 
-- `Company` type: add `creditLimit`.
-- `CompanyPayment` type: add `receiptNumber`, `status`, `reversalReason`, `reversedAt`.
-- `saveCompanyPayment`: call `next_receipt_number` RPC; validate amount > 0 and date ≤ today; reject duplicate receipt numbers (DB-enforced).
-- New `reverseCompanyPayment(id, reason)` — sets status=reversed, writes audit row. `deleteCompanyPayment` kept for admin-only hard delete (still wired from UI as a fallback).
-- Filter reversed payments out of `getCompanyTotalPaid`, `getCompanyOutstanding`, dashboard collected. Keep them visible in history.
-- New helpers: `getAgingBuckets()` returning per-company `{current, d30, d60, d90, d90plus, total}` using oldest unpaid invoice age (based on bill `createdAt` and remaining `outstandingAmount`); `getRecentPayments(n)`.
-- `writeAuditLog(action, entityType, entityId, details)` helper used by payment/adjustment mutations.
+## 4. User Roles (RBAC)
+Roles & default permissions:
 
-## 3. UI
+| Role | Bills | Payments | Reports | Companies/Vehicles | Users | Hitachi/Expenses |
+|---|---|---|---|---|---|---|
+| admin | full | full + reverse | full | full | manage | full |
+| accountant | view | full + reverse | full | view | — | view |
+| operator | create/edit | view only | view | view | — | full |
+| viewer | view | view | view | view | — | view |
 
-### Company card (`companies.tsx`)
-- Show `Outstanding ₹X / Limit ₹Y` when `creditLimit > 0`; red "CREDIT LIMIT EXCEEDED" badge when over.
-- Keep Last Payment line (already there).
+Implementation:
+- Migration: `ALTER TYPE public.app_role ADD VALUE 'accountant'`, `'operator'`, `'viewer'`
+- Helper SQL function `has_any_role(uid, roles[])` reused in RLS write policies; existing write policies updated from `has_role(uid,'admin') OR has_role(uid,'staff')` → `has_any_role(...)` per table (admin always wins; accountant gains write on `company_payments` + `credit_adjustments` only; operator gains write on `bills`, `bill_items`, `hitachi_*`, `expenses`, `vehicles`; viewer write nowhere)
+- Update `useUserRoles` to return `roles[]` + helpers `isAdmin / isAccountant / isOperator / isViewer / can(area)` 
+- Client gates: hide nav items + write buttons by role; route components show a polite "Read-only" notice if user lacks write
+- Keep `handle_new_user` admin-first-user logic; new users default to `viewer`
 
-### Company form
-- Add Credit Limit input.
+## 5. Financial Data Protection
+- Remove **Delete** button from Payment History row
+- Keep **Reverse** (already implemented, audit-logged)
+- Reversal history view: payment row already shows `REVERSED` badge + reason tooltip; add an expandable details strip on click showing `reversal_reason`, `reversed_at`, and `reversed_by` (resolved via profiles)
+- `deleteCompanyPayment` kept in store but no UI calls it
 
-### Company Details (`companies.$id.tsx`)
-- Replace existing PDF "Statement" with a richer customer statement: header (name/address/contact), date-range picker (default: opening → today), Opening Balance row, transactions (Date / Ref / Description / Debit / Credit / Balance), Closing Balance, Outstanding, Last Payment Date. Buttons: Print, Download PDF.
-- Payment history row: show `REVERSED` badge for reversed; action menu becomes Edit / Reverse / (admin) Delete; receipt number column; Print Receipt / Download Receipt PDF actions.
-- Payment dialog: block negative/zero amounts and future dates client-side; display generated receipt number after save.
+## Files to modify
+- `supabase/migrations/<new>.sql` — enum values, `has_any_role`, updated RLS for ~10 tables
+- `src/hooks/use-roles.tsx` — extended role helpers
+- `src/lib/store.ts` — none (AR untouched)
+- `src/components/AppLayout.tsx` — nav items gated by role
+- `src/routes/index.tsx` — Credit-Limit-Exceeded card, Top-Outstanding +5 rows + Last Payment
+- `src/routes/reports.tsx` — Analytics tab + 3 charts
+- `src/routes/companies.$id.tsx` — Receipt modal post-save; remove delete button; expandable reversal details
+- `src/routes/users.tsx` — expose 4 toggles instead of 2
 
-### Reports (`reports.tsx`)
-- New "Aging" tab: table grouped by bucket (Current / 1–30 / 31–60 / 61–90 / 90+), per-company row sorted by total desc, bucket totals at footer, CSV export.
+## Out of scope (will not change)
+- AR totals, aging, statement, ledger math
+- `company_payments` schema, `audit_log`, `receipt_counters`, `next_receipt_number`
+- Existing realtime sync, CSV/PDF exports
 
-### Dashboard (`index.tsx`)
-- Widgets: Today's Collections, This Month Collections, Outstanding Receivables, Overdue Receivables (sum of 30+ buckets), Top 10 Outstanding, Recent Payments (latest 5 active). Reuse existing card grid; replace/augment existing tiles.
-
-### PDF (`src/lib/pdf.ts`)
-- `exportCustomerStatementPDF(company, rows, openingBalance, closingBalance, period)`.
-- `exportReceiptPDF(company, payment)`.
-
-## 4. Validation & guards
-
-- Client zod-like checks in dialogs; server-side guarded by CHECK constraints (amount > 0) and unique receipt index.
-- Idempotency for double-submit: disable Save button while in-flight (already partially handled; ensure consistent).
-
-## 5. Final audit (returned to user)
-
-- I'll run the migration, then verify each item against actual store/UI code and report `✓`/`✗` per the user's checklist, listing any gaps left for a follow-up.
-
-## Out of scope / follow-ups
-
-- Per-user role gating of "Delete payment" (currently any staff) — keep as-is unless requested.
-- Backdated aging beyond bill `createdAt` (no separate due date column on bills yet) — aging uses invoice date.
-- Email delivery of statements/receipts — not in this pass.
-
-Confirm and I'll execute migration + code in one go.
+## Decisions needed before I start
+1. **Operator write on payments?** Plan says no (accountant-only) — confirm.
+2. **Default role for new sign-ups?** Plan says `viewer` (must be promoted). Alternative: `operator`.
+3. **Migration scope** — OK to rewrite write-RLS on the 10 business tables in one migration?
