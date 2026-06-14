@@ -910,8 +910,7 @@ export async function importFromLocalStorage(): Promise<{ inserted: Record<strin
       const id = c.id?.length === 36 ? c.id : uid();
       companyIdMap.set(c.id, id);
       return {
-        id, name: c.name, driver_name: c.driverName ?? "", vehicle_number: c.vehicleNumber ?? "",
-        vehicle_capacity: Number(c.vehicleCapacity) || 0,
+        id, name: c.name,
         contact_number: c.contactNumber ?? c.contactDetails ?? "",
       };
     });
