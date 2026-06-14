@@ -250,10 +250,14 @@ function BillsPage() {
         )}
 
         <div className="space-y-2">
-          {filtered.map((bill) => (
-            <div key={bill.id} className="stat-card">
+          {filtered.map((bill) => {
+            const isSel = selected.has(bill.id);
+            return (
+            <div key={bill.id} className={`stat-card transition-colors ${isSel ? "border-primary bg-primary/5" : ""}`}>
               <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 flex items-start gap-2">
+                  <input type="checkbox" checked={isSel} onChange={() => toggleSelect(bill.id)} className="mt-1 h-4 w-4 rounded border-border accent-primary flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-mono font-semibold text-primary tracking-wider">INV {bill.invoiceNumber || bill.id.slice(-6).toUpperCase()}</p>
                   <p className="font-medium text-foreground truncate">{bill.companyName || "Walk-in"}</p>
                   {bill.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {bill.vehicleNumber} {bill.vehicleCapacity > 0 && `(${bill.vehicleCapacity}t)`}</p>}
