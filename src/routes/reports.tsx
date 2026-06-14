@@ -260,6 +260,55 @@ function ReportsPage() {
               </div>
             )}
           </div>
+        ) : reportType === "analytics" ? (
+          <div className="space-y-4">
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Monthly Collections (last 12 months)</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={analytics.monthly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Bar dataKey="collected" fill="oklch(0.65 0.18 145)" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Outstanding Trend</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={analytics.monthly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Line type="monotone" dataKey="outstanding" stroke="oklch(0.65 0.18 50)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Collection Performance — Invoiced vs Collected</h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={analytics.monthly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="invoiced" fill="oklch(0.75 0.16 70)" radius={[4,4,0,0]} />
+                  <Bar dataKey="collected" fill="oklch(0.65 0.18 145)" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                {analytics.monthly.slice(-3).map((m) => (
+                  <div key={m.month} className="rounded-md bg-secondary p-2">
+                    <p className="text-muted-foreground">{m.month}</p>
+                    <p className="font-bold text-foreground">{m.rate}% collected</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : reportType === "aging" ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">{aging.length} compan{aging.length === 1 ? "y" : "ies"} with outstanding · Sorted by total DESC</p>
