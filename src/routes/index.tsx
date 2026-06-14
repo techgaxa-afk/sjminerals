@@ -189,7 +189,9 @@ function DashboardPage() {
           <div className="stat-card border-success/30 bg-success/5">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-sm font-semibold text-success"><Banknote className="h-4 w-4" /> Cash Flow Today</div>
-              {collectionStats.availableCash <= 0 ? (
+              {collectionStats.availableCash < 0 ? (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">OVERDRAWN</span>
+              ) : collectionStats.availableCash === 0 ? (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH AVAILABLE</span>
               ) : collectionStats.availableCash < 1000 ? (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW CASH BALANCE</span>
@@ -205,7 +207,9 @@ function DashboardPage() {
           <div className="stat-card border-primary/30 bg-primary/5">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-sm font-semibold text-primary"><CreditCard className="h-4 w-4" /> UPI Flow Today</div>
-              {collectionStats.availableUpi <= 0 ? (
+              {collectionStats.availableUpi < 0 ? (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">OVERDRAWN</span>
+              ) : collectionStats.availableUpi === 0 ? (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI BALANCE</span>
               ) : collectionStats.availableUpi < 1000 ? (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW UPI BALANCE</span>

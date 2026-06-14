@@ -58,29 +58,12 @@ function ExpensesPage() {
     if (!date) { setError("Date is required."); return; }
     if (!paymentMode) { setError("Payment mode is required."); return; }
 
-    // Balance validation (exclude the current row when editing so user can edit without false-positive)
-    const editingAmt = editingId ? (expenses.find((e) => e.id === editingId)?.amount ?? 0) : 0;
-    const editingMode = editingId ? expenses.find((e) => e.id === editingId)?.paymentMode : undefined;
-
-    if (paymentMode === "cash") {
-      const available = getCashSales() - getCashExpenses() + (editingMode === "cash" ? editingAmt : 0);
-      if (amt > available) {
-        setError(`Insufficient Cash Balance. Available Cash: ₹${available.toLocaleString()}`);
-        return;
-      }
-    } else {
-      const available = getUpiSales() - getUpiExpenses() + (editingMode === "upi" ? editingAmt : 0);
-      if (amt > available) {
-        setError(`Insufficient UPI Balance. Available UPI: ₹${available.toLocaleString()}`);
-        return;
-      }
-    }
-
     if (editingId) updateExpense(editingId, { category, amount: amt, date, notes: notes.trim(), paymentMode });
     else saveExpense({ category, amount: amt, date, notes: notes.trim(), paymentMode });
     setExpenses(getExpenses());
     resetForm();
   };
+
 
   const startEdit = (e: Expense) => {
     setEditingId(e.id); setCategory(e.category); setAmount(String(e.amount));
@@ -98,7 +81,35 @@ function ExpensesPage() {
   const availableCash = getCashSales() - getCashExpenses();
   const availableUpi = getUpiSales() - getUpiExpenses();
 
+  // Running balance after each expense (chronological by date+createdAt, per mode)
+  const balanceAfter = useMemo(() => {
+    const map: Record<string, number> = {};
+    const chrono = [...expenses].sort((a, b) => {
+      const d = a.date.localeCompare(b.date);
+      return d !== 0 ? d : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+    const totalCash = getCashSales();
+    const totalUpi = getUpiSales();
+    let runCash = 0, runUpi = 0;
+    chrono.forEach((e) => {
+      if (e.paymentMode === "upi") { runUpi += e.amount; map[e.id] = totalUpi - runUpi; }
+      else { runCash += e.amount; map[e.id] = totalCash - runCash; }
+    });
+    return map;
+  }, [expenses]);
+
+  const amtNum = Number(amount) || 0;
+
+  const editingAmt = editingId ? (expenses.find((e) => e.id === editingId)?.amount ?? 0) : 0;
+  const editingMode = editingId ? expenses.find((e) => e.id === editingId)?.paymentMode : undefined;
+  const currentBalance = paymentMode === "cash"
+    ? availableCash + (editingMode === "cash" ? editingAmt : 0)
+    : availableUpi + (editingMode === "upi" ? editingAmt : 0);
+  const projected = currentBalance - amtNum;
+  const showOverdraftWarning = showForm && amtNum > 0 && projected < 0;
+
   const analytics = useMemo(() => {
+
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -125,23 +136,26 @@ function ExpensesPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="stat-card border-success/30 bg-success/5">
+          <div className={`stat-card ${availableCash < 0 ? "border-destructive/40 bg-destructive/5" : "border-success/30 bg-success/5"}`}>
             <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2 text-xs text-success"><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
-              {availableCash <= 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH</span>
+              <div className={`flex items-center gap-2 text-xs ${availableCash < 0 ? "text-destructive" : "text-success"}`}><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
+              {availableCash < 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">OVERDRAWN</span>
+                : availableCash === 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH</span>
                 : availableCash < 1000 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW</span> : null}
             </div>
-            <p className="text-xl font-bold text-success">₹{availableCash.toLocaleString()}</p>
+            <p className={`text-xl font-bold ${availableCash < 0 ? "text-destructive" : "text-success"}`}>₹{availableCash.toLocaleString()}</p>
           </div>
-          <div className="stat-card border-primary/30 bg-primary/5">
+          <div className={`stat-card ${availableUpi < 0 ? "border-destructive/40 bg-destructive/5" : "border-primary/30 bg-primary/5"}`}>
             <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2 text-xs text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
-              {availableUpi <= 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI</span>
+              <div className={`flex items-center gap-2 text-xs ${availableUpi < 0 ? "text-destructive" : "text-primary"}`}><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
+              {availableUpi < 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">OVERDRAWN</span>
+                : availableUpi === 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI</span>
                 : availableUpi < 1000 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW</span> : null}
             </div>
-            <p className="text-xl font-bold text-primary">₹{availableUpi.toLocaleString()}</p>
+            <p className={`text-xl font-bold ${availableUpi < 0 ? "text-destructive" : "text-primary"}`}>₹{availableUpi.toLocaleString()}</p>
           </div>
         </div>
+
 
         {/* Quick Expense Analytics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -215,6 +229,14 @@ function ExpensesPage() {
               <label className="field-label">Notes</label>
               <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
+            {showOverdraftWarning && (
+              <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning space-y-0.5">
+                <p className="font-semibold">⚠ This expense will result in a negative {paymentMode === "cash" ? "cash" : "UPI"} balance.</p>
+                <p>Current Balance: ₹{currentBalance.toLocaleString()}</p>
+                <p>Expense: ₹{amtNum.toLocaleString()}</p>
+                <p>Projected Balance: <span className="font-bold">₹{projected.toLocaleString()}</span></p>
+              </div>
+            )}
             {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive whitespace-pre-line">{error}</div>}
             <div className="flex gap-2">
               <button onClick={handleSave} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Save</button>
@@ -242,17 +264,20 @@ function ExpensesPage() {
         <div className="space-y-2">
           {filtered.map((exp) => {
             const Icon = getCatIcon(exp.category);
+            const bal = balanceAfter[exp.id] ?? 0;
+            const isCredit = bal < 0;
             return (
               <div key={exp.id} className="stat-card flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="rounded-md bg-secondary p-2"><Icon className="h-4 w-4 text-muted-foreground" /></div>
                   <div>
-                    <p className="font-medium text-foreground capitalize flex items-center gap-2">
+                    <p className="font-medium text-foreground capitalize flex items-center gap-2 flex-wrap">
                       {exp.category}
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${exp.paymentMode === "upi" ? "bg-primary/15 text-primary" : "bg-success/15 text-success"}`}>{(exp.paymentMode || "cash").toUpperCase()}</span>
+                      {isCredit && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-500">CREDIT EXPENSE</span>}
                     </p>
                     <p className="text-xs text-muted-foreground">{format(parseISO(exp.date + "T00:00:00"), "dd MMM yyyy")}{exp.notes ? ` · ${exp.notes}` : ""}</p>
-                    <p className="text-[10px] text-muted-foreground">Logged {format(new Date(exp.createdAt), "dd MMM, hh:mm a")}</p>
+                    <p className="text-[10px] text-muted-foreground">Logged {format(new Date(exp.createdAt), "dd MMM, hh:mm a")} · Balance After: <span className={`font-semibold ${bal < 0 ? "text-destructive" : "text-foreground"}`}>₹{bal.toLocaleString()}</span></p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
