@@ -354,10 +354,25 @@ export function deleteProduct(id: string): void {
 
 // ============ Companies ============
 export function getCompanies(): Company[] { return cache.companies.slice(); }
-export function saveCompany(c: Omit<Company, "id" | "createdAt">): Company {
+export async function saveCompany(c: Omit<Company, "id" | "createdAt">): Promise<Company> {
   const company: Company = { ...c, id: uid(), createdAt: new Date().toISOString() };
+  const payload = companyToDb(company);
+  console.log("[COMPANY STEP 1] inserting company", payload);
+  const insertRes = await supabase.from("companies").insert(payload).select("id").single();
+  if (insertRes.error) {
+    console.error("COMPANY INSERT FAILED", insertRes.error);
+    emitError(insertRes.error.message || "Company insert failed");
+    throw insertRes.error;
+  }
+  console.log("[COMPANY STEP 2] company inserted", insertRes.data?.id);
+  const verify = await supabase.from("companies").select("id").eq("id", company.id).single();
+  if (verify.error) {
+    console.error("COMPANY VERIFY FAILED", verify.error);
+    emitError(verify.error.message || "Company verify failed");
+    throw verify.error;
+  }
+  console.log("[COMPANY STEP 3] company verified", verify.data);
   cache.companies.push(company); bump();
-  bg(supabase.from("companies").insert(companyToDb(company)));
   return company;
 }
 export function updateCompany(id: string, updates: Partial<Company>): void {
