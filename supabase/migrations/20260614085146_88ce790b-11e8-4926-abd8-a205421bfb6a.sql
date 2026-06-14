@@ -1,0 +1,1 @@
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS payment_mode text NOT NULL DEFAULT 'cash' CHECK (payment_mode IN ('cash','upi'));

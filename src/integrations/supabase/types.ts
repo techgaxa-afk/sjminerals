@@ -309,6 +309,7 @@ export type Database = {
           linked_machine_id: string | null
           linked_operator_id: string | null
           notes: string
+          payment_mode: string
         }
         Insert: {
           amount?: number
@@ -321,6 +322,7 @@ export type Database = {
           linked_machine_id?: string | null
           linked_operator_id?: string | null
           notes?: string
+          payment_mode?: string
         }
         Update: {
           amount?: number
@@ -333,6 +335,7 @@ export type Database = {
           linked_machine_id?: string | null
           linked_operator_id?: string | null
           notes?: string
+          payment_mode?: string
         }
         Relationships: [
           {
