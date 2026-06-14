@@ -16,7 +16,8 @@ import {
   type AdminUser,
   type UserStatus,
 } from "@/lib/admin-users.functions";
-import { Shield, Loader2, Search, UserCog, UserPlus, Pencil, Trash2, Ban, CheckCircle2, Mail, X } from "lucide-react";
+import { Shield, Loader2, Search, UserCog, UserPlus, Pencil, Trash2, Ban, CheckCircle2, Mail, X, Eye, Download } from "lucide-react";
+import UserDetailsDrawer from "@/components/UserDetailsDrawer";
 
 export const Route = createFileRoute("/users")({ component: UsersPage });
 
