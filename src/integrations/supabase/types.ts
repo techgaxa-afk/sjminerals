@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ts: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ts?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ts?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bill_items: {
         Row: {
           bill_id: string
@@ -150,6 +180,7 @@ export type Database = {
           address: string
           contact_number: string
           created_at: string
+          credit_limit: number
           id: string
           name: string
           notes: string
@@ -160,6 +191,7 @@ export type Database = {
           address?: string
           contact_number?: string
           created_at?: string
+          credit_limit?: number
           id?: string
           name: string
           notes?: string
@@ -170,6 +202,7 @@ export type Database = {
           address?: string
           contact_number?: string
           created_at?: string
+          credit_limit?: number
           id?: string
           name?: string
           notes?: string
@@ -187,7 +220,12 @@ export type Database = {
           notes: string | null
           payment_date: string
           payment_method: string | null
+          receipt_number: string | null
           reference_number: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          status: string
           updated_at: string
         }
         Insert: {
@@ -198,7 +236,12 @@ export type Database = {
           notes?: string | null
           payment_date?: string
           payment_method?: string | null
+          receipt_number?: string | null
           reference_number?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -209,7 +252,12 @@ export type Database = {
           notes?: string | null
           payment_date?: string
           payment_method?: string | null
+          receipt_number?: string | null
           reference_number?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: [
@@ -574,6 +622,21 @@ export type Database = {
         }
         Relationships: []
       }
+      receipt_counters: {
+        Row: {
+          last_number: number
+          year: number
+        }
+        Insert: {
+          last_number?: number
+          year: number
+        }
+        Update: {
+          last_number?: number
+          year?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -648,6 +711,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      next_receipt_number: { Args: { _year?: number }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "staff"
