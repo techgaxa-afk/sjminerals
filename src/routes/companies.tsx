@@ -193,7 +193,7 @@ function CompaniesPage() {
                   </div>
                   <div className="flex items-center gap-1 ml-2">
                     <button onClick={(e) => handleEdit(e, c)} aria-label="Edit company" className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={(e) => handleDelete(e, c.id)} aria-label="Delete company" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={(e) => handleDelete(e, c)} aria-label="Delete company" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
                     <button onClick={() => toggleExpanded(c.id)} aria-label={isOpen ? "Collapse" : "Expand"} aria-expanded={isOpen} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary">
                       {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </button>
@@ -242,9 +242,10 @@ function CompaniesPage() {
                         <input value={vehForm!.driverName} onChange={(e) => setVehForm({ ...vehForm!, driverName: e.target.value })} placeholder="Driver Name" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                         <div className="grid grid-cols-2 gap-2">
                           <input type="number" step="0.01" value={vehForm!.vehicleCapacity} onChange={(e) => setVehForm({ ...vehForm!, vehicleCapacity: e.target.value })} placeholder="Capacity (t)" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                          <select value={vehForm!.status} onChange={(e) => setVehForm({ ...vehForm!, status: e.target.value as "active" | "inactive" })} className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                          <select value={vehForm!.status} onChange={(e) => setVehForm({ ...vehForm!, status: e.target.value as "active" | "inactive" | "maintenance" })} className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
+                            <option value="maintenance">Maintenance</option>
                           </select>
                         </div>
                         <button onClick={handleSaveVehicle} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">{vehForm!.id ? "Update" : "Save"} Vehicle</button>
