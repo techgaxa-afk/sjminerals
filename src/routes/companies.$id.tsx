@@ -15,6 +15,7 @@ import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
+  validateSearch: (s: Record<string, unknown>) => ({ pay: s.pay === 1 || s.pay === "1" ? 1 : undefined }),
   component: CompanyDetailsPage,
 });
 
