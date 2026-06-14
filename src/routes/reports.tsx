@@ -117,7 +117,7 @@ function ReportsPage() {
           revenue: cBills.reduce((s, b) => s + b.totalAmount, 0),
           outstanding: getCompanyOutstanding(c.id),
         };
-      }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
+      }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(searchText.toLowerCase()));
     }
 
     if (reportType === "vehicle") {
@@ -132,7 +132,7 @@ function ReportsPage() {
       });
       return Array.from(vehicleMap.entries()).map(([id, d]) => ({
         id, name: d.name, sub: "", trips: d.trips, revenue: d.revenue, outstanding: d.outstanding,
-      })).filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+      })).filter((r) => r.name.toLowerCase().includes(searchText.toLowerCase()));
     }
 
     if (reportType === "hitachi") {
@@ -163,8 +163,8 @@ function ReportsPage() {
         id: o.id, name: o.name, sub: `₹${o.hourlySalaryRate}/hr`,
         trips: oEntries.length, revenue: totalHrs, outstanding: totalSalary, isOperator: true,
       };
-    }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
-  }, [reportType, filter, start, search, allBillsInRange]);
+    }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(searchText.toLowerCase()));
+  }, [reportType, filter, start, searchText, allBillsInRange]);
 
   const ledger = useMemo(() => {
     if (reportType !== "ledger") return [];
@@ -181,10 +181,10 @@ function ReportsPage() {
         reference: p.referenceNumber ?? "",
         notes: p.notes ?? "",
       }))
-      .filter((r) => !search || r.company.toLowerCase().includes(search.toLowerCase()) || r.reference.toLowerCase().includes(search.toLowerCase()))
+      .filter((r) => !searchText || r.company.toLowerCase().includes(searchText.toLowerCase()) || r.reference.toLowerCase().includes(searchText.toLowerCase()))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return rows;
-  }, [reportType, start, search]);
+  }, [reportType, start, searchText]);
 
   const ledgerTotal = useMemo(() => ledger.reduce((s, r) => s + r.amount, 0), [ledger]);
 
@@ -195,9 +195,9 @@ function ReportsPage() {
         const b = getCompanyAging(c.id);
         return { id: c.id, name: c.name, ...b };
       })
-      .filter((r) => r.total > 0 && (!search || r.name.toLowerCase().includes(search.toLowerCase())))
+      .filter((r) => r.total > 0 && (!searchText || r.name.toLowerCase().includes(searchText.toLowerCase())))
       .sort((a, b) => b.total - a.total);
-  }, [reportType, search]);
+  }, [reportType, searchText]);
 
   const agingTotals = useMemo(
     () => aging.reduce(
@@ -272,7 +272,7 @@ function ReportsPage() {
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input value={search} onChange={(e) => setSearchText(e.target.value)} placeholder="Search..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <div className="flex gap-1 rounded-md bg-secondary p-1">
             {(["daily", "weekly", "monthly"] as FilterType[]).map((f) => (
