@@ -131,12 +131,15 @@ const productToDb = (p: Product) => ({
 const mapCompany = (r: any): Company => ({
   id: r.id, name: r.name, contactNumber: r.contact_number ?? "",
   address: r.address ?? "", notes: r.notes ?? "",
-  openingBalance: Number(r.opening_balance) || 0, createdAt: r.created_at,
+  openingBalance: Number(r.opening_balance) || 0,
+  creditLimit: Number(r.credit_limit) || 0,
+  createdAt: r.created_at,
 });
 const companyToDb = (c: Company) => ({
   id: c.id, name: c.name, contact_number: c.contactNumber,
   address: c.address ?? "", notes: c.notes ?? "",
   opening_balance: c.openingBalance || 0,
+  credit_limit: c.creditLimit || 0,
 });
 const mapVehicle = (r: any): Vehicle => ({
   id: r.id, companyId: r.company_id, vehicleNumber: r.vehicle_number,
