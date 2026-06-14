@@ -404,7 +404,7 @@ export async function deleteCompany(id: string): Promise<void> {
 export function getCompanyByVehicle(vehicleNumber: string): Company | undefined {
   const v = cache.vehicles.find((x) => x.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
   if (v) return cache.companies.find((c) => c.id === v.companyId);
-  return cache.companies.find((c) => c.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
+  return undefined;
 }
 
 // ============ Vehicles ============
