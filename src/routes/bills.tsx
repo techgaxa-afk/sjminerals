@@ -185,10 +185,6 @@ function BillsPage() {
     setDeleteId(null); refresh();
   };
 
-  return (
-    <AppLayout>
-      <div className="space-y-4">
-        <h1 className="module-header">Bill History</h1>
 
   const allVisibleSelected = filtered.length > 0 && filtered.every((b) => selected.has(b.id));
   const toggleSelectAll = () => {
