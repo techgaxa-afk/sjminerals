@@ -240,6 +240,46 @@ function ReportsPage() {
               </div>
             )}
           </div>
+        ) : reportType === "aging" ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">{aging.length} compan{aging.length === 1 ? "y" : "ies"} with outstanding · Sorted by total DESC</p>
+            <div className="overflow-x-auto">
+              <div className="min-w-[760px] space-y-2">
+                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "2fr repeat(6,1fr)" }}>
+                  <span>Company</span>
+                  <span className="text-right">Current</span>
+                  <span className="text-right">1–30 d</span>
+                  <span className="text-right">31–60 d</span>
+                  <span className="text-right">61–90 d</span>
+                  <span className="text-right">90+ d</span>
+                  <span className="text-right">Total</span>
+                </div>
+                {aging.map((r) => (
+                  <div key={r.id} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "2fr repeat(6,1fr)" }}>
+                    <span className="font-medium text-foreground truncate">{r.name}</span>
+                    <span className="text-right text-foreground">₹{r.current.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.d30.toLocaleString()}</span>
+                    <span className="text-right text-warning">₹{r.d60.toLocaleString()}</span>
+                    <span className="text-right text-warning">₹{r.d90.toLocaleString()}</span>
+                    <span className="text-right text-destructive font-medium">₹{r.d90plus.toLocaleString()}</span>
+                    <span className="text-right font-bold text-foreground">₹{r.total.toLocaleString()}</span>
+                  </div>
+                ))}
+                {aging.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No outstanding balances.</p>}
+                {aging.length > 0 && (
+                  <div className="stat-card grid gap-2 items-center border-primary/30" style={{ gridTemplateColumns: "2fr repeat(6,1fr)" }}>
+                    <span className="font-bold text-sm text-foreground">Total</span>
+                    <span className="text-right text-sm font-bold text-foreground">₹{agingTotals.current.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-foreground">₹{agingTotals.d30.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-warning">₹{agingTotals.d60.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-warning">₹{agingTotals.d90.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-destructive">₹{agingTotals.d90plus.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-primary">₹{agingTotals.total.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
