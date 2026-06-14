@@ -139,14 +139,12 @@ function ProfitabilityPage() {
   }, [trips]);
 
   const driverRows = useMemo(() => {
-    const drivers = getDrivers();
     const map: Record<string, { name: string; trips: number; revenue: number; cost: number }> = {};
     trips.forEach((t) => {
       const key = t.driver || "—";
       const r = (map[key] ||= { name: key, trips: 0, revenue: 0, cost: 0 });
       r.trips++; r.revenue += t.revenue; r.cost += t.totalCost;
     });
-    void drivers;
     return Object.values(map)
       .map((r) => ({ ...r, profit: r.revenue - r.cost }))
       .sort((a, b) => b.profit - a.profit);
