@@ -59,6 +59,10 @@ function CompanyDetailsPage() {
   const [reverseTarget, setReverseTarget] = useState<CompanyPayment | null>(null);
   const [reverseReason, setReverseReason] = useState("");
   const [reversing, setReversing] = useState(false);
+  // Auto-receipt modal after save
+  const [receiptForModal, setReceiptForModal] = useState<CompanyPayment | null>(null);
+  // Expanded reversal details
+  const [expandedReversal, setExpandedReversal] = useState<string | null>(null);
 
   // Statement date range
   const [stmtFrom, setStmtFrom] = useState("");
