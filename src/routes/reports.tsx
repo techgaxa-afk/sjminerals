@@ -2,27 +2,98 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
-  getBills, getCompanies, getDateRange, getCompanyOutstanding,
+  getBills, getCompanies, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
   getCompanyAging,
 } from "../lib/store";
-import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon } from "lucide-react";
+import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon, Calendar as CalendarIcon } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 import { format } from "date-fns";
 
 
-export const Route = createFileRoute("/reports")({ component: ReportsPage });
-
 type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics";
-type FilterType = "daily" | "weekly" | "monthly";
+type FilterType = "daily" | "weekly" | "monthly" | "custom";
+type Preset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth";
+
+type ReportSearch = { tab?: ReportType; from?: string; to?: string; preset?: Preset };
+export const Route = createFileRoute("/reports")({
+  component: ReportsPage,
+  validateSearch: (s: Record<string, unknown>): ReportSearch => ({
+    tab: (s.tab as ReportType) || undefined,
+    from: typeof s.from === "string" ? s.from : undefined,
+    to: typeof s.to === "string" ? s.to : undefined,
+    preset: (s.preset as Preset) || undefined,
+  }),
+});
+
+const sod = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+const eod = (d: Date) => { const x = new Date(d); x.setHours(23,59,59,999); return x; };
+const isoDate = (d: Date) => format(d, "yyyy-MM-dd");
+
+function presetRange(p: Preset): { start: Date; end: Date } {
+  const now = new Date();
+  if (p === "today") return { start: sod(now), end: eod(now) };
+  if (p === "yesterday") { const y = new Date(now); y.setDate(y.getDate()-1); return { start: sod(y), end: eod(y) }; }
+  if (p === "last7") { const s = new Date(now); s.setDate(s.getDate()-6); return { start: sod(s), end: eod(now) }; }
+  if (p === "last30") { const s = new Date(now); s.setDate(s.getDate()-29); return { start: sod(s), end: eod(now) }; }
+  if (p === "thisMonth") return { start: sod(new Date(now.getFullYear(), now.getMonth(), 1)), end: eod(now) };
+  return { start: sod(new Date(now.getFullYear(), now.getMonth()-1, 1)), end: eod(new Date(now.getFullYear(), now.getMonth(), 0)) };
+}
+
+function rangeFor(filter: FilterType, custom: { start: Date; end: Date } | null): { start: Date; end: Date } {
+  const now = new Date();
+  if (filter === "custom" && custom) return custom;
+  if (filter === "daily") return { start: sod(now), end: eod(now) };
+  if (filter === "weekly") { const s = new Date(now); s.setDate(s.getDate()-7); return { start: sod(s), end: eod(now) }; }
+  if (filter === "monthly") { const s = new Date(now); s.setMonth(s.getMonth()-1); return { start: sod(s), end: eod(now) }; }
+  return { start: sod(now), end: eod(now) };
+}
 
 function ReportsPage() {
-  const [reportType, setReportType] = useState<ReportType>("company");
-  const [filter, setFilter] = useState<FilterType>("monthly");
-  const [search, setSearch] = useState("");
-  const { start } = getDateRange(filter);
+  const sp = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [reportType, setReportType] = useState<ReportType>(sp.tab || "company");
+  const initFilter: FilterType = sp.from && sp.to ? "custom" : sp.preset ? "custom" : "monthly";
+  const [filter, setFilter] = useState<FilterType>(initFilter);
+  const [searchText, setSearchText] = useState("");
+  const today = new Date();
+  const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth()-1);
+  const initCustom = sp.from && sp.to
+    ? { start: sod(new Date(sp.from)), end: eod(new Date(sp.to)) }
+    : sp.preset ? presetRange(sp.preset) : null;
+  const [fromDate, setFromDate] = useState<string>(sp.from || (initCustom ? isoDate(initCustom.start) : isoDate(monthAgo)));
+  const [toDate, setToDate] = useState<string>(sp.to || (initCustom ? isoDate(initCustom.end) : isoDate(today)));
+  const [appliedCustom, setAppliedCustom] = useState<{ start: Date; end: Date } | null>(initCustom);
+  const [dateError, setDateError] = useState("");
 
-  const allBillsInRange = useMemo(() => getBills().filter((b) => new Date(b.createdAt) >= start), [start]);
+  const { start, end } = useMemo(() => rangeFor(filter, appliedCustom), [filter, appliedCustom]);
+
+  const applyPreset = (p: Preset) => {
+    const r = presetRange(p);
+    setFromDate(isoDate(r.start));
+    setToDate(isoDate(r.end));
+    setAppliedCustom(r);
+    setFilter("custom");
+    setDateError("");
+  };
+  const applyCustom = () => {
+    const f = new Date(fromDate); const t = new Date(toDate);
+    if (isNaN(f.getTime()) || isNaN(t.getTime()) || t < f) { setDateError("Invalid date range"); return; }
+    setDateError("");
+    setAppliedCustom({ start: sod(f), end: eod(t) });
+    setFilter("custom");
+  };
+
+  const periodLabel = useMemo(() => {
+    const s = format(start, "dd MMM yyyy"); const e = format(end, "dd MMM yyyy");
+    return s === e ? s : `${s} - ${e}`;
+  }, [start, end]);
+
+  // keep URL in sync when switching report type so dashboard back/forward works
+  useMemo(() => { navigate({ search: (prev) => ({ ...prev, tab: reportType }), replace: true }); }, [reportType]); // eslint-disable-line
+
+
+  const allBillsInRange = useMemo(() => getBills().filter((b) => (new Date(b.createdAt) >= start && new Date(b.createdAt) <= end)), [start, end]);
   const passStats = useMemo(() => {
     const passBills = allBillsInRange.filter((b) => b.passEnabled);
     return {
@@ -34,8 +105,8 @@ function ReportsPage() {
   const data = useMemo(() => {
     const bills = allBillsInRange;
     const companies = getCompanies();
-    const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
-    const hitachiFuel = getHitachiFuel().filter((f) => new Date(f.createdAt) >= start);
+    const hitachiEntries = getHitachiEntries().filter((e) => (new Date(e.createdAt) >= start && new Date(e.createdAt) <= end));
+    const hitachiFuel = getHitachiFuel().filter((f) => (new Date(f.createdAt) >= start && new Date(f.createdAt) <= end));
     const ops = getOperators();
 
     if (reportType === "company") {
@@ -47,7 +118,7 @@ function ReportsPage() {
           revenue: cBills.reduce((s, b) => s + b.totalAmount, 0),
           outstanding: getCompanyOutstanding(c.id),
         };
-      }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
+      }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(searchText.toLowerCase()));
     }
 
     if (reportType === "vehicle") {
@@ -62,7 +133,7 @@ function ReportsPage() {
       });
       return Array.from(vehicleMap.entries()).map(([id, d]) => ({
         id, name: d.name, sub: "", trips: d.trips, revenue: d.revenue, outstanding: d.outstanding,
-      })).filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+      })).filter((r) => r.name.toLowerCase().includes(searchText.toLowerCase()));
     }
 
     if (reportType === "hitachi") {
@@ -93,15 +164,15 @@ function ReportsPage() {
         id: o.id, name: o.name, sub: `₹${o.hourlySalaryRate}/hr`,
         trips: oEntries.length, revenue: totalHrs, outstanding: totalSalary, isOperator: true,
       };
-    }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
-  }, [reportType, filter, start, search, allBillsInRange]);
+    }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(searchText.toLowerCase()));
+  }, [reportType, start, end, searchText, allBillsInRange]);
 
   const ledger = useMemo(() => {
     if (reportType !== "ledger") return [];
     const companies = getCompanies();
     const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
     const rows = getAllCompanyPayments()
-      .filter((p) => new Date(p.paymentDate) >= start)
+      .filter((p) => (new Date(p.paymentDate) >= start && new Date(p.paymentDate) <= end))
       .map((p) => ({
         id: p.id,
         date: p.paymentDate,
@@ -111,10 +182,10 @@ function ReportsPage() {
         reference: p.referenceNumber ?? "",
         notes: p.notes ?? "",
       }))
-      .filter((r) => !search || r.company.toLowerCase().includes(search.toLowerCase()) || r.reference.toLowerCase().includes(search.toLowerCase()))
+      .filter((r) => !searchText || r.company.toLowerCase().includes(searchText.toLowerCase()) || r.reference.toLowerCase().includes(searchText.toLowerCase()))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return rows;
-  }, [reportType, start, search]);
+  }, [reportType, start, end, searchText]);
 
   const ledgerTotal = useMemo(() => ledger.reduce((s, r) => s + r.amount, 0), [ledger]);
 
@@ -125,9 +196,9 @@ function ReportsPage() {
         const b = getCompanyAging(c.id);
         return { id: c.id, name: c.name, ...b };
       })
-      .filter((r) => r.total > 0 && (!search || r.name.toLowerCase().includes(search.toLowerCase())))
+      .filter((r) => r.total > 0 && (!searchText || r.name.toLowerCase().includes(searchText.toLowerCase())))
       .sort((a, b) => b.total - a.total);
-  }, [reportType, search]);
+  }, [reportType, searchText]);
 
   const agingTotals = useMemo(
     () => aging.reduce(
@@ -147,7 +218,12 @@ function ReportsPage() {
   const exportLedgerCSV = () => {
     const headers = ["Date", "Company", "Amount", "Method", "Reference", "Notes"];
     const escape = (v: string | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = [headers.join(",")].concat(
+    const lines = [
+      `Payment Ledger`,
+      `Period: ${periodLabel}`,
+      ``,
+      headers.join(","),
+    ].concat(
       ledger.map((r) => [r.date, r.company, r.amount.toString(), r.method, r.reference, r.notes].map(escape).join(","))
     );
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
@@ -199,17 +275,43 @@ function ReportsPage() {
           ))}
         </div>
 
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+        <div className="flex gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Search..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <div className="flex gap-1 rounded-md bg-secondary p-1">
-            {(["daily", "weekly", "monthly"] as FilterType[]).map((f) => (
-              <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
+            {(["daily", "weekly", "monthly", "custom"] as FilterType[]).map((f) => (
+              <button key={f} onClick={() => { setFilter(f); if (f !== "custom") setAppliedCustom(null); }} className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
             ))}
           </div>
         </div>
+
+        {filter === "custom" && (
+          <div className="stat-card space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs text-muted-foreground">From</label>
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground" />
+              <label className="text-xs text-muted-foreground">To</label>
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground" />
+              <button onClick={applyCustom} className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90">Apply</button>
+              {dateError && <span className="text-xs text-destructive">{dateError}</span>}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {([
+                ["today","Today"],["yesterday","Yesterday"],["last7","Last 7 Days"],
+                ["last30","Last 30 Days"],["thisMonth","This Month"],["lastMonth","Last Month"],
+              ] as [Preset,string][]).map(([p,l]) => (
+                <button key={p} onClick={() => applyPreset(p)} className="rounded-md bg-secondary px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/80">{l}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <CalendarIcon className="h-3.5 w-3.5" /> Period: <span className="text-foreground font-medium">{periodLabel}</span>
+        </div>
+
 
         <div className="grid grid-cols-2 gap-2">
           <div className="stat-card">
