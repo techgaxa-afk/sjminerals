@@ -7,20 +7,23 @@ import { loadAll, isLoaded, resetStore, useCloudData, onWriteError } from "@/lib
 import { toast } from "sonner";
 
 
-const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/companies", label: "Companies", icon: Building2 },
-  { to: "/products", label: "Products", icon: Package },
-  { to: "/billing", label: "New Bill", icon: Receipt },
-  { to: "/bills", label: "Bills", icon: Receipt },
-  { to: "/hitachi", label: "Hitachi", icon: Settings },
-  { to: "/expenses", label: "Expenses", icon: Wallet },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-] as const;
+type Need = "writeBills" | "writeOps" | "writePayments" | "writeMaster" | "viewReports" | "any";
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; needs?: Need };
 
-const adminNavItems = [
+const navItems: readonly NavItem[] = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, needs: "any" },
+  { to: "/companies", label: "Companies", icon: Building2, needs: "any" },
+  { to: "/products", label: "Products", icon: Package, needs: "any" },
+  { to: "/billing", label: "New Bill", icon: Receipt, needs: "writeBills" },
+  { to: "/bills", label: "Bills", icon: Receipt, needs: "any" },
+  { to: "/hitachi", label: "Hitachi", icon: Settings, needs: "writeOps" },
+  { to: "/expenses", label: "Expenses", icon: Wallet, needs: "writeOps" },
+  { to: "/reports", label: "Reports", icon: BarChart3, needs: "viewReports" },
+];
+
+const adminNavItems: readonly NavItem[] = [
   { to: "/users", label: "Users", icon: UserCog },
-] as const;
+];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -28,8 +31,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, loading, signOut, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   useCloudData();
-  const { isAdmin, loading: rolesLoading } = useUserRoles();
-  const items = isAdmin ? [...navItems, ...adminNavItems] : navItems;
+  const { isAdmin, hasAny, can, loading: rolesLoading } = useUserRoles();
+  const items: NavItem[] = [
+    ...navItems.filter((i) => {
+      if (!i.needs || i.needs === "any") return hasAny || isAdmin;
+      return can(i.needs);
+    }),
+    ...(isAdmin ? adminNavItems : []),
+  ];
   const [dataReady, setDataReady] = useState(isLoaded());
 
   useEffect(() => {

@@ -6,13 +6,14 @@ import {
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
   getCompanyAging,
 } from "../lib/store";
-import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle } from "lucide-react";
+import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon } from "lucide-react";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
+import { format } from "date-fns";
 
-export const Route = createFileRoute("/reports")({
-  component: ReportsPage,
-});
 
-type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging";
+export const Route = createFileRoute("/reports")({ component: ReportsPage });
+
+type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics";
 type FilterType = "daily" | "weekly" | "monthly";
 
 function ReportsPage() {
@@ -157,6 +158,24 @@ function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const analytics = useMemo(() => {
+    if (reportType !== "analytics") return { monthly: [] as { month: string; collected: number; invoiced: number; outstanding: number; rate: number }[] };
+    const now = new Date();
+    const months: { key: string; month: string; collected: number; invoiced: number; outstanding: number; rate: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, month: format(d, "MMM yy"), collected: 0, invoiced: 0, outstanding: 0, rate: 0 });
+    }
+    const idx = (d: Date) => months.findIndex((m) => m.key === `${d.getFullYear()}-${d.getMonth()}`);
+    getAllCompanyPayments().filter((p) => p.status !== "reversed").forEach((p) => {
+      const i = idx(new Date(p.paymentDate)); if (i >= 0) months[i].collected += p.amount;
+    });
+    getBills().forEach((b) => { const i = idx(new Date(b.createdAt)); if (i >= 0) months[i].invoiced += b.totalAmount || 0; });
+    let running = 0;
+    months.forEach((m) => { running += m.invoiced - m.collected; m.outstanding = Math.max(0, running); m.rate = m.invoiced > 0 ? Math.round((m.collected / m.invoiced) * 100) : 0; });
+    return { monthly: months };
+  }, [reportType]);
+
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
     { id: "vehicle", label: "Vehicle", icon: Building2 },
@@ -164,6 +183,7 @@ function ReportsPage() {
     { id: "operator", label: "Operator", icon: Users },
     { id: "ledger", label: "Ledger", icon: Wallet },
     { id: "aging", label: "Aging", icon: AlertTriangle },
+    { id: "analytics", label: "Analytics", icon: LineChartIcon },
   ];
 
   return (
@@ -239,6 +259,55 @@ function ReportsPage() {
                 <span className="col-span-5" />
               </div>
             )}
+          </div>
+        ) : reportType === "analytics" ? (
+          <div className="space-y-4">
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Monthly Collections (last 12 months)</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={analytics.monthly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Bar dataKey="collected" fill="oklch(0.65 0.18 145)" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Outstanding Trend</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={analytics.monthly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Line type="monotone" dataKey="outstanding" stroke="oklch(0.65 0.18 50)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Collection Performance — Invoiced vs Collected</h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={analytics.monthly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="invoiced" fill="oklch(0.75 0.16 70)" radius={[4,4,0,0]} />
+                  <Bar dataKey="collected" fill="oklch(0.65 0.18 145)" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                {analytics.monthly.slice(-3).map((m) => (
+                  <div key={m.month} className="rounded-md bg-secondary p-2">
+                    <p className="text-muted-foreground">{m.month}</p>
+                    <p className="font-bold text-foreground">{m.rate}% collected</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : reportType === "aging" ? (
           <div className="space-y-2">
