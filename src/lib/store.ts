@@ -37,6 +37,16 @@ export interface Payment {
   id: string; billId: string; companyId: string; amount: number;
   date: string; notes: string; createdAt: string;
 }
+export interface CompanyPayment {
+  id: string;
+  companyId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod?: string;
+  referenceNumber?: string;
+  notes?: string;
+  createdAt: string;
+}
 export interface HitachiMachine { id: string; name: string; hourlyRate: number; createdAt: string; }
 export interface Operator { id: string; name: string; phone: string; hourlySalaryRate: number; createdAt: string; }
 export interface HitachiEntry {
@@ -68,6 +78,7 @@ type Cache = {
   bills: Omit<Bill, "items">[];
   billItems: (BillItem & { id: string; billId: string })[];
   payments: Payment[];
+  company_payments: CompanyPayment[];
   hitachi_machines: HitachiMachine[];
   hitachi_entries: HitachiEntry[];
   hitachi_fuel: HitachiFuel[];
@@ -77,6 +88,7 @@ type Cache = {
 };
 const cache: Cache = {
   products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
+  company_payments: [],
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
   credit_adjustments: [],
 };
@@ -178,6 +190,19 @@ const mapPayment = (r: any): Payment => ({
 const paymentToDb = (p: Payment) => ({
   id: p.id, bill_id: p.billId, company_id: p.companyId, amount: p.amount, date: p.date, notes: p.notes,
 });
+const mapCompanyPayment = (r: any): CompanyPayment => ({
+  id: r.id, companyId: r.company_id, amount: Number(r.amount) || 0,
+  paymentDate: r.payment_date, paymentMethod: r.payment_method ?? undefined,
+  referenceNumber: r.reference_number ?? undefined, notes: r.notes ?? undefined,
+  createdAt: r.created_at,
+});
+const companyPaymentToDb = (p: CompanyPayment) => ({
+  id: p.id, company_id: p.companyId, amount: p.amount,
+  payment_date: p.paymentDate,
+  payment_method: p.paymentMethod ?? null,
+  reference_number: p.referenceNumber ?? null,
+  notes: p.notes ?? null,
+});
 const mapMachine = (r: any): HitachiMachine => ({
   id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0, createdAt: r.created_at,
 });
@@ -231,7 +256,7 @@ export async function loadAll(): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const [
-      products, companies, vehicles, bills, billItems, payments, machines, operators, entries, fuel, expenses, adjustments,
+      products, companies, vehicles, bills, billItems, payments, companyPayments, machines, operators, entries, fuel, expenses, adjustments,
     ] = await Promise.all([
       supabase.from("products").select("*"),
       supabase.from("companies").select("*"),
@@ -239,6 +264,7 @@ export async function loadAll(): Promise<void> {
       supabase.from("bills").select("*"),
       supabase.from("bill_items").select("*"),
       supabase.from("payments").select("*"),
+      supabase.from("company_payments").select("*"),
       supabase.from("hitachi_machines").select("*"),
       supabase.from("operators").select("*"),
       supabase.from("hitachi_entries").select("*"),
@@ -252,6 +278,7 @@ export async function loadAll(): Promise<void> {
     cache.bills = (bills.data ?? []).map(mapBill);
     cache.billItems = (billItems.data ?? []).map(mapBillItem);
     cache.payments = (payments.data ?? []).map(mapPayment);
+    cache.company_payments = (companyPayments.data ?? []).map(mapCompanyPayment);
     cache.hitachi_machines = (machines.data ?? []).map(mapMachine);
     cache.operators = (operators.data ?? []).map(mapOperator);
     cache.hitachi_entries = (entries.data ?? []).map(mapEntry);
@@ -277,6 +304,7 @@ function setupRealtime() {
     { table: "bills", map: mapBill, key: "bills" },
     { table: "bill_items", map: mapBillItem, key: "billItems" },
     { table: "payments", map: mapPayment, key: "payments" },
+    { table: "company_payments", map: mapCompanyPayment, key: "company_payments" },
     { table: "hitachi_machines", map: mapMachine, key: "hitachi_machines" },
     { table: "hitachi_entries", map: mapEntry, key: "hitachi_entries" },
     { table: "hitachi_fuel", map: mapFuel, key: "hitachi_fuel" },
@@ -307,7 +335,7 @@ function setupRealtime() {
 
 export function resetStore() {
   cache.products = []; cache.companies = []; cache.vehicles = []; cache.bills = []; cache.billItems = [];
-  cache.payments = []; cache.hitachi_machines = []; cache.hitachi_entries = [];
+  cache.payments = []; cache.company_payments = []; cache.hitachi_machines = []; cache.hitachi_entries = [];
   cache.hitachi_fuel = []; cache.operators = []; cache.expenses = []; cache.credit_adjustments = [];
   loaded = false; loadingPromise = null;
   bump();
@@ -630,6 +658,45 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
     }
     console.log("[STEP 4] payments inserted");
 
+    // Mirror initial bill payment(s) into company_payments so the company-level
+    // outstanding (Sales − Payments) accounts for cash/UPI collected at billing.
+    const companyPaymentRows: CompanyPayment[] = [];
+    const billDate = (billRow.createdAt || new Date().toISOString()).split("T")[0];
+    if ((billRow.paidAmount ?? 0) > 0 && billRow.companyId) {
+      const invRef = billRow.invoiceNumber || returnedBillId.slice(-6).toUpperCase();
+      if (billRow.splitPayment) {
+        if ((billRow.cashAmount ?? 0) > 0) {
+          companyPaymentRows.push({
+            id: uid(), companyId: billRow.companyId, amount: billRow.cashAmount ?? 0,
+            paymentDate: billDate, paymentMethod: "cash", referenceNumber: invRef,
+            notes: `Initial payment for invoice ${invRef}`,
+            createdAt: billRow.createdAt,
+          });
+        }
+        if ((billRow.upiAmount ?? 0) > 0) {
+          companyPaymentRows.push({
+            id: uid(), companyId: billRow.companyId, amount: billRow.upiAmount ?? 0,
+            paymentDate: billDate, paymentMethod: "upi", referenceNumber: invRef,
+            notes: `Initial payment for invoice ${invRef}`,
+            createdAt: billRow.createdAt,
+          });
+        }
+      } else {
+        companyPaymentRows.push({
+          id: uid(), companyId: billRow.companyId, amount: billRow.paidAmount,
+          paymentDate: billDate,
+          paymentMethod: billRow.paymentMode === "upi" ? "upi" : billRow.paymentMode === "cash" ? "cash" : billRow.paymentMode,
+          referenceNumber: invRef,
+          notes: `Initial payment for invoice ${invRef}`,
+          createdAt: billRow.createdAt,
+        });
+      }
+    }
+    if (companyPaymentRows.length > 0) {
+      const cpRes = await supabase.from("company_payments").insert(companyPaymentRows.map(companyPaymentToDb));
+      if (cpRes.error) throw cpRes.error;
+    }
+
     if (billRow.companyId) {
       const companyRes = await supabase
         .from("companies")
@@ -658,6 +725,13 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
       if (paymentIndex >= 0) cache.payments[paymentIndex] = payment;
       else cache.payments.push(payment);
     }
+
+    for (const cp of companyPaymentRows) {
+      const idx = cache.company_payments.findIndex((row) => row.id === cp.id);
+      if (idx >= 0) cache.company_payments[idx] = cp;
+      else cache.company_payments.push(cp);
+    }
+
 
     bump();
     return assembleBill(persistedBill);
@@ -724,27 +798,68 @@ export function savePayment(p: Omit<Payment, "id" | "createdAt">): Payment {
 export function getPaymentsByBill(billId: string): Payment[] { return cache.payments.filter((p) => p.billId === billId); }
 export function getPaymentsByCompany(companyId: string): Payment[] { return cache.payments.filter((p) => p.companyId === companyId); }
 
-// Allocate a single payment across the company's oldest outstanding bills (FIFO).
-// Creates one Payment row per allocated bill so existing per-bill linkage stays intact.
-export function saveCompanyPayment(input: { companyId: string; amount: number; date: string; notes: string }): Payment[] {
-  let remaining = input.amount;
-  const created: Payment[] = [];
-  const bills = cache.bills
-    .filter((b) => b.companyId === input.companyId && (b.outstandingAmount || 0) > 0)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  for (const b of bills) {
-    if (remaining <= 0) break;
-    const apply = Math.min(remaining, b.outstandingAmount || 0);
-    if (apply <= 0) continue;
-    created.push(savePayment({ billId: b.id, companyId: input.companyId, amount: apply, date: input.date, notes: input.notes }));
-    remaining -= apply;
-  }
-  // If anything remains (overpayment / no outstanding bills), record it against the most recent bill, or a standalone row.
-  if (remaining > 0) {
-    const fallback = cache.bills.filter((b) => b.companyId === input.companyId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    created.push(savePayment({ billId: fallback?.id ?? "", companyId: input.companyId, amount: remaining, date: input.date, notes: input.notes + (fallback ? " (advance)" : " (no bill)") }));
-  }
-  return created;
+// ============ Company Payments (company-level ledger) ============
+export function getCompanyPayments(companyId: string): CompanyPayment[] {
+  return cache.company_payments
+    .filter((p) => p.companyId === companyId)
+    .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+}
+export function getAllCompanyPayments(): CompanyPayment[] {
+  return cache.company_payments.slice();
+}
+export async function saveCompanyPayment(
+  input: { companyId: string; amount: number; paymentDate: string; paymentMethod?: string; referenceNumber?: string; notes?: string },
+): Promise<CompanyPayment> {
+  if (!input.companyId) throw new Error("Company is required");
+  if (!input.amount || input.amount <= 0) throw new Error("Amount must be greater than zero");
+  if (!input.paymentDate) throw new Error("Payment date is required");
+  const payment: CompanyPayment = {
+    id: uid(),
+    companyId: input.companyId,
+    amount: Number(input.amount),
+    paymentDate: input.paymentDate,
+    paymentMethod: input.paymentMethod,
+    referenceNumber: input.referenceNumber,
+    notes: input.notes,
+    createdAt: new Date().toISOString(),
+  };
+  const res = await supabase.from("company_payments").insert(companyPaymentToDb(payment)).select("id").single();
+  if (res.error) { emitError(res.error.message || "Payment insert failed"); throw res.error; }
+  cache.company_payments.push(payment); bump();
+  return payment;
+}
+export async function updateCompanyPayment(
+  id: string,
+  updates: Partial<Omit<CompanyPayment, "id" | "companyId" | "createdAt">>,
+): Promise<void> {
+  const existing = cache.company_payments.find((p) => p.id === id);
+  if (!existing) throw new Error("Payment not found");
+  if (updates.amount !== undefined && (!updates.amount || updates.amount <= 0)) throw new Error("Amount must be greater than zero");
+  const merged: CompanyPayment = { ...existing, ...updates };
+  const res = await supabase.from("company_payments").update({
+    amount: merged.amount,
+    payment_date: merged.paymentDate,
+    payment_method: merged.paymentMethod ?? null,
+    reference_number: merged.referenceNumber ?? null,
+    notes: merged.notes ?? null,
+  }).eq("id", id);
+  if (res.error) { emitError(res.error.message || "Payment update failed"); throw res.error; }
+  cache.company_payments = cache.company_payments.map((p) => p.id === id ? merged : p);
+  bump();
+}
+export async function deleteCompanyPayment(id: string): Promise<void> {
+  const res = await supabase.from("company_payments").delete().eq("id", id);
+  if (res.error) { emitError(res.error.message || "Payment delete failed"); throw res.error; }
+  cache.company_payments = cache.company_payments.filter((p) => p.id !== id);
+  bump();
+}
+
+// Total helpers (single source of truth)
+export function getCompanyTotalSales(companyId: string): number {
+  return cache.bills.filter((b) => b.companyId === companyId).reduce((s, b) => s + (b.totalAmount || 0), 0);
+}
+export function getCompanyTotalPaid(companyId: string): number {
+  return cache.company_payments.filter((p) => p.companyId === companyId).reduce((s, p) => s + (p.amount || 0), 0);
 }
 
 
@@ -861,15 +976,17 @@ export function getDateRange(filter: "daily" | "weekly" | "monthly"): { start: D
   else start.setMonth(start.getMonth() - 1);
   return { start, end };
 }
-// Outstanding = opening balance + Σ bill outstanding + Σ adjustments (signed)
+// Outstanding = Opening Balance + Total Sales - Total Payments + Σ adjustments
+// Total Sales = Σ bill.totalAmount.   Total Payments = Σ company_payments.amount.
+// Never stored in DB — always derived.
 export function getCompanyOutstanding(companyId: string): number {
   const company = cache.companies.find((c) => c.id === companyId);
   const opening = company?.openingBalance || 0;
-  const bills = cache.bills.filter((b) => b.companyId === companyId)
-    .reduce((s, b) => s + (b.outstandingAmount ?? 0), 0);
+  const sales = getCompanyTotalSales(companyId);
+  const paid = getCompanyTotalPaid(companyId);
   const adj = cache.credit_adjustments.filter((a) => a.companyId === companyId)
     .reduce((s, a) => s + (a.amount ?? 0), 0);
-  return opening + bills + adj;
+  return opening + sales - paid + adj;
 }
 export function getJCBLogs(): JCBLog[] { return []; }
 

@@ -3,11 +3,12 @@ import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
-  getCompanies, getBillsByCompany, getPaymentsByCompany,
-  getCompanyOutstanding, saveCompanyPayment,
+  getCompanies, getBillsByCompany, getCompanyPayments,
+  getCompanyOutstanding, saveCompanyPayment, updateCompanyPayment, deleteCompanyPayment,
+  getCompanyTotalSales, getCompanyTotalPaid,
   getVehiclesByCompany, saveVehicle, updateVehicle, deleteVehicle,
   getCreditAdjustmentsByCompany, saveCreditAdjustment, deleteCreditAdjustment,
-  useCloudData, type Bill, type Vehicle,
+  useCloudData, type Bill, type Vehicle, type CompanyPayment,
 } from "../lib/store";
 import { exportInvoicePDF, exportCompanyStatementPDF } from "../lib/pdf";
 import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale } from "lucide-react";
@@ -27,9 +28,13 @@ function CompanyDetailsPage() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [showPayForm, setShowPayForm] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [payForm, setPayForm] = useState({
-    date: new Date().toISOString().split("T")[0],
-    amount: "", method: "cash" as "cash" | "upi" | "bank", notes: "",
+    paymentDate: new Date().toISOString().split("T")[0],
+    amount: "",
+    paymentMethod: "Cash" as "Cash" | "UPI" | "Bank Transfer" | "Cheque",
+    referenceNumber: "",
+    notes: "",
   });
 
   // Vehicle form state
@@ -39,12 +44,15 @@ function CompanyDetailsPage() {
   const [adjForm, setAdjForm] = useState<{ amount: string; reason: string; date: string } | null>(null);
 
   const bills = useMemo(() => getBillsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
-  const payments = useMemo(() => getPaymentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
+  const payments = useMemo<CompanyPayment[]>(
+    () => getCompanyPayments(id).sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()),
+    [id],
+  );
   const vehicles = useMemo(() => getVehiclesByCompany(id), [id]);
   const adjustments = useMemo(() => getCreditAdjustmentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const outstanding = getCompanyOutstanding(id);
-  const totalSales = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
-  const totalPaid = bills.reduce((s, b) => s + (b.paidAmount || 0), 0);
+  const totalSales = getCompanyTotalSales(id);
+  const totalPaid = getCompanyTotalPaid(id);
   const lastPayment = payments[0];
 
   if (!company) {
@@ -58,14 +66,67 @@ function CompanyDetailsPage() {
     );
   }
 
-  const handleSavePayment = () => {
-    const amt = Number(payForm.amount);
-    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
-    const notes = `[${payForm.method.toUpperCase()}] ${payForm.notes}`.trim();
-    saveCompanyPayment({ companyId: id, amount: amt, date: payForm.date, notes });
-    toast.success(`Payment of ₹${amt.toLocaleString()} recorded`);
-    setPayForm({ date: new Date().toISOString().split("T")[0], amount: "", method: "cash", notes: "" });
+  const resetPayForm = () => {
+    setPayForm({
+      paymentDate: new Date().toISOString().split("T")[0],
+      amount: "", paymentMethod: "Cash", referenceNumber: "", notes: "",
+    });
+    setEditingPaymentId(null);
     setShowPayForm(false);
+  };
+
+  const handleSavePayment = async () => {
+    const amt = Number(payForm.amount);
+    if (!amt || amt <= 0) { toast.error("Amount must be greater than zero"); return; }
+    if (!payForm.paymentDate) { toast.error("Date is required"); return; }
+    try {
+      if (editingPaymentId) {
+        await updateCompanyPayment(editingPaymentId, {
+          amount: amt,
+          paymentDate: payForm.paymentDate,
+          paymentMethod: payForm.paymentMethod,
+          referenceNumber: payForm.referenceNumber.trim() || undefined,
+          notes: payForm.notes.trim() || undefined,
+        });
+        toast.success("Payment updated");
+      } else {
+        await saveCompanyPayment({
+          companyId: id,
+          amount: amt,
+          paymentDate: payForm.paymentDate,
+          paymentMethod: payForm.paymentMethod,
+          referenceNumber: payForm.referenceNumber.trim() || undefined,
+          notes: payForm.notes.trim() || undefined,
+        });
+        toast.success(`Payment of ₹${amt.toLocaleString()} recorded`);
+      }
+      resetPayForm();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save payment");
+    }
+  };
+
+  const handleEditPayment = (p: CompanyPayment) => {
+    setEditingPaymentId(p.id);
+    setPayForm({
+      paymentDate: p.paymentDate,
+      amount: String(p.amount),
+      paymentMethod: (["Cash", "UPI", "Bank Transfer", "Cheque"].includes(p.paymentMethod || "") ? p.paymentMethod : "Cash") as any,
+      referenceNumber: p.referenceNumber || "",
+      notes: p.notes || "",
+    });
+    setShowPayForm(true);
+    setTab("payments");
+  };
+
+  const handleDeletePayment = async (p: CompanyPayment) => {
+    if (!confirm("Delete this payment?\nThis action cannot be undone.")) return;
+    try {
+      await deleteCompanyPayment(p.id);
+      toast.success("Payment deleted");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete payment");
+    }
   };
 
   const handleSaveVehicle = async () => {
@@ -131,9 +192,9 @@ function CompanyDetailsPage() {
       debit: b.totalAmount || 0, credit: 0,
     }));
     payments.forEach((p) => events.push({
-      ts: new Date(p.createdAt).getTime(),
-      date: p.createdAt,
-      description: `Payment received${p.notes ? ` — ${p.notes}` : ""}`,
+      ts: new Date(p.paymentDate).getTime(),
+      date: p.paymentDate,
+      description: `Payment received${p.paymentMethod ? ` [${p.paymentMethod}]` : ""}${p.referenceNumber ? ` (Ref: ${p.referenceNumber})` : ""}${p.notes ? ` — ${p.notes}` : ""}`,
       debit: 0, credit: p.amount || 0,
     }));
     adjustments.forEach((a) => events.push({
@@ -172,7 +233,7 @@ function CompanyDetailsPage() {
               <span className={`text-xs font-semibold px-2 py-1 rounded ${outstanding <= 0 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
                 {outstanding <= 0 ? <span className="inline-flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Settled</span> : `Due ₹${outstanding.toLocaleString()}`}
               </span>
-              <button onClick={() => exportCompanyStatementPDF(company, bills, payments, outstanding)} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] text-foreground hover:bg-secondary/70"><FileDown className="h-3 w-3" /> Statement</button>
+              <button onClick={() => exportCompanyStatementPDF(company, bills, payments as any, outstanding)} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] text-foreground hover:bg-secondary/70"><FileDown className="h-3 w-3" /> Statement</button>
             </div>
           </div>
         </div>
@@ -184,37 +245,38 @@ function CompanyDetailsPage() {
           <div className="stat-card"><p className="text-xs text-muted-foreground">Outstanding</p><p className="font-bold text-warning">₹{outstanding.toLocaleString()}</p></div>
           <div className="stat-card"><p className="text-xs text-muted-foreground">Invoices</p><p className="font-bold text-foreground">{bills.length}</p></div>
           <div className="stat-card col-span-2"><p className="text-xs text-muted-foreground">Last Payment</p>
-            <p className="font-bold text-foreground">{lastPayment ? `₹${lastPayment.amount.toLocaleString()} · ${format(parseISO(lastPayment.createdAt), "dd MMM yyyy")}` : "—"}</p>
+            <p className="font-bold text-foreground">{lastPayment ? `₹${lastPayment.amount.toLocaleString()} · ${format(parseISO(lastPayment.paymentDate), "dd MMM yyyy")}` : "—"}</p>
           </div>
         </div>
 
         {/* Receive payment */}
         <div>
           {!showPayForm ? (
-            <button onClick={() => setShowPayForm(true)} className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+            <button onClick={() => { resetPayForm(); setShowPayForm(true); }} className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
               <Plus className="h-4 w-4" /> Receive Payment
             </button>
           ) : (
             <div className="stat-card space-y-3">
-              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">Receive Payment</h3><button onClick={() => setShowPayForm(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
+              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editingPaymentId ? "Edit Payment" : "Receive Payment"}</h3><button onClick={resetPayForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
               <div className="grid grid-cols-2 gap-2">
-                <div><label className="field-label">Date</label><input type="date" value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                <div><label className="field-label">Date *</label><input type="date" value={payForm.paymentDate} onChange={(e) => setPayForm({ ...payForm, paymentDate: e.target.value })} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <div><label className="field-label">Amount *</label><input type="number" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} placeholder="₹" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               </div>
               <div>
-                <label className="field-label">Payment Mode</label>
-                <div className="grid grid-cols-3 gap-1 rounded-md bg-secondary p-1">
-                  {(["cash", "upi", "bank"] as const).map((m) => (
-                    <button key={m} onClick={() => setPayForm({ ...payForm, method: m })} className={`rounded-md px-2 py-1.5 text-xs font-medium capitalize transition-colors ${payForm.method === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{m === "bank" ? "Bank" : m.toUpperCase()}</button>
+                <label className="field-label">Payment Method</label>
+                <div className="grid grid-cols-4 gap-1 rounded-md bg-secondary p-1">
+                  {(["Cash", "UPI", "Bank Transfer", "Cheque"] as const).map((m) => (
+                    <button key={m} onClick={() => setPayForm({ ...payForm, paymentMethod: m })} className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${payForm.paymentMethod === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{m}</button>
                   ))}
                 </div>
               </div>
+              <div><label className="field-label">Reference Number</label><input value={payForm.referenceNumber} onChange={(e) => setPayForm({ ...payForm, referenceNumber: e.target.value })} placeholder="UPI ref / cheque no. / txn id" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               <div><label className="field-label">Notes</label><input value={payForm.notes} onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-              <p className="text-xs text-muted-foreground">Allocates against oldest outstanding invoices first across all vehicles.</p>
-              <button onClick={handleSavePayment} className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">Save Payment</button>
+              <button onClick={handleSavePayment} className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">{editingPaymentId ? "Update" : "Save"} Payment</button>
             </div>
           )}
         </div>
+
 
         {/* Tabs */}
         <div className="flex gap-1 rounded-md bg-secondary p-1 overflow-x-auto">
@@ -304,20 +366,31 @@ function CompanyDetailsPage() {
 
         {tab === "payments" && (
           <div className="space-y-2">
-            {payments.map((p) => {
-              const mode = p.notes.match(/\[(CASH|UPI|BANK)\]/)?.[1] ?? "—";
-              return (
-                <div key={p.id} className="stat-card grid grid-cols-4 gap-2 items-center text-sm">
-                  <span className="text-xs text-muted-foreground">{format(parseISO(p.createdAt), "dd MMM yy")}</span>
-                  <span className="text-right font-medium text-success">₹{p.amount.toLocaleString()}</span>
-                  <span className="text-xs text-foreground">{mode}</span>
-                  <span className="text-right text-xs text-muted-foreground truncate">{p.notes.replace(/\[(CASH|UPI|BANK)\]\s*/, "")}</span>
-                </div>
-              );
-            })}
+            <div className="stat-card grid grid-cols-12 gap-1 text-[10px] font-medium text-muted-foreground uppercase">
+              <span className="col-span-2">Date</span>
+              <span className="col-span-2 text-right">Amount</span>
+              <span className="col-span-2">Method</span>
+              <span className="col-span-2">Reference</span>
+              <span className="col-span-2">Notes</span>
+              <span className="col-span-2 text-right">Actions</span>
+            </div>
+            {payments.map((p) => (
+              <div key={p.id} className="stat-card grid grid-cols-12 gap-1 items-center text-xs">
+                <span className="col-span-2 text-muted-foreground">{format(parseISO(p.paymentDate), "dd MMM yy")}</span>
+                <span className="col-span-2 text-right font-medium text-success">₹{p.amount.toLocaleString()}</span>
+                <span className="col-span-2 text-foreground">{p.paymentMethod || "—"}</span>
+                <span className="col-span-2 text-foreground truncate" title={p.referenceNumber}>{p.referenceNumber || "—"}</span>
+                <span className="col-span-2 text-muted-foreground truncate" title={p.notes}>{p.notes || "—"}</span>
+                <span className="col-span-2 flex items-center justify-end gap-1">
+                  <button onClick={() => handleEditPayment(p)} className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => handleDeletePayment(p)} className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-3.5 w-3.5" /></button>
+                </span>
+              </div>
+            ))}
             {payments.length === 0 && <p className="text-center text-sm text-muted-foreground py-6">No payments recorded.</p>}
           </div>
         )}
+
 
         {tab === "adjustments" && (
           <div className="space-y-2">
