@@ -49,10 +49,48 @@ function rangeFor(filter: FilterType, custom: { start: Date; end: Date } | null)
 }
 
 function ReportsPage() {
-  const [reportType, setReportType] = useState<ReportType>("company");
-  const [filter, setFilter] = useState<FilterType>("monthly");
-  const [search, setSearch] = useState("");
-  const { start } = getDateRange(filter);
+  const sp = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [reportType, setReportType] = useState<ReportType>(sp.tab || "company");
+  const initFilter: FilterType = sp.from && sp.to ? "custom" : sp.preset ? "custom" : "monthly";
+  const [filter, setFilter] = useState<FilterType>(initFilter);
+  const [searchText, setSearchText] = useState("");
+  const today = new Date();
+  const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth()-1);
+  const initCustom = sp.from && sp.to
+    ? { start: sod(new Date(sp.from)), end: eod(new Date(sp.to)) }
+    : sp.preset ? presetRange(sp.preset) : null;
+  const [fromDate, setFromDate] = useState<string>(sp.from || (initCustom ? isoDate(initCustom.start) : isoDate(monthAgo)));
+  const [toDate, setToDate] = useState<string>(sp.to || (initCustom ? isoDate(initCustom.end) : isoDate(today)));
+  const [appliedCustom, setAppliedCustom] = useState<{ start: Date; end: Date } | null>(initCustom);
+  const [dateError, setDateError] = useState("");
+
+  const { start, end } = useMemo(() => rangeFor(filter, appliedCustom), [filter, appliedCustom]);
+
+  const applyPreset = (p: Preset) => {
+    const r = presetRange(p);
+    setFromDate(isoDate(r.start));
+    setToDate(isoDate(r.end));
+    setAppliedCustom(r);
+    setFilter("custom");
+    setDateError("");
+  };
+  const applyCustom = () => {
+    const f = new Date(fromDate); const t = new Date(toDate);
+    if (isNaN(f.getTime()) || isNaN(t.getTime()) || t < f) { setDateError("Invalid date range"); return; }
+    setDateError("");
+    setAppliedCustom({ start: sod(f), end: eod(t) });
+    setFilter("custom");
+  };
+
+  const periodLabel = useMemo(() => {
+    const s = format(start, "dd MMM yyyy"); const e = format(end, "dd MMM yyyy");
+    return s === e ? s : `${s} - ${e}`;
+  }, [start, end]);
+
+  // keep URL in sync when switching report type so dashboard back/forward works
+  useMemo(() => { navigate({ search: (prev) => ({ ...prev, tab: reportType }), replace: true }); }, [reportType]); // eslint-disable-line
+
 
   const allBillsInRange = useMemo(() => getBills().filter((b) => new Date(b.createdAt) >= start), [start]);
   const passStats = useMemo(() => {
