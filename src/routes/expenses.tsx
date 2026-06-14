@@ -252,6 +252,7 @@ function ExpensesPage() {
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${exp.paymentMode === "upi" ? "bg-primary/15 text-primary" : "bg-success/15 text-success"}`}>{(exp.paymentMode || "cash").toUpperCase()}</span>
                     </p>
                     <p className="text-xs text-muted-foreground">{format(parseISO(exp.date + "T00:00:00"), "dd MMM yyyy")}{exp.notes ? ` · ${exp.notes}` : ""}</p>
+                    <p className="text-[10px] text-muted-foreground">Logged {format(new Date(exp.createdAt), "dd MMM, hh:mm a")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
