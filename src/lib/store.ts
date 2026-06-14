@@ -363,8 +363,8 @@ function setupRealtime() {
     { table: "operators", map: mapOperator, key: "operators" },
     { table: "expenses", map: mapExpense, key: "expenses" },
     { table: "credit_adjustments", map: mapCreditAdjustment, key: "credit_adjustments" },
-    { table: "drivers", map: mapDriver, key: "drivers" },
-    { table: "driver_transactions", map: mapDriverTxn, key: "driver_transactions" },
+    { table: "vehicle_maintenance", map: mapVehicleMaintenance, key: "vehicle_maintenance" },
+    { table: "vehicle_documents", map: mapVehicleDocument, key: "vehicle_documents" },
   ];
   for (const t of tables) {
     supabase.channel(`rt-${t.table}`).on(
