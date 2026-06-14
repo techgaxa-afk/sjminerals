@@ -64,8 +64,10 @@ export interface HitachiFuel {
   hourReading: number; date: string; createdAt: string;
 }
 export type ExpenseCategory = "fuel" | "salary" | "maintenance" | "miscellaneous" | "tips" | "food";
+export type ExpensePaymentMode = "cash" | "upi";
 export interface Expense {
   id: string; category: ExpenseCategory; amount: number; date: string; notes: string;
+  paymentMode: ExpensePaymentMode;
   linkedBillId?: string; linkedCompanyId?: string; linkedOperatorId?: string; linkedMachineId?: string;
   createdAt: string;
 }
@@ -250,12 +252,14 @@ const fuelToDb = (f: HitachiFuel) => ({
 });
 const mapExpense = (r: any): Expense => ({
   id: r.id, category: r.category, amount: Number(r.amount) || 0, date: r.date, notes: r.notes ?? "",
+  paymentMode: (r.payment_mode === "upi" ? "upi" : "cash"),
   linkedBillId: r.linked_bill_id ?? undefined, linkedCompanyId: r.linked_company_id ?? undefined,
   linkedOperatorId: r.linked_operator_id ?? undefined, linkedMachineId: r.linked_machine_id ?? undefined,
   createdAt: r.created_at,
 });
 const expenseToDb = (e: Expense) => ({
   id: e.id, category: e.category, amount: e.amount, date: e.date, notes: e.notes,
+  payment_mode: e.paymentMode || "cash",
   linked_bill_id: e.linkedBillId || null, linked_company_id: e.linkedCompanyId || null,
   linked_operator_id: e.linkedOperatorId || null, linked_machine_id: e.linkedMachineId || null,
 });
@@ -1041,6 +1045,36 @@ export function deleteOperator(id: string): void {
 
 // ============ Expenses ============
 export function getExpenses(): Expense[] { return cache.expenses.slice(); }
+export function getCashExpenses(since?: Date): number {
+  return cache.expenses
+    .filter((e) => e.paymentMode === "cash" && (!since || new Date(e.date) >= since))
+    .reduce((s, e) => s + e.amount, 0);
+}
+export function getUpiExpenses(since?: Date): number {
+  return cache.expenses
+    .filter((e) => e.paymentMode === "upi" && (!since || new Date(e.date) >= since))
+    .reduce((s, e) => s + e.amount, 0);
+}
+export function getCashSales(since?: Date): number {
+  let total = 0;
+  cache.bills.forEach((b) => {
+    if (since && new Date(b.createdAt) < since) return;
+    if (b.splitPayment) total += b.cashAmount || 0;
+    else if (b.paymentMode === "cash") total += b.paidAmount || 0;
+  });
+  return total;
+}
+export function getUpiSales(since?: Date): number {
+  let total = 0;
+  cache.bills.forEach((b) => {
+    if (since && new Date(b.createdAt) < since) return;
+    if (b.splitPayment) total += b.upiAmount || 0;
+    else if (b.paymentMode === "upi") total += b.paidAmount || 0;
+  });
+  return total;
+}
+export function getAvailableCash(): number { return getCashSales() - getCashExpenses(); }
+export function getAvailableUpi(): number { return getUpiSales() - getUpiExpenses(); }
 export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
   const expense: Expense = { ...e, id: uid(), createdAt: new Date().toISOString() };
   cache.expenses.push(expense); bump();

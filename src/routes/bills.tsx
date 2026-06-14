@@ -160,6 +160,7 @@ function BillsPage() {
         category: "tips", amount: editTipsAmount,
         date: new Date().toISOString().split("T")[0],
         notes: `Tips ₹${editForm.tipsRate}/unit × ${editTipsBase} — ${editForm.companyName || editForm.vehicleNumber || "Walk-in"} — Bill #${editBill.id}`,
+        paymentMode: "cash",
         linkedBillId: editBill.id, linkedCompanyId: editBill.companyId,
       });
     }

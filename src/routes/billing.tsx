@@ -184,6 +184,7 @@ function BillingPage() {
           category: "tips", amount: totalTips,
           date: new Date().toISOString().split("T")[0],
           notes: `Tips ₹${tipsRate}/unit × ${tipsBase} — ${companyName.trim() || vehicleNumber.trim() || "Walk-in"} — Bill #${bill.id}`,
+          paymentMode: "cash",
           linkedBillId: bill.id, linkedCompanyId: selectedCompany?.id,
         });
       }

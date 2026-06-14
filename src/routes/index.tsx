@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock } from "lucide-react";
@@ -112,7 +112,12 @@ function DashboardPage() {
       return s + b.d30 + b.d60 + b.d90 + b.d90plus;
     }, 0);
     const creditExceeded = companies.filter((c) => (c.creditLimit || 0) > 0 && getCompanyOutstanding(c.id) > (c.creditLimit || 0));
-    return { today, month, outstanding, overdue, creditExceeded };
+    const allBills = getBills();
+    const todayInvoices = allBills.filter((b) => new Date(b.createdAt).getTime() >= startOfDay).length;
+    const monthInvoices = allBills.filter((b) => new Date(b.createdAt).getTime() >= startOfMonth).length;
+    const availableCash = getCashSales() - getCashExpenses();
+    const availableUpi = getUpiSales() - getUpiExpenses();
+    return { today, month, outstanding, overdue, creditExceeded, todayInvoices, monthInvoices, availableCash, availableUpi };
   }, []);
 
   const recentPayments = useMemo(() => {
@@ -163,7 +168,31 @@ function DashboardPage() {
           <div className="stat-card border-primary/30 bg-primary/5">
             <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> UPI Sales</div>
             <p className="text-xl font-bold text-primary">₹{stats.upiSales.toLocaleString()}</p>
+        </div>
+
+        {/* Available Balance + Invoice Counts */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="stat-card border-success/30 bg-success/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-success"><Wallet className="h-3.5 w-3.5" /> Available Cash</div>
+            <p className="text-xl font-bold text-success">₹{collectionStats.availableCash.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground">Cash Sales − Cash Expenses</p>
           </div>
+          <div className="stat-card border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
+            <p className="text-xl font-bold text-primary">₹{collectionStats.availableUpi.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground">UPI Sales − UPI Expenses</p>
+          </div>
+          <div className="stat-card">
+            <div className="flex items-center gap-2 text-xs mb-1 text-muted-foreground"><FileText className="h-3.5 w-3.5 text-primary" /> Today's Invoices</div>
+            <p className="text-xl font-bold text-foreground">{collectionStats.todayInvoices}</p>
+            <p className="text-[10px] text-muted-foreground">Invoices created today</p>
+          </div>
+          <div className="stat-card">
+            <div className="flex items-center gap-2 text-xs mb-1 text-muted-foreground"><Calendar className="h-3.5 w-3.5 text-primary" /> This Month Invoices</div>
+            <p className="text-xl font-bold text-foreground">{collectionStats.monthInvoices}</p>
+            <p className="text-[10px] text-muted-foreground">Invoices this month</p>
+          </div>
+        </div>
           <div className="stat-card border-warning/30 bg-warning/5">
             <div className="flex items-center gap-2 text-xs mb-1 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Credit / Outstanding</div>
             <p className="text-xl font-bold text-warning">₹{stats.totalOutstanding.toLocaleString()}</p>
