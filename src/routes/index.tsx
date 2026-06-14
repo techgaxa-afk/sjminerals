@@ -341,6 +341,36 @@ function DashboardPage() {
           </div>
         )}
 
+        {/* Recent Activity */}
+        {recentActivity.length > 0 && (
+          <div className="stat-card">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Recent Activity</h3>
+            <div className="space-y-1">
+              {recentActivity.map((a) => {
+                const kindMeta: Record<ActivityKind, { icon: typeof FileText; cls: string }> = {
+                  invoice:  { icon: FileText,  cls: "text-primary" },
+                  payment:  { icon: Receipt,   cls: "text-success" },
+                  expense:  { icon: TrendingDown, cls: "text-destructive" },
+                  reversal: { icon: RotateCcw, cls: "text-warning" },
+                };
+                const m = kindMeta[a.kind];
+                const Icon = m.icon;
+                return (
+                  <div key={a.id} className="flex items-center justify-between gap-2 text-xs py-1.5 border-b border-border/40 last:border-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Icon className={`h-3.5 w-3.5 shrink-0 ${m.cls}`} />
+                      <span className="text-foreground truncate">{a.label}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground truncate">{a.ref}</span>
+                    </div>
+                    <span className={`font-medium whitespace-nowrap ${m.cls}`}>{a.kind === "expense" || a.kind === "reversal" ? "-" : "+"}₹{a.amount.toLocaleString()}</span>
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:inline">{formatDistanceToNow(new Date(a.time), { addSuffix: true })}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="stat-card">
             <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Calendar className="h-4 w-4" /> Revenue Trend</h3>
