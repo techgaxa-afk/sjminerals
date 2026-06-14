@@ -20,6 +20,7 @@ import { Route as CompaniesRouteImport } from './routes/companies'
 import { Route as BillsRouteImport } from './routes/bills'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CompaniesIndexRouteImport } from './routes/companies.index'
 import { Route as CompaniesIdRouteImport } from './routes/companies.$id'
 
 const UsersRoute = UsersRouteImport.update({
@@ -77,6 +78,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompaniesIndexRoute = CompaniesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CompaniesRoute,
+} as any)
 const CompaniesIdRoute = CompaniesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -96,12 +102,12 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
+  '/companies/': typeof CompaniesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
   '/bills': typeof BillsRoute
-  '/companies': typeof CompaniesRouteWithChildren
   '/expenses': typeof ExpensesRoute
   '/hitachi': typeof HitachiRoute
   '/login': typeof LoginRoute
@@ -110,6 +116,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
+  '/companies': typeof CompaniesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +132,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
+  '/companies/': typeof CompaniesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,12 +149,12 @@ export interface FileRouteTypes {
     | '/signup'
     | '/users'
     | '/companies/$id'
+    | '/companies/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/billing'
     | '/bills'
-    | '/companies'
     | '/expenses'
     | '/hitachi'
     | '/login'
@@ -155,6 +163,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/users'
     | '/companies/$id'
+    | '/companies'
   id:
     | '__root__'
     | '/'
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/users'
     | '/companies/$id'
+    | '/companies/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -264,6 +274,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/companies/': {
+      id: '/companies/'
+      path: '/'
+      fullPath: '/companies/'
+      preLoaderRoute: typeof CompaniesIndexRouteImport
+      parentRoute: typeof CompaniesRoute
+    }
     '/companies/$id': {
       id: '/companies/$id'
       path: '/$id'
@@ -276,10 +293,12 @@ declare module '@tanstack/react-router' {
 
 interface CompaniesRouteChildren {
   CompaniesIdRoute: typeof CompaniesIdRoute
+  CompaniesIndexRoute: typeof CompaniesIndexRoute
 }
 
 const CompaniesRouteChildren: CompaniesRouteChildren = {
   CompaniesIdRoute: CompaniesIdRoute,
+  CompaniesIndexRoute: CompaniesIndexRoute,
 }
 
 const CompaniesRouteWithChildren = CompaniesRoute._addFileChildren(
