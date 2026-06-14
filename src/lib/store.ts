@@ -1401,57 +1401,78 @@ export function hasLocalDataToImport(): boolean {
   });
 }
 
-// ============ Drivers ============
-export function getDrivers(): Driver[] { return cache.drivers.slice(); }
-export function getDriver(id: string): Driver | undefined { return cache.drivers.find((d) => d.id === id); }
-export function saveDriver(input: Omit<Driver, "id" | "createdAt">): Driver {
-  const d: Driver = { ...input, id: uid(), createdAt: new Date().toISOString() };
-  cache.drivers.push(d); bump();
-  bg((supabase.from("drivers" as any) as any).insert(driverToDb(d)));
-  return d;
+// ============ Vehicle Maintenance ============
+export function getVehicleMaintenance(vehicleId?: string): VehicleMaintenance[] {
+  const list = vehicleId
+    ? cache.vehicle_maintenance.filter((m) => m.vehicleId === vehicleId)
+    : cache.vehicle_maintenance.slice();
+  return list.sort((a, b) => new Date(b.serviceDate).getTime() - new Date(a.serviceDate).getTime());
 }
-export function updateDriver(id: string, updates: Partial<Omit<Driver, "id" | "createdAt">>): void {
-  const idx = cache.drivers.findIndex((d) => d.id === id);
-  if (idx < 0) return;
-  cache.drivers[idx] = { ...cache.drivers[idx], ...updates }; bump();
-  bg((supabase.from("drivers" as any) as any).update(driverToDb(cache.drivers[idx])).eq("id", id));
+export function saveVehicleMaintenance(input: Omit<VehicleMaintenance, "id" | "createdAt">): VehicleMaintenance {
+  const m: VehicleMaintenance = { ...input, id: uid(), createdAt: new Date().toISOString() };
+  cache.vehicle_maintenance.push(m); bump();
+  bg(supabase.from("vehicle_maintenance").insert(vehicleMaintenanceToDb(m)));
+  return m;
 }
-export function deleteDriver(id: string): void {
-  cache.drivers = cache.drivers.filter((d) => d.id !== id);
-  cache.driver_transactions = cache.driver_transactions.filter((t) => t.driverId !== id);
-  bump();
-  bg((supabase.from("drivers" as any) as any).delete().eq("id", id));
+export function deleteVehicleMaintenance(id: string): void {
+  cache.vehicle_maintenance = cache.vehicle_maintenance.filter((m) => m.id !== id); bump();
+  bg(supabase.from("vehicle_maintenance").delete().eq("id", id));
 }
 
-// ============ Driver Transactions ============
-export function getDriverTransactions(driverId?: string): DriverTransaction[] {
-  const list = driverId ? cache.driver_transactions.filter((t) => t.driverId === driverId) : cache.driver_transactions.slice();
-  return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+// ============ Vehicle Documents ============
+export function getVehicleDocuments(vehicleId?: string): VehicleDocument[] {
+  return vehicleId
+    ? cache.vehicle_documents.filter((d) => d.vehicleId === vehicleId)
+    : cache.vehicle_documents.slice();
 }
-export function saveDriverTransaction(input: Omit<DriverTransaction, "id" | "createdAt">): DriverTransaction {
-  const t: DriverTransaction = { ...input, id: uid(), createdAt: new Date().toISOString() };
-  cache.driver_transactions.push(t); bump();
-  bg((supabase.from("driver_transactions" as any) as any).insert(driverTxnToDb(t)));
-  return t;
+export function saveVehicleDocument(input: Omit<VehicleDocument, "id" | "createdAt">): VehicleDocument {
+  // Upsert by (vehicleId, docType): replace any existing
+  const existing = cache.vehicle_documents.find(
+    (d) => d.vehicleId === input.vehicleId && d.docType === input.docType,
+  );
+  if (existing) {
+    existing.expiryDate = input.expiryDate;
+    existing.notes = input.notes;
+    bump();
+    bg(supabase.from("vehicle_documents").update(vehicleDocumentToDb(existing)).eq("id", existing.id));
+    return existing;
+  }
+  const d: VehicleDocument = { ...input, id: uid(), createdAt: new Date().toISOString() };
+  cache.vehicle_documents.push(d); bump();
+  bg(supabase.from("vehicle_documents").insert(vehicleDocumentToDb(d)));
+  return d;
 }
-export function deleteDriverTransaction(id: string): void {
-  cache.driver_transactions = cache.driver_transactions.filter((t) => t.id !== id); bump();
-  bg((supabase.from("driver_transactions" as any) as any).delete().eq("id", id));
+export function deleteVehicleDocument(id: string): void {
+  cache.vehicle_documents = cache.vehicle_documents.filter((d) => d.id !== id); bump();
+  bg(supabase.from("vehicle_documents").delete().eq("id", id));
 }
-export function getDriverBalance(driverId: string): number {
-  // Balance = advances - settlements (positive = driver owes back / advances outstanding)
-  return cache.driver_transactions
-    .filter((t) => t.driverId === driverId)
-    .reduce((s, t) => s + (t.txnType === "advance" ? t.amount : -t.amount), 0);
-}
-export function getDriverStats(driverId: string): { trips: number; revenue: number; profit: number } {
-  const bills = cache.bills.filter((b) => b.driverId === driverId);
+
+// ============ Vehicle Stats ============
+export function getVehicleStats(vehicleNumber: string): {
+  trips: number; revenue: number; collected: number; outstanding: number;
+  expenses: number; profit: number; profitPct: number;
+} {
+  const vn = vehicleNumber.trim().toLowerCase();
+  const bills = cache.bills.filter((b) => (b.vehicleNumber || "").trim().toLowerCase() === vn);
   const revenue = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
-  // Profit contribution = revenue - linked expenses for those bills
+  const collected = bills.reduce((s, b) => s + (b.paidAmount || 0), 0);
+  const outstanding = bills.reduce((s, b) => s + (b.outstandingAmount || 0), 0);
   const billIds = new Set(bills.map((b) => b.id));
   const linkedExp = cache.expenses
     .filter((e) => e.linkedBillId && billIds.has(e.linkedBillId))
     .reduce((s, e) => s + e.amount, 0);
-  return { trips: bills.length, revenue, profit: revenue - linkedExp };
+  const maintExp = cache.vehicle_maintenance
+    .filter((m) => {
+      const v = cache.vehicles.find((x) => x.id === m.vehicleId);
+      return v && v.vehicleNumber.trim().toLowerCase() === vn;
+    })
+    .reduce((s, m) => s + m.cost, 0);
+  const expenses = linkedExp + maintExp;
+  const profit = revenue - expenses;
+  return {
+    trips: bills.length, revenue, collected, outstanding,
+    expenses, profit, profitPct: revenue > 0 ? (profit / revenue) * 100 : 0,
+  };
 }
+
 
