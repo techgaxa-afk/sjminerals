@@ -16,6 +16,7 @@ import { Route as ProfitabilityRouteImport } from './routes/profitability'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HitachiRouteImport } from './routes/hitachi'
+import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as CompaniesRouteImport } from './routes/companies'
 import { Route as CashbookRouteImport } from './routes/cashbook'
@@ -58,6 +59,11 @@ const LoginRoute = LoginRouteImport.update({
 const HitachiRoute = HitachiRouteImport.update({
   id: '/hitachi',
   path: '/hitachi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FleetRoute = FleetRouteImport.update({
+  id: '/fleet',
+  path: '/fleet',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpensesRoute = ExpensesRouteImport.update({
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/cashbook': typeof CashbookRoute
   '/companies': typeof CompaniesRouteWithChildren
   '/expenses': typeof ExpensesRoute
+  '/fleet': typeof FleetRoute
   '/hitachi': typeof HitachiRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/bills': typeof BillsRoute
   '/cashbook': typeof CashbookRoute
   '/expenses': typeof ExpensesRoute
+  '/fleet': typeof FleetRoute
   '/hitachi': typeof HitachiRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/cashbook': typeof CashbookRoute
   '/companies': typeof CompaniesRouteWithChildren
   '/expenses': typeof ExpensesRoute
+  '/fleet': typeof FleetRoute
   '/hitachi': typeof HitachiRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/cashbook'
     | '/companies'
     | '/expenses'
+    | '/fleet'
     | '/hitachi'
     | '/login'
     | '/products'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/bills'
     | '/cashbook'
     | '/expenses'
+    | '/fleet'
     | '/hitachi'
     | '/login'
     | '/products'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/cashbook'
     | '/companies'
     | '/expenses'
+    | '/fleet'
     | '/hitachi'
     | '/login'
     | '/products'
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   CashbookRoute: typeof CashbookRoute
   CompaniesRoute: typeof CompaniesRouteWithChildren
   ExpensesRoute: typeof ExpensesRoute
+  FleetRoute: typeof FleetRoute
   HitachiRoute: typeof HitachiRoute
   LoginRoute: typeof LoginRoute
   ProductsRoute: typeof ProductsRoute
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       path: '/hitachi'
       fullPath: '/hitachi'
       preLoaderRoute: typeof HitachiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fleet': {
+      id: '/fleet'
+      path: '/fleet'
+      fullPath: '/fleet'
+      preLoaderRoute: typeof FleetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expenses': {
@@ -352,6 +372,7 @@ const rootRouteChildren: RootRouteChildren = {
   CashbookRoute: CashbookRoute,
   CompaniesRoute: CompaniesRouteWithChildren,
   ExpensesRoute: ExpensesRoute,
+  FleetRoute: FleetRoute,
   HitachiRoute: HitachiRoute,
   LoginRoute: LoginRoute,
   ProductsRoute: ProductsRoute,
