@@ -274,7 +274,7 @@ export type UserActivity = {
   action: string;
   entityType: string;
   entityId: string | null;
-  details: Record<string, unknown>;
+  details: Record<string, {}>;
   performedBy: string | null;
 };
 
@@ -297,7 +297,7 @@ export const getUserActivity = createServerFn({ method: "POST" })
       entityType: r.entity_type as string,
       entityId: (r.entity_id as string | null) ?? null,
       details: (r.details ?? {}) as Record<string, unknown>,
-      performedBy: (r.user_id as string | null) ?? null,
+      details: (r.details ?? {}) as Record<string, {}>,
     }));
     return out;
   });
