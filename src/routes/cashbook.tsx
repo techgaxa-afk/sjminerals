@@ -285,8 +285,6 @@ function CashbookPage() {
           </table>
         </div>
 
-        {/* Try parseISO for completeness */}
-        <span className="hidden">{parseISO("2020-01-01").toString()}</span>
       </div>
     </AppLayout>
   );
