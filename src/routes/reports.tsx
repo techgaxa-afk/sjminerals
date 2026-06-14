@@ -269,17 +269,43 @@ function ReportsPage() {
           ))}
         </div>
 
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+        <div className="flex gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Search..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <div className="flex gap-1 rounded-md bg-secondary p-1">
-            {(["daily", "weekly", "monthly"] as FilterType[]).map((f) => (
-              <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
+            {(["daily", "weekly", "monthly", "custom"] as FilterType[]).map((f) => (
+              <button key={f} onClick={() => { setFilter(f); if (f !== "custom") setAppliedCustom(null); }} className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
             ))}
           </div>
         </div>
+
+        {filter === "custom" && (
+          <div className="stat-card space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs text-muted-foreground">From</label>
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground" />
+              <label className="text-xs text-muted-foreground">To</label>
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground" />
+              <button onClick={applyCustom} className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90">Apply</button>
+              {dateError && <span className="text-xs text-destructive">{dateError}</span>}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {([
+                ["today","Today"],["yesterday","Yesterday"],["last7","Last 7 Days"],
+                ["last30","Last 30 Days"],["thisMonth","This Month"],["lastMonth","Last Month"],
+              ] as [Preset,string][]).map(([p,l]) => (
+                <button key={p} onClick={() => applyPreset(p)} className="rounded-md bg-secondary px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/80">{l}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <CalendarIcon className="h-3.5 w-3.5" /> Period: <span className="text-foreground font-medium">{periodLabel}</span>
+        </div>
+
 
         <div className="grid grid-cols-2 gap-2">
           <div className="stat-card">
