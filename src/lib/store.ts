@@ -355,7 +355,13 @@ export function deleteProduct(id: string): void {
 // ============ Companies ============
 export function getCompanies(): Company[] { return cache.companies.slice(); }
 export async function saveCompany(c: Omit<Company, "id" | "createdAt">): Promise<Company> {
-  const company: Company = { ...c, id: uid(), createdAt: new Date().toISOString() };
+  // Duplicate-name guard (case-insensitive, trimmed)
+  const normalized = c.name.trim().toLowerCase();
+  if (!normalized) throw new Error("Company name is required");
+  const dup = cache.companies.find((x) => x.name.trim().toLowerCase() === normalized);
+  if (dup) throw new Error(`Company "${dup.name}" already exists`);
+
+  const company: Company = { ...c, name: c.name.trim(), id: uid(), createdAt: new Date().toISOString() };
   const payload = companyToDb(company);
   console.log("[COMPANY STEP 1] inserting company", payload);
   const insertRes = await supabase.from("companies").insert(payload).select("id").single();
@@ -375,6 +381,7 @@ export async function saveCompany(c: Omit<Company, "id" | "createdAt">): Promise
   cache.companies.push(company); bump();
   return company;
 }
+
 export function updateCompany(id: string, updates: Partial<Company>): void {
   cache.companies = cache.companies.map((c) => (c.id === id ? { ...c, ...updates } : c));
   bump();
@@ -443,6 +450,20 @@ export function getBills(): Bill[] { return cache.bills.map(assembleBill); }
 export function getBillsByCompany(companyId: string): Bill[] {
   return cache.bills.filter((b) => b.companyId === companyId).map(assembleBill);
 }
+export function getBillsByVehicle(companyId: string, vehicleNumber: string): Bill[] {
+  const vn = (vehicleNumber || "").trim().toLowerCase();
+  if (!vn) return [];
+  return cache.bills
+    .filter((b) => b.companyId === companyId && (b.vehicleNumber || "").trim().toLowerCase() === vn)
+    .map(assembleBill);
+}
+export function getVehicleTotals(companyId: string, vehicleNumber: string): { sales: number; paid: number; due: number } {
+  const bills = getBillsByVehicle(companyId, vehicleNumber);
+  const sales = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
+  const paid = bills.reduce((s, b) => s + (b.paidAmount || 0), 0);
+  return { sales, paid, due: Math.max(0, sales - paid) };
+}
+
 // Generate invoice number: SSDDMMYYYY (sequence-per-day + DDMMYYYY).
 // Increments until unique within current cache.
 function nextInvoiceNumber(now: Date): string {
