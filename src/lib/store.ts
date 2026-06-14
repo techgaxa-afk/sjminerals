@@ -930,15 +930,17 @@ export function getDateRange(filter: "daily" | "weekly" | "monthly"): { start: D
   else start.setMonth(start.getMonth() - 1);
   return { start, end };
 }
-// Outstanding = opening balance + Σ bill outstanding + Σ adjustments (signed)
+// Outstanding = Opening Balance + Total Sales - Total Payments + Σ adjustments
+// Total Sales = Σ bill.totalAmount.   Total Payments = Σ company_payments.amount.
+// Never stored in DB — always derived.
 export function getCompanyOutstanding(companyId: string): number {
   const company = cache.companies.find((c) => c.id === companyId);
   const opening = company?.openingBalance || 0;
-  const bills = cache.bills.filter((b) => b.companyId === companyId)
-    .reduce((s, b) => s + (b.outstandingAmount ?? 0), 0);
+  const sales = getCompanyTotalSales(companyId);
+  const paid = getCompanyTotalPaid(companyId);
   const adj = cache.credit_adjustments.filter((a) => a.companyId === companyId)
     .reduce((s, a) => s + (a.amount ?? 0), 0);
-  return opening + bills + adj;
+  return opening + sales - paid + adj;
 }
 export function getJCBLogs(): JCBLog[] { return []; }
 
