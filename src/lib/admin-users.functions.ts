@@ -30,7 +30,7 @@ async function audit(
     action,
     entity_type: "user",
     entity_id: entityId,
-    details,
+    details: details as never,
   });
 }
 
