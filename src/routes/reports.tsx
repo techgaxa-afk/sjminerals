@@ -3,15 +3,15 @@ import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
   getBills, getCompanies, getDateRange, getCompanyOutstanding,
-  getHitachiEntries, getHitachiFuel, getOperators,
+  getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
 } from "../lib/store";
-import { Building2, Users, Settings, Search } from "lucide-react";
+import { Building2, Users, Settings, Search, Wallet, FileDown } from "lucide-react";
 
 export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-type ReportType = "company" | "vehicle" | "hitachi" | "operator";
+type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger";
 type FilterType = "daily" | "weekly" | "monthly";
 
 function ReportsPage() {
@@ -94,11 +94,48 @@ function ReportsPage() {
     }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
   }, [reportType, filter, start, search, allBillsInRange]);
 
+  const ledger = useMemo(() => {
+    if (reportType !== "ledger") return [];
+    const companies = getCompanies();
+    const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
+    const rows = getAllCompanyPayments()
+      .filter((p) => new Date(p.paymentDate) >= start)
+      .map((p) => ({
+        id: p.id,
+        date: p.paymentDate,
+        company: nameOf(p.companyId),
+        amount: p.amount,
+        method: p.paymentMethod,
+        reference: p.referenceNumber ?? "",
+        notes: p.notes ?? "",
+      }))
+      .filter((r) => !search || r.company.toLowerCase().includes(search.toLowerCase()) || r.reference.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return rows;
+  }, [reportType, start, search]);
+
+  const ledgerTotal = useMemo(() => ledger.reduce((s, r) => s + r.amount, 0), [ledger]);
+
+  const exportLedgerCSV = () => {
+    const headers = ["Date", "Company", "Amount", "Method", "Reference", "Notes"];
+    const escape = (v: string | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [headers.join(",")].concat(
+      ledger.map((r) => [r.date, r.company, r.amount.toString(), r.method, r.reference, r.notes].map(escape).join(","))
+    );
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `payment-ledger-${filter}-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
     { id: "vehicle", label: "Vehicle", icon: Building2 },
     { id: "hitachi", label: "Hitachi", icon: Settings },
     { id: "operator", label: "Operator", icon: Users },
+    { id: "ledger", label: "Ledger", icon: Wallet },
   ];
 
   return (
@@ -138,41 +175,80 @@ function ReportsPage() {
         </div>
 
 
-        <div className="space-y-2">
-          <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
-            <span>Name</span>
-            <span className="text-center">{reportType === "hitachi" ? "Entries" : reportType === "operator" ? "Shifts" : "Trips"}</span>
-            <span className="text-right">{reportType === "hitachi" ? "Revenue" : reportType === "operator" ? "Total HRs" : "Revenue"}</span>
-            <span className="text-right">{reportType === "hitachi" ? "Fuel (L)" : reportType === "operator" ? "Total Salary" : "Outstanding"}</span>
-          </div>
-
-          {(data as any[]).map((r: any) => (
-            <div key={r.id} className="stat-card grid grid-cols-4 gap-2 items-center">
-              <div>
-                <span className="font-medium text-sm text-foreground truncate block">{r.name}</span>
-                {r.sub && <span className="text-xs text-muted-foreground">{r.sub}</span>}
+        {reportType === "ledger" ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">{ledger.length} payment{ledger.length === 1 ? "" : "s"} · ₹{ledgerTotal.toLocaleString()}</p>
+              <button
+                onClick={exportLedgerCSV}
+                disabled={ledger.length === 0}
+                className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+              >
+                <FileDown className="h-3.5 w-3.5" /> Export CSV
+              </button>
+            </div>
+            <div className="stat-card grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground">
+              <span className="col-span-2">Date</span>
+              <span className="col-span-3">Company</span>
+              <span className="col-span-2 text-right">Amount</span>
+              <span className="col-span-2">Method</span>
+              <span className="col-span-3">Reference</span>
+            </div>
+            {ledger.map((r) => (
+              <div key={r.id} className="stat-card grid grid-cols-12 gap-2 items-center">
+                <span className="col-span-2 text-xs text-foreground">{r.date}</span>
+                <span className="col-span-3 text-sm text-foreground truncate">{r.company}</span>
+                <span className="col-span-2 text-right text-sm font-medium text-success">₹{r.amount.toLocaleString()}</span>
+                <span className="col-span-2 text-xs capitalize text-foreground">{r.method}</span>
+                <span className="col-span-3 text-xs text-muted-foreground truncate">{r.reference || "—"}</span>
               </div>
-              <span className="text-center text-sm text-foreground">{r.trips}</span>
-              <span className="text-right text-sm font-medium text-foreground">
-                {r.isOperator ? r.revenue : r.isHitachi ? `₹${r.revenue.toLocaleString()}` : `₹${r.revenue.toLocaleString()}`}
-              </span>
-              <span className={`text-right text-sm font-medium ${!r.isHitachi && !r.isOperator && r.outstanding > 0 ? "text-warning" : "text-foreground"}`}>
-                {r.isOperator ? `₹${r.outstanding.toLocaleString()}` : r.isHitachi ? `${r.outstanding}L` : `₹${r.outstanding.toLocaleString()}`}
-              </span>
+            ))}
+            {ledger.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No payments for this period.</p>}
+            {ledger.length > 0 && (
+              <div className="stat-card grid grid-cols-12 gap-2 items-center border-primary/30">
+                <span className="col-span-5 font-bold text-sm text-foreground">Total</span>
+                <span className="col-span-2 text-right text-sm font-bold text-success">₹{ledgerTotal.toLocaleString()}</span>
+                <span className="col-span-5" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
+              <span>Name</span>
+              <span className="text-center">{reportType === "hitachi" ? "Entries" : reportType === "operator" ? "Shifts" : "Trips"}</span>
+              <span className="text-right">{reportType === "hitachi" ? "Revenue" : reportType === "operator" ? "Total HRs" : "Revenue"}</span>
+              <span className="text-right">{reportType === "hitachi" ? "Fuel (L)" : reportType === "operator" ? "Total Salary" : "Outstanding"}</span>
             </div>
-          ))}
 
-          {data.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No data for this period.</p>}
+            {(data as any[]).map((r: any) => (
+              <div key={r.id} className="stat-card grid grid-cols-4 gap-2 items-center">
+                <div>
+                  <span className="font-medium text-sm text-foreground truncate block">{r.name}</span>
+                  {r.sub && <span className="text-xs text-muted-foreground">{r.sub}</span>}
+                </div>
+                <span className="text-center text-sm text-foreground">{r.trips}</span>
+                <span className="text-right text-sm font-medium text-foreground">
+                  {r.isOperator ? r.revenue : r.isHitachi ? `₹${r.revenue.toLocaleString()}` : `₹${r.revenue.toLocaleString()}`}
+                </span>
+                <span className={`text-right text-sm font-medium ${!r.isHitachi && !r.isOperator && r.outstanding > 0 ? "text-warning" : "text-foreground"}`}>
+                  {r.isOperator ? `₹${r.outstanding.toLocaleString()}` : r.isHitachi ? `${r.outstanding}L` : `₹${r.outstanding.toLocaleString()}`}
+                </span>
+              </div>
+            ))}
 
-          {data.length > 0 && !["hitachi", "operator"].includes(reportType) && (
-            <div className="stat-card grid grid-cols-4 gap-2 items-center border-primary/30">
-              <span className="font-bold text-sm text-foreground">Total</span>
-              <span className="text-center text-sm font-bold text-foreground">{(data as any[]).reduce((s: number, r: any) => s + r.trips, 0)}</span>
-              <span className="text-right text-sm font-bold text-primary">₹{(data as any[]).reduce((s: number, r: any) => s + r.revenue, 0).toLocaleString()}</span>
-              <span className="text-right text-sm font-bold text-warning">₹{(data as any[]).reduce((s: number, r: any) => s + r.outstanding, 0).toLocaleString()}</span>
-            </div>
-          )}
-        </div>
+            {data.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No data for this period.</p>}
+
+            {data.length > 0 && !["hitachi", "operator"].includes(reportType) && (
+              <div className="stat-card grid grid-cols-4 gap-2 items-center border-primary/30">
+                <span className="font-bold text-sm text-foreground">Total</span>
+                <span className="text-center text-sm font-bold text-foreground">{(data as any[]).reduce((s: number, r: any) => s + r.trips, 0)}</span>
+                <span className="text-right text-sm font-bold text-primary">₹{(data as any[]).reduce((s: number, r: any) => s + r.revenue, 0).toLocaleString()}</span>
+                <span className="text-right text-sm font-bold text-warning">₹{(data as any[]).reduce((s: number, r: any) => s + r.outstanding, 0).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </AppLayout>
   );

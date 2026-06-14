@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload } from "lucide-react";
@@ -38,10 +38,12 @@ function DashboardPage() {
     const expenses = getExpenses().filter((e) => new Date(e.date) >= start);
     const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
     const payments = getPayments().filter((p) => new Date(p.createdAt) >= start);
+    const companyPaymentsInRange = getAllCompanyPayments().filter((p) => new Date(p.paymentDate) >= start);
 
     const totalRevenue = bills.reduce((s, b) => s + b.totalAmount, 0);
     const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalOutstanding = bills.reduce((s, b) => s + (b.outstandingAmount || 0), 0);
+    const companies = getCompanies();
+    const totalOutstanding = companies.reduce((s, c) => s + Math.max(0, getCompanyOutstanding(c.id)), 0);
     const totalTips = bills.reduce((s, b) => s + (b.tipsAmount || 0), 0);
 
     // Cash / UPI / Credit breakdown (split-aware)
@@ -58,7 +60,10 @@ function DashboardPage() {
       }
       if (b.paymentMode === "credit" || (b.outstandingAmount || 0) > 0) creditBillsCount++;
     });
-    const collectedToday = payments.reduce((s, p) => s + p.amount, 0);
+    // Collected = bill-level payments + standalone company ledger payments in the period
+    const collectedToday =
+      payments.reduce((s, p) => s + p.amount, 0) +
+      companyPaymentsInRange.reduce((s, p) => s + p.amount, 0);
 
     const expenseByCategory = expenses.reduce((acc, e) => {
       acc[e.category] = (acc[e.category] || 0) + e.amount;
@@ -71,7 +76,6 @@ function DashboardPage() {
       revenueByDay[day] = (revenueByDay[day] || 0) + b.totalAmount;
     });
 
-    const companies = getCompanies();
     const companyOutstandings = companies.map((c) => ({
       name: c.name, vehicle: "",
       outstanding: getCompanyOutstanding(c.id),

@@ -759,15 +759,22 @@ export function updateBill(id: string, updates: Partial<Bill>): void {
   if (merged) bg(supabase.from("bills").update(billToDb(merged)).eq("id", id), "bill-update");
 }
 export function deleteBill(id: string): void {
+  const bill = cache.bills.find((b) => b.id === id);
+  const invRef = bill?.invoiceNumber || id.slice(-6).toUpperCase();
+  const mirrorIds = cache.company_payments
+    .filter((cp) => cp.referenceNumber === invRef && (cp.notes ?? "").startsWith("Initial payment for invoice"))
+    .map((cp) => cp.id);
   cache.bills = cache.bills.filter((b) => b.id !== id);
   cache.billItems = cache.billItems.filter((i) => i.billId !== id);
   cache.expenses = cache.expenses.filter((e) => e.linkedBillId !== id);
   cache.payments = cache.payments.filter((p) => p.billId !== id);
+  cache.company_payments = cache.company_payments.filter((cp) => !mirrorIds.includes(cp.id));
   bump();
   bg(supabase.from("payments").delete().eq("bill_id", id));
   bg(supabase.from("expenses").delete().eq("linked_bill_id", id));
   bg(supabase.from("bill_items").delete().eq("bill_id", id));
   bg(supabase.from("bills").delete().eq("id", id));
+  if (mirrorIds.length > 0) bg(supabase.from("company_payments").delete().in("id", mirrorIds));
 }
 export function getExpensesByBill(billId: string): Expense[] {
   return cache.expenses.filter((e) => e.linkedBillId === billId);
