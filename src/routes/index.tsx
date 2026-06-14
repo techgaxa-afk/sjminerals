@@ -230,16 +230,16 @@ function DashboardPage() {
             <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> UPI Sales</div>
             <p className="text-xl font-bold text-primary">₹{stats.upiSales.toLocaleString()}</p>
           </div>
-          <div className="stat-card">
+          <Link to="/reports" search={{ tab: "company", preset: "today" }} className="stat-card hover:border-primary/40 transition-colors block">
             <div className="flex items-center gap-2 text-xs mb-1 text-muted-foreground"><FileText className="h-3.5 w-3.5 text-primary" /> Today's Invoices</div>
             <p className="text-xl font-bold text-foreground">{collectionStats.todayInv.count}</p>
             <p className="text-[10px] text-muted-foreground">Cash: {collectionStats.todayInv.cash} · UPI: {collectionStats.todayInv.upi} · Credit: {collectionStats.todayInv.credit}</p>
-          </div>
-          <div className="stat-card">
+          </Link>
+          <Link to="/reports" search={{ tab: "company", preset: "thisMonth" }} className="stat-card hover:border-primary/40 transition-colors block">
             <div className="flex items-center gap-2 text-xs mb-1 text-muted-foreground"><Calendar className="h-3.5 w-3.5 text-primary" /> This Month Invoices</div>
             <p className="text-xl font-bold text-foreground">{collectionStats.monthInv.count}</p>
             <p className="text-[10px] text-muted-foreground">Cash: {collectionStats.monthInv.cash} · UPI: {collectionStats.monthInv.upi} · Credit: {collectionStats.monthInv.credit}</p>
-          </div>
+          </Link>
         </div>
 
         <div className="stat-card border-warning/30 bg-warning/5">
