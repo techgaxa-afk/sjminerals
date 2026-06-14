@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
-  getBills, getCompanies, getDateRange, getCompanyOutstanding,
+  getBills, getCompanies, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
   getCompanyAging,
 } from "../lib/store";
@@ -11,10 +11,42 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContai
 import { format } from "date-fns";
 
 
-export const Route = createFileRoute("/reports")({ component: ReportsPage });
-
 type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics";
-type FilterType = "daily" | "weekly" | "monthly";
+type FilterType = "daily" | "weekly" | "monthly" | "custom";
+type Preset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth";
+
+export const Route = createFileRoute("/reports")({
+  component: ReportsPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    tab: (s.tab as ReportType) || undefined,
+    from: typeof s.from === "string" ? s.from : undefined,
+    to: typeof s.to === "string" ? s.to : undefined,
+    preset: (s.preset as Preset) || undefined,
+  }),
+});
+
+const sod = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+const eod = (d: Date) => { const x = new Date(d); x.setHours(23,59,59,999); return x; };
+const isoDate = (d: Date) => format(d, "yyyy-MM-dd");
+
+function presetRange(p: Preset): { start: Date; end: Date } {
+  const now = new Date();
+  if (p === "today") return { start: sod(now), end: eod(now) };
+  if (p === "yesterday") { const y = new Date(now); y.setDate(y.getDate()-1); return { start: sod(y), end: eod(y) }; }
+  if (p === "last7") { const s = new Date(now); s.setDate(s.getDate()-6); return { start: sod(s), end: eod(now) }; }
+  if (p === "last30") { const s = new Date(now); s.setDate(s.getDate()-29); return { start: sod(s), end: eod(now) }; }
+  if (p === "thisMonth") return { start: sod(new Date(now.getFullYear(), now.getMonth(), 1)), end: eod(now) };
+  return { start: sod(new Date(now.getFullYear(), now.getMonth()-1, 1)), end: eod(new Date(now.getFullYear(), now.getMonth(), 0)) };
+}
+
+function rangeFor(filter: FilterType, custom: { start: Date; end: Date } | null): { start: Date; end: Date } {
+  const now = new Date();
+  if (filter === "custom" && custom) return custom;
+  if (filter === "daily") return { start: sod(now), end: eod(now) };
+  if (filter === "weekly") { const s = new Date(now); s.setDate(s.getDate()-7); return { start: sod(s), end: eod(now) }; }
+  if (filter === "monthly") { const s = new Date(now); s.setMonth(s.getMonth()-1); return { start: sod(s), end: eod(now) }; }
+  return { start: sod(now), end: eod(now) };
+}
 
 function ReportsPage() {
   const [reportType, setReportType] = useState<ReportType>("company");
