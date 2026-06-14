@@ -73,7 +73,7 @@ function DashboardPage() {
 
     const companies = getCompanies();
     const companyOutstandings = companies.map((c) => ({
-      name: c.name, vehicle: c.vehicleNumber,
+      name: c.name, vehicle: "",
       outstanding: getCompanyOutstanding(c.id),
     })).filter((c) => c.outstanding > 0).sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
 
