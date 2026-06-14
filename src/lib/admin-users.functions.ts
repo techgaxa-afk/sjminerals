@@ -281,9 +281,8 @@ export type UserActivity = {
 export const getUserActivity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ userId: z.string().uuid(), limit: z.number().int().min(1).max(500).optional() }).parse(d))
-  .handler(async ({ data, context }): Promise<UserActivity[]> => {
+  .handler(async ({ data, context }) => {
     const supabaseAdmin = await assertAdmin(context.userId);
-    // Activities WHERE this user is the actor OR the entity target
     const { data: rows, error } = await supabaseAdmin
       .from("audit_log")
       .select("id, ts, action, entity_type, entity_id, details, user_id")
@@ -291,7 +290,7 @@ export const getUserActivity = createServerFn({ method: "POST" })
       .order("ts", { ascending: false })
       .limit(data.limit ?? 100);
     if (error) throw new Error(error.message);
-    return (rows ?? []).map((r) => ({
+    const out: UserActivity[] = (rows ?? []).map((r) => ({
       id: r.id as string,
       ts: r.ts as string,
       action: r.action as string,
@@ -300,6 +299,7 @@ export const getUserActivity = createServerFn({ method: "POST" })
       details: (r.details ?? {}) as Record<string, unknown>,
       performedBy: (r.user_id as string | null) ?? null,
     }));
+    return out;
   });
 
 export const sendPasswordReset = createServerFn({ method: "POST" })
