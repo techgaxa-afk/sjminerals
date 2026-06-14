@@ -41,9 +41,10 @@ function BillingPage() {
   const [passAmount, setPassAmount] = useState<number>(DEFAULT_PASS_AMOUNT);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
-  const [showNewCompany, setShowNewCompany] = useState(false);
-  const [newComp, setNewComp] = useState({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
+  const [showCreateVehicle, setShowCreateVehicle] = useState(false);
+  const [newVeh, setNewVeh] = useState({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
   const [suggestions, setSuggestions] = useState<Company[]>([]);
+
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
   const total = items.reduce((s, i) => s + i.total, 0);
