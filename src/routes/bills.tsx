@@ -49,8 +49,19 @@ function BillsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [payBillId, setPayBillId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
 
   const refresh = () => setBills(getBills().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
 
   const filtered = useMemo(() => bills.filter((b) => {
     const q = search.toLowerCase();
