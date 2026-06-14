@@ -229,7 +229,7 @@ function ProfitabilityPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Card icon={<Users className="h-4 w-4 text-cyan-600" />} label="Top Driver" value={topDriver?.name || "—"} sub={topDriver ? inr(topDriver.profit) : ""} />
+          <Card icon={<Truck className="h-4 w-4 text-cyan-600" />} label="Top Driver" value={topDriver?.name || "—"} sub={topDriver ? inr(topDriver.profit) : ""} />
           <Card icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label="Highest Revenue Vehicle" value={topRevVehicle?.vehicle || "—"} sub={topRevVehicle ? inr(topRevVehicle.revenue) : ""} />
           <Card icon={<TrendingDown className="h-4 w-4 text-destructive" />} label="Total Expenses" value={inr(totals.cost)} />
         </div>
