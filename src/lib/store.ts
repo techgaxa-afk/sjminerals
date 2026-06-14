@@ -406,29 +406,48 @@ export function getVehiclesByCompany(companyId: string): Vehicle[] {
 export function getVehicleByNumber(vehicleNumber: string): Vehicle | undefined {
   return cache.vehicles.find((v) => v.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
 }
+function isDuplicateVehicle(companyId: string, vehicleNumber: string, excludeId?: string): boolean {
+  const vn = vehicleNumber.trim().toLowerCase();
+  return cache.vehicles.some(
+    (x) => x.companyId === companyId && x.vehicleNumber.trim().toLowerCase() === vn && x.id !== excludeId,
+  );
+}
 export async function saveVehicle(v: Omit<Vehicle, "id" | "createdAt">): Promise<Vehicle> {
-  const vehicle: Vehicle = { ...v, id: uid(), createdAt: new Date().toISOString() };
+  const trimmedNumber = v.vehicleNumber.trim();
+  if (!trimmedNumber) throw new Error("Vehicle number is required");
+  if (isDuplicateVehicle(v.companyId, trimmedNumber)) {
+    throw new Error("Vehicle number already exists for this company");
+  }
+  const vehicle: Vehicle = { ...v, vehicleNumber: trimmedNumber, id: uid(), createdAt: new Date().toISOString() };
   const payload = vehicleToDb(vehicle);
-  console.log("[VEHICLE STEP 1] inserting vehicle", payload);
   const insertRes = await supabase.from("vehicles").insert(payload).select("id").single();
   if (insertRes.error) {
     console.error("VEHICLE INSERT FAILED", insertRes.error);
-    emitError(insertRes.error.message || "Vehicle insert failed");
-    throw insertRes.error;
+    const msg = insertRes.error.code === "23505"
+      ? "Vehicle number already exists for this company"
+      : insertRes.error.message || "Vehicle insert failed";
+    emitError(msg);
+    throw new Error(msg);
   }
-  console.log("[VEHICLE STEP 2] vehicle inserted", insertRes.data?.id);
   const verify = await supabase.from("vehicles").select("id").eq("id", vehicle.id).single();
   if (verify.error) {
-    console.error("VEHICLE VERIFY FAILED", verify.error);
     emitError(verify.error.message || "Vehicle verify failed");
     throw verify.error;
   }
-  console.log("[VEHICLE STEP 3] vehicle verified", verify.data);
   cache.vehicles.push(vehicle); bump();
   return vehicle;
 }
 export function updateVehicle(id: string, updates: Partial<Vehicle>): void {
-  cache.vehicles = cache.vehicles.map((v) => (v.id === id ? { ...v, ...updates } : v));
+  const existing = cache.vehicles.find((v) => v.id === id);
+  if (!existing) return;
+  const nextNumber = (updates.vehicleNumber ?? existing.vehicleNumber).trim();
+  const nextCompanyId = updates.companyId ?? existing.companyId;
+  if (!nextNumber) throw new Error("Vehicle number is required");
+  if (isDuplicateVehicle(nextCompanyId, nextNumber, id)) {
+    throw new Error("Vehicle number already exists for this company");
+  }
+  const normalized = { ...updates, vehicleNumber: nextNumber };
+  cache.vehicles = cache.vehicles.map((v) => (v.id === id ? { ...v, ...normalized } : v));
   bump();
   const merged = cache.vehicles.find((v) => v.id === id);
   if (merged) bg(supabase.from("vehicles").update(vehicleToDb(merged)).eq("id", id));
