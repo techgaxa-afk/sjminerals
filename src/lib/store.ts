@@ -278,6 +278,23 @@ const expenseToDb = (e: Expense) => ({
   linked_bill_id: e.linkedBillId || null, linked_company_id: e.linkedCompanyId || null,
   linked_operator_id: e.linkedOperatorId || null, linked_machine_id: e.linkedMachineId || null,
 });
+const mapDriver = (r: any): Driver => ({
+  id: r.id, name: r.name, mobile: r.mobile ?? "", licenseNumber: r.license_number ?? "",
+  address: r.address ?? "", status: r.status === "inactive" ? "inactive" : "active",
+  createdAt: r.created_at,
+});
+const driverToDb = (d: Driver) => ({
+  id: d.id, name: d.name, mobile: d.mobile, license_number: d.licenseNumber,
+  address: d.address, status: d.status,
+});
+const mapDriverTxn = (r: any): DriverTransaction => ({
+  id: r.id, driverId: r.driver_id, txnType: r.txn_type === "settlement" ? "settlement" : "advance",
+  amount: Number(r.amount) || 0, date: r.txn_date, notes: r.notes ?? "", createdAt: r.created_at,
+});
+const driverTxnToDb = (t: DriverTransaction) => ({
+  id: t.id, driver_id: t.driverId, txn_type: t.txnType, amount: t.amount,
+  txn_date: t.date, notes: t.notes,
+});
 
 // ============ Bootstrap (cloud load + realtime) ============
 let loaded = false;
