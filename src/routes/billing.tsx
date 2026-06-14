@@ -43,7 +43,8 @@ function BillingPage() {
   const [search, setSearch] = useState("");
   const [showCreateVehicle, setShowCreateVehicle] = useState(false);
   const [newVeh, setNewVeh] = useState({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
-  const [suggestions, setSuggestions] = useState<Company[]>([]);
+  type Suggestion = { company: Company; vehicle: Vehicle };
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
