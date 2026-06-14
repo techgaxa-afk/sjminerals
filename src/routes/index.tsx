@@ -100,11 +100,11 @@ function DashboardPage() {
 
   const collectionStats = useMemo(() => {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const all = getAllCompanyPayments().filter((p) => p.status !== "reversed");
-    const today = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfDay).reduce((s, p) => s + p.amount, 0);
-    const month = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfMonth).reduce((s, p) => s + p.amount, 0);
+    const today = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfDay.getTime()).reduce((s, p) => s + p.amount, 0);
+    const month = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfMonth.getTime()).reduce((s, p) => s + p.amount, 0);
     const companies = getCompanies();
     const outstanding = companies.reduce((s, c) => s + Math.max(0, getCompanyOutstanding(c.id)), 0);
     const overdue = companies.reduce((s, c) => {
@@ -113,11 +113,34 @@ function DashboardPage() {
     }, 0);
     const creditExceeded = companies.filter((c) => (c.creditLimit || 0) > 0 && getCompanyOutstanding(c.id) > (c.creditLimit || 0));
     const allBills = getBills();
-    const todayInvoices = allBills.filter((b) => new Date(b.createdAt).getTime() >= startOfDay).length;
-    const monthInvoices = allBills.filter((b) => new Date(b.createdAt).getTime() >= startOfMonth).length;
+    const breakdown = (since: Date) => {
+      const list = allBills.filter((b) => new Date(b.createdAt).getTime() >= since.getTime());
+      let cash = 0, upi = 0, credit = 0;
+      list.forEach((b) => {
+        if (b.paymentMode === "credit" || (b.outstandingAmount || 0) > 0) credit++;
+        else if (b.splitPayment) {
+          if ((b.cashAmount || 0) >= (b.upiAmount || 0)) cash++; else upi++;
+        } else if (b.paymentMode === "cash") cash++;
+        else if (b.paymentMode === "upi") upi++;
+      });
+      return { count: list.length, cash, upi, credit };
+    };
+    const todayInv = breakdown(startOfDay);
+    const monthInv = breakdown(startOfMonth);
     const availableCash = getCashSales() - getCashExpenses();
     const availableUpi = getUpiSales() - getUpiExpenses();
-    return { today, month, outstanding, overdue, creditExceeded, todayInvoices, monthInvoices, availableCash, availableUpi };
+    const cashSalesToday = getCashSales(startOfDay);
+    const upiSalesToday = getUpiSales(startOfDay);
+    const cashExpToday = getCashExpenses(startOfDay);
+    const upiExpToday = getUpiExpenses(startOfDay);
+    return {
+      today, month, outstanding, overdue, creditExceeded,
+      todayInv, monthInv,
+      availableCash, availableUpi,
+      cashSalesToday, upiSalesToday, cashExpToday, upiExpToday,
+      netCashToday: cashSalesToday - cashExpToday,
+      netUpiToday: upiSalesToday - upiExpToday,
+    };
   }, []);
 
   const recentPayments = useMemo(() => {
@@ -125,6 +148,8 @@ function DashboardPage() {
     const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
     return getRecentPayments(10).map((p) => ({ ...p, companyName: nameOf(p.companyId) }));
   }, []);
+
+  const recentActivity = useMemo(() => getRecentActivity(10), []);
 
   const handleExportReport = () => { exportReportPDF(filter, stats); };
 
