@@ -267,3 +267,48 @@ export const resendInvite = createServerFn({ method: "POST" })
     await audit(supabaseAdmin, context.userId, "invitation_resent", null, { email: data.email });
     return { ok: true };
   });
+
+export type UserActivity = {
+  id: string;
+  ts: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  details: Record<string, {}>;
+  performedBy: string | null;
+};
+
+export const getUserActivity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ userId: z.string().uuid(), limit: z.number().int().min(1).max(500).optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const supabaseAdmin = await assertAdmin(context.userId);
+    const { data: rows, error } = await supabaseAdmin
+      .from("audit_log")
+      .select("id, ts, action, entity_type, entity_id, details, user_id")
+      .or(`user_id.eq.${data.userId},entity_id.eq.${data.userId}`)
+      .order("ts", { ascending: false })
+      .limit(data.limit ?? 100);
+    if (error) throw new Error(error.message);
+    const out: UserActivity[] = (rows ?? []).map((r) => ({
+      id: r.id as string,
+      ts: r.ts as string,
+      action: r.action as string,
+      entityType: r.entity_type as string,
+      entityId: (r.entity_id as string | null) ?? null,
+      details: (r.details ?? {}) as Record<string, {}>,
+      performedBy: (r.user_id as string | null) ?? null,
+    }));
+    return out;
+  });
+
+export const sendPasswordReset = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ email: z.string().email() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const supabaseAdmin = await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin.auth.admin.generateLink({ type: "recovery", email: data.email });
+    if (error) throw new Error(error.message);
+    await audit(supabaseAdmin, context.userId, "password_reset_sent", null, { email: data.email });
+    return { ok: true };
+  });

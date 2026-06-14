@@ -16,7 +16,8 @@ import {
   type AdminUser,
   type UserStatus,
 } from "@/lib/admin-users.functions";
-import { Shield, Loader2, Search, UserCog, UserPlus, Pencil, Trash2, Ban, CheckCircle2, Mail, X } from "lucide-react";
+import { Shield, Loader2, Search, UserCog, UserPlus, Pencil, Trash2, Ban, CheckCircle2, Mail, X, Eye, Download } from "lucide-react";
+import UserDetailsDrawer from "@/components/UserDetailsDrawer";
 
 export const Route = createFileRoute("/users")({ component: UsersPage });
 
@@ -64,6 +65,9 @@ function UsersInner() {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
+  const [viewing, setViewing] = useState<AdminUser | null>(null);
+  const [roleFilter, setRoleFilter] = useState<"all" | Role>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -85,8 +89,55 @@ function UsersInner() {
     const q = search.toLowerCase();
     return (users ?? [])
       .filter((u) => tab === "all" || u.status === tab)
+      .filter((u) => roleFilter === "all" || u.roles.includes(roleFilter))
       .filter((u) => !q || u.email?.toLowerCase().includes(q) || u.fullName?.toLowerCase().includes(q) || u.roles.some((r) => r.includes(q)));
-  }, [users, search, tab]);
+  }, [users, search, tab, roleFilter]);
+
+  const toggleSel = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const clearSel = () => setSelected(new Set());
+
+  const bulkRun = async (fn: (id: string) => Promise<unknown>, msg: string) => {
+    setBusy(true);
+    const ids = [...selected];
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await fn(id); ok++; } catch { fail++; }
+    }
+    toast[fail ? "warning" : "success"](`${msg}: ${ok} ok${fail ? `, ${fail} failed` : ""}`);
+    clearSel();
+    await reload();
+    setBusy(false);
+  };
+
+  const exportCSV = () => {
+    const header = ["Name", "Email", "Roles", "Status", "Joined", "Last Login"];
+    const rows = filtered.map((u) => [
+      u.fullName ?? "",
+      u.email ?? "",
+      u.roles.join("|"),
+      u.status,
+      new Date(u.createdAt).toISOString(),
+      u.lastSignInAt ? new Date(u.lastSignInAt).toISOString() : "",
+    ]);
+    const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `users-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const stats = useMemo(() => {
+    const today = new Date().toDateString();
+    const list = users ?? [];
+    return {
+      total: list.length,
+      active: list.filter((u) => u.status === "active").length,
+      disabled: list.filter((u) => u.status === "disabled").length,
+      pending: list.filter((u) => u.status === "pending").length,
+      todayLogins: list.filter((u) => u.lastSignInAt && new Date(u.lastSignInAt).toDateString() === today).length,
+    };
+  }, [users]);
 
   const counts = useMemo(() => {
     const c = { all: users?.length ?? 0, active: 0, pending: 0, disabled: 0 };
@@ -125,6 +176,21 @@ function UsersInner() {
               className="pl-8 pr-3 py-2 text-sm rounded-md border border-border bg-background w-56"
             />
           </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value as "all" | Role)}
+            className="px-2 py-2 text-sm rounded-md border border-border bg-background"
+          >
+            <option value="all">All roles</option>
+            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <button
+            onClick={exportCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border hover:bg-accent"
+            title="Export CSV"
+          >
+            <Download className="h-4 w-4" /> Export
+          </button>
           <button
             onClick={() => setShowAdd(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
@@ -132,6 +198,14 @@ function UsersInner() {
             <UserPlus className="h-4 w-4" /> Add User
           </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <Stat label="Total" value={stats.total} />
+        <Stat label="Active" value={stats.active} tone="green" />
+        <Stat label="Disabled" value={stats.disabled} tone="red" />
+        <Stat label="Pending" value={stats.pending} tone="amber" />
+        <Stat label="Today's Logins" value={stats.todayLogins} tone="blue" />
       </div>
 
       <div className="flex items-center gap-1 border-b border-border">
@@ -148,6 +222,30 @@ function UsersInner() {
         ))}
       </div>
 
+      {selected.size > 0 && (
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-primary bg-primary/5">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => bulkRun((id) => disable({ data: { userId: id, disabled: false } }), "Enabled")}
+              disabled={busy}
+              className="px-2.5 py-1 text-xs rounded-md border border-border bg-background hover:bg-accent disabled:opacity-50"
+            >Enable</button>
+            <button
+              onClick={() => bulkRun((id) => disable({ data: { userId: id, disabled: true } }), "Disabled")}
+              disabled={busy}
+              className="px-2.5 py-1 text-xs rounded-md border border-border bg-background hover:bg-accent disabled:opacity-50"
+            >Disable</button>
+            <button
+              onClick={() => { if (confirm(`Delete ${selected.size} user(s)?`)) bulkRun((id) => remove({ data: { userId: id } }), "Deleted"); }}
+              disabled={busy}
+              className="px-2.5 py-1 text-xs rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >Delete</button>
+            <button onClick={clearSel} className="px-2.5 py-1 text-xs rounded-md hover:bg-accent">Clear</button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : (
@@ -155,6 +253,18 @@ function UsersInner() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
+                <th className="p-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && filtered.every((u) => selected.has(u.id))}
+                    onChange={(e) => {
+                      const next = new Set(selected);
+                      if (e.target.checked) filtered.forEach((u) => next.add(u.id));
+                      else filtered.forEach((u) => next.delete(u.id));
+                      setSelected(next);
+                    }}
+                  />
+                </th>
                 <th className="text-left p-3 font-medium">User</th>
                 <th className="text-left p-3 font-medium">Role</th>
                 <th className="text-left p-3 font-medium">Status</th>
@@ -166,8 +276,11 @@ function UsersInner() {
               {filtered.map((u) => {
                 const isSelf = u.id === user?.id;
                 return (
-                  <tr key={u.id} className="border-t border-border">
+                  <tr key={u.id} className="border-t border-border hover:bg-muted/30">
                     <td className="p-3">
+                      <input type="checkbox" checked={selected.has(u.id)} onChange={() => toggleSel(u.id)} />
+                    </td>
+                    <td className="p-3 cursor-pointer" onClick={() => setViewing(u)}>
                       <div className="font-medium text-foreground">{u.fullName ?? "—"}</div>
                       <div className="text-xs text-muted-foreground">{u.email ?? u.id}</div>
                       {isSelf && <span className="text-[10px] uppercase tracking-wide text-primary">you</span>}
@@ -192,6 +305,9 @@ function UsersInner() {
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1 justify-end flex-wrap">
+                        <IconBtn title="View details" onClick={() => setViewing(u)} disabled={busy}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </IconBtn>
                         {u.status === "pending" && u.email && (
                           <IconBtn title="Resend invite" onClick={() => runAction(() => resend({ data: { email: u.email! } }), "Invitation resent")} disabled={busy}>
                             <Mail className="h-3.5 w-3.5" />
@@ -218,7 +334,7 @@ function UsersInner() {
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No users found.</td></tr>
+                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No users found.</td></tr>
               )}
             </tbody>
           </table>
@@ -263,6 +379,24 @@ function UsersInner() {
           busy={busy}
         />
       )}
+
+      {viewing && <UserDetailsDrawer user={viewing} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+function Stat({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "green" | "red" | "amber" | "blue" }) {
+  const tones: Record<string, string> = {
+    default: "text-foreground",
+    green: "text-green-600",
+    red: "text-destructive",
+    amber: "text-amber-600",
+    blue: "text-blue-600",
+  };
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className={`text-xl font-bold ${tones[tone]}`}>{value}</div>
     </div>
   );
 }
