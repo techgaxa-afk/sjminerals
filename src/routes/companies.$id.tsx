@@ -84,10 +84,14 @@ function CompanyDetailsPage() {
     }
   };
 
-  const handleDeleteVehicle = (v: Vehicle) => {
-    if (!confirm(`Delete vehicle ${v.vehicleNumber}? Past bills are kept.`)) return;
-    deleteVehicle(v.id);
-    toast.success("Vehicle deleted");
+  const handleDeleteVehicle = async (v: Vehicle) => {
+    if (!confirm(`Delete vehicle ${v.vehicleNumber}?`)) return;
+    try {
+      await deleteVehicle(v.id);
+      toast.success("Vehicle deleted");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete vehicle");
+    }
   };
 
   const handleSaveAdjustment = () => {

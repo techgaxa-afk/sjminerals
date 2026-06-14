@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
-  getBills, getCompanies, getDateRange,
+  getBills, getCompanies, getDateRange, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators,
 } from "../lib/store";
 import { Building2, Users, Settings, Search } from "lucide-react";
@@ -43,7 +43,7 @@ function ReportsPage() {
           id: c.id, name: c.name, sub: c.vehicleNumber,
           trips: cBills.length,
           revenue: cBills.reduce((s, b) => s + b.totalAmount, 0),
-          outstanding: cBills.reduce((s, b) => s + (b.outstandingAmount || 0), 0),
+          outstanding: getCompanyOutstanding(c.id),
         };
       }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
     }
