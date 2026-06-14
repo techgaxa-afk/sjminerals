@@ -32,7 +32,7 @@ function CompaniesPage() {
     setEditingId(null); setShowForm(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Company name is required"); return; }
     const payload = {
       name: form.name.trim(),
@@ -41,14 +41,18 @@ function CompaniesPage() {
       notes: form.notes.trim(),
       openingBalance: Number(form.openingBalance) || 0,
     };
-    if (editingId) {
-      updateCompany(editingId, payload);
-      toast.success("Company updated");
-    } else {
-      saveCompany({ ...payload, driverName: "", vehicleNumber: "", vehicleCapacity: 0 });
-      toast.success("Company created");
+    try {
+      if (editingId) {
+        updateCompany(editingId, payload);
+        toast.success("Company updated");
+      } else {
+        await saveCompany({ ...payload, driverName: "", vehicleNumber: "", vehicleCapacity: 0 });
+        toast.success("Company created");
+      }
+      resetForm();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save company");
     }
-    resetForm();
   };
 
   const handleEdit = (e: React.MouseEvent, c: Company) => {
