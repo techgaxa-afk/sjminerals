@@ -43,7 +43,8 @@ function BillingPage() {
   const [search, setSearch] = useState("");
   const [showCreateVehicle, setShowCreateVehicle] = useState(false);
   const [newVeh, setNewVeh] = useState({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
-  const [suggestions, setSuggestions] = useState<Company[]>([]);
+  type Suggestion = { company: Company; vehicle: Vehicle };
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -67,40 +68,34 @@ function BillingPage() {
       const v = value.toLowerCase();
       const vehs = getVehicles().filter((x) => x.vehicleNumber.toLowerCase().includes(v));
       const cos = getCompanies();
-      const matches: Company[] = [];
+      const matches: Suggestion[] = [];
       const seen = new Set<string>();
       vehs.forEach((vh) => {
         const c = cos.find((co) => co.id === vh.companyId);
         if (c && !seen.has(c.id + "|" + vh.id)) {
           seen.add(c.id + "|" + vh.id);
-          // Synthesize a Company-like row carrying this specific vehicle
-          matches.push({ ...c, driverName: vh.driverName, vehicleNumber: vh.vehicleNumber, vehicleCapacity: vh.vehicleCapacity });
+          matches.push({ company: c, vehicle: vh });
         }
       });
-      // Legacy fallback (companies whose own vehicle_number matches)
-      cos.filter((c) => c.vehicleNumber.toLowerCase().includes(v) && !seen.has(c.id + "|legacy")).forEach((c) => {
-        seen.add(c.id + "|legacy");
-        matches.push(c);
-      });
       setSuggestions(matches);
-      const exact = matches.find((c) => c.vehicleNumber.toLowerCase() === v);
-      if (exact) selectCompany(exact);
+      const exact = matches.find((m) => m.vehicle.vehicleNumber.toLowerCase() === v);
+      if (exact) selectSuggestion(exact);
     } else {
       setSuggestions([]);
     }
   };
 
-  const selectCompany = (c: Company) => {
-    setSelectedCompany(c);
-    setCompanyName(c.name);
-    setDriverName(c.driverName);
-    setVehicleNumber(c.vehicleNumber);
-    setVehicleCapacity(c.vehicleCapacity);
-    setVehicleSearch(c.vehicleNumber);
+  const selectSuggestion = (s: Suggestion) => {
+    setSelectedCompany(s.company);
+    setCompanyName(s.company.name);
+    setDriverName(s.vehicle.driverName);
+    setVehicleNumber(s.vehicle.vehicleNumber);
+    setVehicleCapacity(s.vehicle.vehicleCapacity);
+    setVehicleSearch(s.vehicle.vehicleNumber);
     setSuggestions([]);
-    if (c.vehicleCapacity > 0) {
+    if (s.vehicle.vehicleCapacity > 0) {
       setItems((prev) => prev.map((i) => ({
-        ...i, quantity: c.vehicleCapacity, total: c.vehicleCapacity * i.price,
+        ...i, quantity: s.vehicle.vehicleCapacity, total: s.vehicle.vehicleCapacity * i.price,
       })));
     }
   };
@@ -108,7 +103,7 @@ function BillingPage() {
   const pickVehicle = (companyId: string, v: Vehicle) => {
     const c = getCompanies().find((x) => x.id === companyId);
     if (!c) return;
-    selectCompany({ ...c, driverName: v.driverName, vehicleNumber: v.vehicleNumber, vehicleCapacity: v.vehicleCapacity });
+    selectSuggestion({ company: c, vehicle: v });
   };
 
   const openCreateVehicle = () => {
@@ -135,7 +130,7 @@ function BillingPage() {
       });
       const company = getCompanies().find((c) => c.id === newVeh.companyId);
       if (company) {
-        selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
+        selectSuggestion({ company, vehicle });
       }
       setShowCreateVehicle(false);
       setNewVeh({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
@@ -220,9 +215,9 @@ function BillingPage() {
             </div>
             {suggestions.length > 0 && !selectedCompany && (
               <div className="mt-1 rounded-md border border-border bg-card max-h-40 overflow-y-auto">
-                {suggestions.map((c) => (
-                  <button key={c.id} onClick={() => selectCompany(c)} className="w-full text-left px-3 py-2 text-sm hover:bg-secondary text-foreground">
-                    <span className="font-medium">{c.vehicleNumber}</span> — {c.name} {c.driverName && `(${c.driverName})`}
+                {suggestions.map((s) => (
+                  <button key={s.company.id + "|" + s.vehicle.id} onClick={() => selectSuggestion(s)} className="w-full text-left px-3 py-2 text-sm hover:bg-secondary text-foreground">
+                    <span className="font-medium">{s.vehicle.vehicleNumber}</span> — {s.company.name} {s.vehicle.driverName && `(${s.vehicle.driverName})`}
                   </button>
                 ))}
               </div>

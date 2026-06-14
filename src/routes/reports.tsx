@@ -40,7 +40,7 @@ function ReportsPage() {
       return companies.map((c) => {
         const cBills = bills.filter((b) => b.companyId === c.id);
         return {
-          id: c.id, name: c.name, sub: c.vehicleNumber,
+          id: c.id, name: c.name, sub: c.contactNumber,
           trips: cBills.length,
           revenue: cBills.reduce((s, b) => s + b.totalAmount, 0),
           outstanding: getCompanyOutstanding(c.id),

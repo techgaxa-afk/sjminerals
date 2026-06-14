@@ -57,7 +57,7 @@ function CompaniesPage() {
         updateCompany(editingId, payload);
         toast.success("Company updated");
       } else {
-        await saveCompany({ ...payload, driverName: "", vehicleNumber: "", vehicleCapacity: 0 });
+        await saveCompany(payload);
         toast.success("Company created");
       }
       resetForm();

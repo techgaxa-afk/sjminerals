@@ -150,40 +150,31 @@ export type Database = {
           address: string
           contact_number: string
           created_at: string
-          driver_name: string
           id: string
           name: string
           notes: string
           opening_balance: number
           updated_at: string
-          vehicle_capacity: number
-          vehicle_number: string
         }
         Insert: {
           address?: string
           contact_number?: string
           created_at?: string
-          driver_name?: string
           id?: string
           name: string
           notes?: string
           opening_balance?: number
           updated_at?: string
-          vehicle_capacity?: number
-          vehicle_number: string
         }
         Update: {
           address?: string
           contact_number?: string
           created_at?: string
-          driver_name?: string
           id?: string
           name?: string
           notes?: string
           opening_balance?: number
           updated_at?: string
-          vehicle_capacity?: number
-          vehicle_number?: string
         }
         Relationships: []
       }

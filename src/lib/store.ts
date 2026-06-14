@@ -7,8 +7,7 @@ export interface Product {
   tipsEnabled: boolean; tipsRate: number; createdAt: string;
 }
 export interface Company {
-  id: string; name: string; driverName: string; vehicleNumber: string;
-  vehicleCapacity: number; contactNumber: string;
+  id: string; name: string; contactNumber: string;
   address: string; notes: string; openingBalance: number; createdAt: string;
 }
 export interface Vehicle {
@@ -114,14 +113,12 @@ const productToDb = (p: Product) => ({
   tips_enabled: p.tipsEnabled, tips_rate: p.tipsRate,
 });
 const mapCompany = (r: any): Company => ({
-  id: r.id, name: r.name, driverName: r.driver_name ?? "", vehicleNumber: r.vehicle_number ?? "",
-  vehicleCapacity: Number(r.vehicle_capacity) || 0, contactNumber: r.contact_number ?? "",
+  id: r.id, name: r.name, contactNumber: r.contact_number ?? "",
   address: r.address ?? "", notes: r.notes ?? "",
   openingBalance: Number(r.opening_balance) || 0, createdAt: r.created_at,
 });
 const companyToDb = (c: Company) => ({
-  id: c.id, name: c.name, driver_name: c.driverName, vehicle_number: c.vehicleNumber,
-  vehicle_capacity: c.vehicleCapacity, contact_number: c.contactNumber,
+  id: c.id, name: c.name, contact_number: c.contactNumber,
   address: c.address ?? "", notes: c.notes ?? "",
   opening_balance: c.openingBalance || 0,
 });
@@ -407,7 +404,7 @@ export async function deleteCompany(id: string): Promise<void> {
 export function getCompanyByVehicle(vehicleNumber: string): Company | undefined {
   const v = cache.vehicles.find((x) => x.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
   if (v) return cache.companies.find((c) => c.id === v.companyId);
-  return cache.companies.find((c) => c.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
+  return undefined;
 }
 
 // ============ Vehicles ============
@@ -913,8 +910,7 @@ export async function importFromLocalStorage(): Promise<{ inserted: Record<strin
       const id = c.id?.length === 36 ? c.id : uid();
       companyIdMap.set(c.id, id);
       return {
-        id, name: c.name, driver_name: c.driverName ?? "", vehicle_number: c.vehicleNumber ?? "",
-        vehicle_capacity: Number(c.vehicleCapacity) || 0,
+        id, name: c.name,
         contact_number: c.contactNumber ?? c.contactDetails ?? "",
       };
     });
