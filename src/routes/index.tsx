@@ -196,33 +196,44 @@ function DashboardPage() {
         {stats.companyOutstandings.length > 0 && (
           <div className="stat-card">
             <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /> Top Outstanding Companies</h3>
-            {stats.companyOutstandings.map((c) => (
-              <div key={c.name} className="flex justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
-                <span className="text-foreground">{c.name} <span className="text-xs text-muted-foreground">{c.vehicle}</span></span>
-                <span className="font-bold text-warning">₹{c.outstanding.toLocaleString()}</span>
-              </div>
-            ))}
+            {stats.companyOutstandings.map((c) => {
+              const exceeded = c.creditLimit > 0 && c.outstanding > c.creditLimit;
+              return (
+                <div key={c.id} className="flex justify-between items-center text-sm py-1.5 border-b border-border/50 last:border-0 gap-2">
+                  <span className="text-foreground truncate flex items-center gap-1.5">
+                    {c.name}
+                    {exceeded && <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-destructive/20 text-destructive">LIMIT</span>}
+                  </span>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">{c.lastPaymentDate ? `Last: ${format(parseISO(c.lastPaymentDate), "dd MMM")}` : "No payments"}</span>
+                  <span className="font-bold text-warning whitespace-nowrap">₹{c.outstanding.toLocaleString()}</span>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {/* AR Collection Widgets */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="stat-card border-success/30 bg-success/5">
             <div className="flex items-center gap-2 text-xs mb-1 text-success"><Wallet className="h-3.5 w-3.5" /> Today's Collections</div>
             <p className="text-xl font-bold text-success">₹{collectionStats.today.toLocaleString()}</p>
           </div>
           <div className="stat-card border-primary/30 bg-primary/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><Calendar className="h-3.5 w-3.5" /> This Month
-            </div>
+            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><Calendar className="h-3.5 w-3.5" /> This Month</div>
             <p className="text-xl font-bold text-primary">₹{collectionStats.month.toLocaleString()}</p>
           </div>
           <div className="stat-card border-warning/30 bg-warning/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Outstanding</div>
+            <div className="flex items-center gap-2 text-xs mb-1 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Receivables</div>
             <p className="text-xl font-bold text-warning">₹{collectionStats.outstanding.toLocaleString()}</p>
           </div>
           <div className="stat-card border-destructive/30 bg-destructive/5">
             <div className="flex items-center gap-2 text-xs mb-1 text-destructive"><Clock className="h-3.5 w-3.5" /> Overdue (30+ d)</div>
             <p className="text-xl font-bold text-destructive">₹{collectionStats.overdue.toLocaleString()}</p>
+          </div>
+          <div className="stat-card border-destructive/30 bg-destructive/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-destructive"><AlertTriangle className="h-3.5 w-3.5" /> Limit Exceeded</div>
+            <p className="text-xl font-bold text-destructive">{collectionStats.creditExceeded.length}</p>
+            <p className="text-[10px] text-muted-foreground truncate" title={collectionStats.creditExceeded.map((c) => c.name).join(", ")}>{collectionStats.creditExceeded.map((c) => c.name).join(", ") || "none"}</p>
           </div>
         </div>
 
