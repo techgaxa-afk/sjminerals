@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   getExpenses, saveExpense, updateExpense, deleteExpense,
   getCashSales, getUpiSales, getCashExpenses, getUpiExpenses,
+  useCloudData,
   type Expense, type ExpenseCategory, type ExpensePaymentMode,
 } from "../lib/store";
 import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, UtensilsCrossed, Banknote, CreditCard } from "lucide-react";
