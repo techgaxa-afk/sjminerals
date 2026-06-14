@@ -190,6 +190,19 @@ const mapPayment = (r: any): Payment => ({
 const paymentToDb = (p: Payment) => ({
   id: p.id, bill_id: p.billId, company_id: p.companyId, amount: p.amount, date: p.date, notes: p.notes,
 });
+const mapCompanyPayment = (r: any): CompanyPayment => ({
+  id: r.id, companyId: r.company_id, amount: Number(r.amount) || 0,
+  paymentDate: r.payment_date, paymentMethod: r.payment_method ?? undefined,
+  referenceNumber: r.reference_number ?? undefined, notes: r.notes ?? undefined,
+  createdAt: r.created_at,
+});
+const companyPaymentToDb = (p: CompanyPayment) => ({
+  id: p.id, company_id: p.companyId, amount: p.amount,
+  payment_date: p.paymentDate,
+  payment_method: p.paymentMethod ?? null,
+  reference_number: p.referenceNumber ?? null,
+  notes: p.notes ?? null,
+});
 const mapMachine = (r: any): HitachiMachine => ({
   id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0, createdAt: r.created_at,
 });
