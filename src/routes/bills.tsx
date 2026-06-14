@@ -359,10 +359,47 @@ function BillsPage() {
                 );
               })()}
             </div>
-          ))}
+          );
+          })}
           {filtered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No bills found.</p>}
         </div>
       </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 px-3 sm:bottom-4">
+          <div className="mx-auto max-w-2xl rounded-lg border border-primary/40 bg-card shadow-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="text-sm font-medium text-foreground">
+              Selected: <span className="text-primary font-bold">{selected.size}</span> Bill{selected.size === 1 ? "" : "s"}
+              {creditCount > 0 && <span className="ml-2 text-xs text-warning">({creditCount} with outstanding)</span>}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={exportSelectedPDFs} className="flex-1 sm:flex-none flex items-center justify-center gap-1 rounded-md bg-secondary px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary/80"><FileDown className="h-3.5 w-3.5" /> Export PDFs</button>
+              <button onClick={() => setBulkConfirm(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 rounded-md bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90"><Trash2 className="h-3.5 w-3.5" /> Delete Selected</button>
+              <button onClick={clearSelection} className="rounded-md bg-secondary px-3 py-2 text-xs text-foreground hover:bg-secondary/80">Clear</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirm */}
+      {bulkConfirm && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-lg max-w-sm w-full p-4 space-y-3">
+            <h3 className="font-semibold text-foreground">Delete Selected Bills?</h3>
+            <p className="text-sm text-muted-foreground">You are about to delete <span className="font-bold text-foreground">{selected.size} bill{selected.size === 1 ? "" : "s"}</span>. This action cannot be undone.</p>
+            {creditCount > 0 && (
+              <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                {creditCount} selected bill{creditCount === 1 ? "" : "s"} contain outstanding balances. Deleting will reduce receivables.
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => setBulkConfirm(false)} className="flex-1 rounded-md bg-secondary px-3 py-2 text-sm text-foreground">Cancel</button>
+              <button onClick={performBulkDelete} className="flex-1 rounded-md bg-destructive px-3 py-2 text-sm font-semibold text-destructive-foreground">Delete Bills</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editBill && editForm && (
