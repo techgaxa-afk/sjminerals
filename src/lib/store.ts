@@ -1045,6 +1045,36 @@ export function deleteOperator(id: string): void {
 
 // ============ Expenses ============
 export function getExpenses(): Expense[] { return cache.expenses.slice(); }
+export function getCashExpenses(since?: Date): number {
+  return cache.expenses
+    .filter((e) => e.paymentMode === "cash" && (!since || new Date(e.date) >= since))
+    .reduce((s, e) => s + e.amount, 0);
+}
+export function getUpiExpenses(since?: Date): number {
+  return cache.expenses
+    .filter((e) => e.paymentMode === "upi" && (!since || new Date(e.date) >= since))
+    .reduce((s, e) => s + e.amount, 0);
+}
+export function getCashSales(since?: Date): number {
+  let total = 0;
+  cache.bills.forEach((b) => {
+    if (since && new Date(b.createdAt) < since) return;
+    if (b.splitPayment) total += b.cashAmount || 0;
+    else if (b.paymentMode === "cash") total += b.paidAmount || 0;
+  });
+  return total;
+}
+export function getUpiSales(since?: Date): number {
+  let total = 0;
+  cache.bills.forEach((b) => {
+    if (since && new Date(b.createdAt) < since) return;
+    if (b.splitPayment) total += b.upiAmount || 0;
+    else if (b.paymentMode === "upi") total += b.paidAmount || 0;
+  });
+  return total;
+}
+export function getAvailableCash(): number { return getCashSales() - getCashExpenses(); }
+export function getAvailableUpi(): number { return getUpiSales() - getUpiExpenses(); }
 export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
   const expense: Expense = { ...e, id: uid(), createdAt: new Date().toISOString() };
   cache.expenses.push(expense); bump();
