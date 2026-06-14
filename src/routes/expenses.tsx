@@ -98,6 +98,24 @@ function ExpensesPage() {
   const availableCash = getCashSales() - getCashExpenses();
   const availableUpi = getUpiSales() - getUpiExpenses();
 
+  const analytics = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    let today = 0, month = 0, cash = 0, upi = 0;
+    const byCat: Record<string, number> = {};
+    expenses.forEach((e) => {
+      const t = new Date(e.date).getTime();
+      if (t >= startOfDay) today += e.amount;
+      if (t >= startOfMonth) {
+        month += e.amount;
+        byCat[e.category] = (byCat[e.category] || 0) + e.amount;
+      }
+      if (e.paymentMode === "upi") upi += e.amount; else cash += e.amount;
+    });
+    return { today, month, cash, upi, byCat };
+  }, [expenses]);
+
   return (
     <AppLayout>
       <div className="space-y-4">
