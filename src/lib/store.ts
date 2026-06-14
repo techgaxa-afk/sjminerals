@@ -7,8 +7,7 @@ export interface Product {
   tipsEnabled: boolean; tipsRate: number; createdAt: string;
 }
 export interface Company {
-  id: string; name: string; driverName: string; vehicleNumber: string;
-  vehicleCapacity: number; contactNumber: string;
+  id: string; name: string; contactNumber: string;
   address: string; notes: string; openingBalance: number; createdAt: string;
 }
 export interface Vehicle {
