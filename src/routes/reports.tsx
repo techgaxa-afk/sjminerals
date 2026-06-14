@@ -217,7 +217,12 @@ function ReportsPage() {
   const exportLedgerCSV = () => {
     const headers = ["Date", "Company", "Amount", "Method", "Reference", "Notes"];
     const escape = (v: string | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = [headers.join(",")].concat(
+    const lines = [
+      `Payment Ledger`,
+      `Period: ${periodLabel}`,
+      ``,
+      headers.join(","),
+    ].concat(
       ledger.map((r) => [r.date, r.company, r.amount.toString(), r.method, r.reference, r.notes].map(escape).join(","))
     );
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
