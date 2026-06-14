@@ -99,7 +99,7 @@ function ExpensesPage() {
   }, [expenses]);
 
   const amtNum = Number(amount) || 0;
-  const projectedBalance = paymentMode === "cash" ? availableCash - amtNum : availableUpi - amtNum;
+
   const editingAmt = editingId ? (expenses.find((e) => e.id === editingId)?.amount ?? 0) : 0;
   const editingMode = editingId ? expenses.find((e) => e.id === editingId)?.paymentMode : undefined;
   const currentBalance = paymentMode === "cash"
