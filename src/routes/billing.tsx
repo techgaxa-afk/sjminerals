@@ -3,11 +3,12 @@ import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
-  getProducts, getCompanies, saveCompany, saveBill, saveExpense,
-  getVehicles, getVehiclesByCompany, saveVehicle,
+  getProducts, getCompanies, saveBill, saveExpense,
+  getVehicles, saveVehicle,
   type BillItem, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, Building2 } from "lucide-react";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search } from "lucide-react";
+
 
 export const Route = createFileRoute("/billing")({
   component: BillingPage,
