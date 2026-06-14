@@ -37,6 +37,16 @@ export interface Payment {
   id: string; billId: string; companyId: string; amount: number;
   date: string; notes: string; createdAt: string;
 }
+export interface CompanyPayment {
+  id: string;
+  companyId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod?: string;
+  referenceNumber?: string;
+  notes?: string;
+  createdAt: string;
+}
 export interface HitachiMachine { id: string; name: string; hourlyRate: number; createdAt: string; }
 export interface Operator { id: string; name: string; phone: string; hourlySalaryRate: number; createdAt: string; }
 export interface HitachiEntry {
