@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import {
   getCompanies, getBillsByCompany, getCompanyPayments,
@@ -15,6 +15,7 @@ import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
+  validateSearch: (s: Record<string, unknown>) => ({ pay: s.pay === 1 || s.pay === "1" ? 1 : undefined }),
   component: CompanyDetailsPage,
 });
 
@@ -23,11 +24,20 @@ type Tab = "overview" | "vehicles" | "invoices" | "payments" | "adjustments" | "
 function CompanyDetailsPage() {
   useCloudData();
   const { id } = Route.useParams();
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const company = getCompanies().find((c) => c.id === id);
 
   const [tab, setTab] = useState<Tab>("overview");
   const [showPayForm, setShowPayForm] = useState(false);
+
+  useEffect(() => {
+    if (search.pay === 1) {
+      setShowPayForm(true);
+      navigate({ to: "/companies/$id", params: { id }, search: { pay: undefined }, replace: true });
+    }
+  }, [search.pay, id, navigate]);
+
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [payForm, setPayForm] = useState({
     paymentDate: new Date().toISOString().split("T")[0],

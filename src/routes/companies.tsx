@@ -5,12 +5,13 @@ import { toast } from "sonner";
 
 import {
   getCompanies, saveCompany, updateCompany, deleteCompany,
-  getCompanyOutstanding, getVehiclesByCompany, getVehicleTotals,
+  getCompanyOutstanding, getCompanyTotalSales, getCompanyTotalPaid,
+  getVehiclesByCompany, getVehicleTotals,
   saveVehicle, updateVehicle, deleteVehicle,
   countBillsByCompany, countBillsByVehicle,
   useCloudData, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronDown, ChevronRight, ArrowRight, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/companies")({
   component: CompaniesPage,
@@ -172,8 +173,8 @@ function CompaniesPage() {
           {filtered.map((c) => {
             const vehicles = getVehiclesByCompany(c.id);
             const vehicleTotals = vehicles.map((v) => ({ v, ...getVehicleTotals(c.id, v.vehicleNumber) }));
-            const sales = vehicleTotals.reduce((s, x) => s + x.sales, 0);
-            const paid = vehicleTotals.reduce((s, x) => s + x.paid, 0);
+            const sales = getCompanyTotalSales(c.id);
+            const paid = getCompanyTotalPaid(c.id);
             const due = getCompanyOutstanding(c.id);
             const isOpen = expanded.has(c.id);
             const isEditingVeh = vehForm && vehForm.companyId === c.id;
@@ -200,12 +201,21 @@ function CompaniesPage() {
                   </div>
                 </div>
 
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Link to="/companies/$id" params={{ id: c.id }} search={{ pay: undefined }} className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors">
+                    View Details <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                  <Link to="/companies/$id" params={{ id: c.id }} search={{ pay: 1 }} className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+                    <Wallet className="h-3.5 w-3.5" /> Receive Payment
+                  </Link>
+                </div>
+
                 {isOpen && (
                   <div className="mt-3 pt-3 border-t border-border space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-semibold text-foreground">Vehicles</p>
-                      <Link to="/companies/$id" params={{ id: c.id }} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">View details <ArrowRight className="h-3 w-3" /></Link>
                     </div>
+
 
                     {vehicleTotals.length === 0 && !isEditingVeh && (
                       <p className="text-xs text-muted-foreground py-1">No vehicles yet.</p>
