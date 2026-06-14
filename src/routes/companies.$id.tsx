@@ -497,6 +497,12 @@ function CompanyDetailsPage() {
           </div>
         )}
 
+        {receiptForModal && (
+          <ReceiptModal payment={receiptForModal} company={company} onClose={() => setReceiptForModal(null)} />
+        )}
+
+
+
 
         {tab === "adjustments" && (
           <div className="space-y-2">
