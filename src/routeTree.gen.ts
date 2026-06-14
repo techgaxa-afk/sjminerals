@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ProfitabilityRouteImport } from './routes/profitability'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HitachiRouteImport } from './routes/hitachi'
@@ -38,6 +39,11 @@ const SignupRoute = SignupRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfitabilityRoute = ProfitabilityRouteImport.update({
+  id: '/profitability',
+  path: '/profitability',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductsRoute = ProductsRouteImport.update({
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/hitachi': typeof HitachiRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
+  '/profitability': typeof ProfitabilityRoute
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/hitachi': typeof HitachiRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
+  '/profitability': typeof ProfitabilityRoute
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/hitachi': typeof HitachiRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
+  '/profitability': typeof ProfitabilityRoute
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/hitachi'
     | '/login'
     | '/products'
+    | '/profitability'
     | '/reports'
     | '/signup'
     | '/users'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/hitachi'
     | '/login'
     | '/products'
+    | '/profitability'
     | '/reports'
     | '/signup'
     | '/users'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/hitachi'
     | '/login'
     | '/products'
+    | '/profitability'
     | '/reports'
     | '/signup'
     | '/users'
@@ -216,6 +228,7 @@ export interface RootRouteChildren {
   HitachiRoute: typeof HitachiRoute
   LoginRoute: typeof LoginRoute
   ProductsRoute: typeof ProductsRoute
+  ProfitabilityRoute: typeof ProfitabilityRoute
   ReportsRoute: typeof ReportsRoute
   SignupRoute: typeof SignupRoute
   UsersRoute: typeof UsersRoute
@@ -242,6 +255,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profitability': {
+      id: '/profitability'
+      path: '/profitability'
+      fullPath: '/profitability'
+      preLoaderRoute: typeof ProfitabilityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/products': {
@@ -356,6 +376,7 @@ const rootRouteChildren: RootRouteChildren = {
   HitachiRoute: HitachiRoute,
   LoginRoute: LoginRoute,
   ProductsRoute: ProductsRoute,
+  ProfitabilityRoute: ProfitabilityRoute,
   ReportsRoute: ReportsRoute,
   SignupRoute: SignupRoute,
   UsersRoute: UsersRoute,
