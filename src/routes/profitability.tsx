@@ -2,11 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useMemo, useState } from "react";
 import {
-  getBills, getExpenses, getCompanies, getCompanyOutstanding, getDrivers,
+  getBills, getExpenses, getCompanies, getCompanyOutstanding,
   useCloudData, type Bill, type Expense,
 } from "../lib/store";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
-import { TrendingUp, TrendingDown, AlertTriangle, Download, FileText, FileSpreadsheet, Truck, Building2, Users, Fuel } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Download, FileText, FileSpreadsheet, Truck, Building2, Fuel } from "lucide-react";
 import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 
 export const Route = createFileRoute("/profitability")({
@@ -139,14 +139,12 @@ function ProfitabilityPage() {
   }, [trips]);
 
   const driverRows = useMemo(() => {
-    const drivers = getDrivers();
     const map: Record<string, { name: string; trips: number; revenue: number; cost: number }> = {};
     trips.forEach((t) => {
       const key = t.driver || "—";
       const r = (map[key] ||= { name: key, trips: 0, revenue: 0, cost: 0 });
       r.trips++; r.revenue += t.revenue; r.cost += t.totalCost;
     });
-    void drivers;
     return Object.values(map)
       .map((r) => ({ ...r, profit: r.revenue - r.cost }))
       .sort((a, b) => b.profit - a.profit);
@@ -231,7 +229,7 @@ function ProfitabilityPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Card icon={<Users className="h-4 w-4 text-cyan-600" />} label="Top Driver" value={topDriver?.name || "—"} sub={topDriver ? inr(topDriver.profit) : ""} />
+          <Card icon={<Truck className="h-4 w-4 text-cyan-600" />} label="Top Driver" value={topDriver?.name || "—"} sub={topDriver ? inr(topDriver.profit) : ""} />
           <Card icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label="Highest Revenue Vehicle" value={topRevVehicle?.vehicle || "—"} sub={topRevVehicle ? inr(topRevVehicle.revenue) : ""} />
           <Card icon={<TrendingDown className="h-4 w-4 text-destructive" />} label="Total Expenses" value={inr(totals.cost)} />
         </div>

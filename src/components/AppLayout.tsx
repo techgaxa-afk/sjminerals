@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Building2, Settings, BarChart3, LogOut, Loader2, UserCog, BookOpen, Users, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Truck, Wallet, Menu, X, Building2, Settings, BarChart3, LogOut, Loader2, UserCog, BookOpen, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useUserRoles } from "@/hooks/use-roles";
@@ -14,7 +14,7 @@ const navItems: readonly NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, needs: "any" },
   { to: "/companies", label: "Companies", icon: Building2, needs: "any" },
   { to: "/products", label: "Products", icon: Package, needs: "any" },
-  { to: "/drivers", label: "Drivers", icon: Users, needs: "any" },
+  { to: "/fleet", label: "Fleet", icon: Truck, needs: "any" },
   { to: "/billing", label: "New Bill", icon: Receipt, needs: "writeBills" },
   { to: "/bills", label: "Bills", icon: Receipt, needs: "any" },
   { to: "/hitachi", label: "Hitachi", icon: Settings, needs: "writeOps" },

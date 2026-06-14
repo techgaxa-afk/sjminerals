@@ -31,7 +31,6 @@ export interface Bill {
   tipsRate: number; tipsAmount: number;
   splitPayment?: boolean; cashAmount?: number; upiAmount?: number;
   passEnabled?: boolean; passAmount?: number;
-  driverId?: string | null;
   createdAt: string;
 }
 export interface Payment {
@@ -76,14 +75,15 @@ export interface JCBLog {
   id: string; date: string; startTime: string; endTime: string;
   totalHours: number; hourlyRate: number; totalCost: number; notes: string; createdAt: string;
 }
-export interface Driver {
-  id: string; name: string; mobile: string; licenseNumber: string; address: string;
-  status: "active" | "inactive"; createdAt: string;
+export type MaintenanceCategory = "fuel" | "service" | "tyres" | "battery" | "repairs" | "other";
+export interface VehicleMaintenance {
+  id: string; vehicleId: string; category: MaintenanceCategory;
+  vendor: string; cost: number; serviceDate: string; notes: string; createdAt: string;
 }
-export type DriverTxnType = "advance" | "settlement";
-export interface DriverTransaction {
-  id: string; driverId: string; txnType: DriverTxnType; amount: number;
-  date: string; notes: string; createdAt: string;
+export type DocumentType = "insurance" | "fc" | "permit" | "pollution" | "road_tax";
+export interface VehicleDocument {
+  id: string; vehicleId: string; docType: DocumentType;
+  expiryDate: string; notes: string; createdAt: string;
 }
 
 // ============ Cache + subscriptions ============
@@ -101,15 +101,15 @@ type Cache = {
   operators: Operator[];
   expenses: Expense[];
   credit_adjustments: CreditAdjustment[];
-  drivers: Driver[];
-  driver_transactions: DriverTransaction[];
+  vehicle_maintenance: VehicleMaintenance[];
+  vehicle_documents: VehicleDocument[];
 };
 const cache: Cache = {
   products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
   company_payments: [],
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
   credit_adjustments: [],
-  drivers: [], driver_transactions: [],
+  vehicle_maintenance: [], vehicle_documents: [],
 };
 let version = 0;
 const listeners = new Set<() => void>();
@@ -184,7 +184,6 @@ const mapBill = (r: any): Omit<Bill, "items"> => ({
   tipsRate: Number(r.tips_rate) || 0, tipsAmount: Number(r.tips_amount) || 0,
   splitPayment: !!r.split_payment, cashAmount: Number(r.cash_amount) || 0, upiAmount: Number(r.upi_amount) || 0,
   passEnabled: !!r.pass_enabled, passAmount: Number(r.pass_amount) || 0,
-  driverId: r.driver_id ?? null,
   createdAt: r.created_at,
 });
 const billToDb = (b: Omit<Bill, "items">) => ({
@@ -196,7 +195,6 @@ const billToDb = (b: Omit<Bill, "items">) => ({
   tips_rate: b.tipsRate, tips_amount: b.tipsAmount,
   split_payment: !!b.splitPayment, cash_amount: b.cashAmount ?? 0, upi_amount: b.upiAmount ?? 0,
   pass_enabled: !!b.passEnabled, pass_amount: b.passAmount ?? 0,
-  driver_id: b.driverId ?? null,
 });
 const mapBillItem = (r: any) => ({
   id: r.id, billId: r.bill_id, productId: r.product_id ?? "", productName: r.product_name,
@@ -278,22 +276,23 @@ const expenseToDb = (e: Expense) => ({
   linked_bill_id: e.linkedBillId || null, linked_company_id: e.linkedCompanyId || null,
   linked_operator_id: e.linkedOperatorId || null, linked_machine_id: e.linkedMachineId || null,
 });
-const mapDriver = (r: any): Driver => ({
-  id: r.id, name: r.name, mobile: r.mobile ?? "", licenseNumber: r.license_number ?? "",
-  address: r.address ?? "", status: r.status === "inactive" ? "inactive" : "active",
-  createdAt: r.created_at,
+const mapVehicleMaintenance = (r: any): VehicleMaintenance => ({
+  id: r.id, vehicleId: r.vehicle_id,
+  category: ["fuel","service","tyres","battery","repairs","other"].includes(r.category) ? r.category : "other",
+  vendor: r.vendor ?? "", cost: Number(r.cost) || 0,
+  serviceDate: r.service_date, notes: r.notes ?? "", createdAt: r.created_at,
 });
-const driverToDb = (d: Driver) => ({
-  id: d.id, name: d.name, mobile: d.mobile, license_number: d.licenseNumber,
-  address: d.address, status: d.status,
+const vehicleMaintenanceToDb = (m: VehicleMaintenance) => ({
+  id: m.id, vehicle_id: m.vehicleId, category: m.category,
+  vendor: m.vendor, cost: m.cost, service_date: m.serviceDate, notes: m.notes,
 });
-const mapDriverTxn = (r: any): DriverTransaction => ({
-  id: r.id, driverId: r.driver_id, txnType: r.txn_type === "settlement" ? "settlement" : "advance",
-  amount: Number(r.amount) || 0, date: r.txn_date, notes: r.notes ?? "", createdAt: r.created_at,
+const mapVehicleDocument = (r: any): VehicleDocument => ({
+  id: r.id, vehicleId: r.vehicle_id, docType: r.doc_type,
+  expiryDate: r.expiry_date, notes: r.notes ?? "", createdAt: r.created_at,
 });
-const driverTxnToDb = (t: DriverTransaction) => ({
-  id: t.id, driver_id: t.driverId, txn_type: t.txnType, amount: t.amount,
-  txn_date: t.date, notes: t.notes,
+const vehicleDocumentToDb = (d: VehicleDocument) => ({
+  id: d.id, vehicle_id: d.vehicleId, doc_type: d.docType,
+  expiry_date: d.expiryDate, notes: d.notes,
 });
 
 // ============ Bootstrap (cloud load + realtime) ============
@@ -305,7 +304,7 @@ export async function loadAll(): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const [
-      products, companies, vehicles, bills, billItems, payments, companyPayments, machines, operators, entries, fuel, expenses, adjustments, drivers, driverTxns,
+      products, companies, vehicles, bills, billItems, payments, companyPayments, machines, operators, entries, fuel, expenses, adjustments, vehMaint, vehDocs,
     ] = await Promise.all([
       supabase.from("products").select("*"),
       supabase.from("companies").select("*"),
@@ -320,8 +319,8 @@ export async function loadAll(): Promise<void> {
       supabase.from("hitachi_fuel").select("*"),
       supabase.from("expenses").select("*"),
       supabase.from("credit_adjustments").select("*"),
-      supabase.from("drivers" as any).select("*"),
-      supabase.from("driver_transactions" as any).select("*"),
+      supabase.from("vehicle_maintenance").select("*"),
+      supabase.from("vehicle_documents").select("*"),
     ]);
     cache.products = (products.data ?? []).map(mapProduct);
     cache.companies = (companies.data ?? []).map(mapCompany);
@@ -336,8 +335,8 @@ export async function loadAll(): Promise<void> {
     cache.hitachi_fuel = (fuel.data ?? []).map(mapFuel);
     cache.expenses = (expenses.data ?? []).map(mapExpense);
     cache.credit_adjustments = (adjustments.data ?? []).map(mapCreditAdjustment);
-    cache.drivers = ((drivers as any).data ?? []).map(mapDriver);
-    cache.driver_transactions = ((driverTxns as any).data ?? []).map(mapDriverTxn);
+    cache.vehicle_maintenance = (vehMaint.data ?? []).map(mapVehicleMaintenance);
+    cache.vehicle_documents = (vehDocs.data ?? []).map(mapVehicleDocument);
     loaded = true;
     bump();
     setupRealtime();
@@ -364,8 +363,8 @@ function setupRealtime() {
     { table: "operators", map: mapOperator, key: "operators" },
     { table: "expenses", map: mapExpense, key: "expenses" },
     { table: "credit_adjustments", map: mapCreditAdjustment, key: "credit_adjustments" },
-    { table: "drivers", map: mapDriver, key: "drivers" },
-    { table: "driver_transactions", map: mapDriverTxn, key: "driver_transactions" },
+    { table: "vehicle_maintenance", map: mapVehicleMaintenance, key: "vehicle_maintenance" },
+    { table: "vehicle_documents", map: mapVehicleDocument, key: "vehicle_documents" },
   ];
   for (const t of tables) {
     supabase.channel(`rt-${t.table}`).on(
@@ -392,7 +391,7 @@ export function resetStore() {
   cache.products = []; cache.companies = []; cache.vehicles = []; cache.bills = []; cache.billItems = [];
   cache.payments = []; cache.company_payments = []; cache.hitachi_machines = []; cache.hitachi_entries = [];
   cache.hitachi_fuel = []; cache.operators = []; cache.expenses = []; cache.credit_adjustments = [];
-  cache.drivers = []; cache.driver_transactions = [];
+  cache.vehicle_maintenance = []; cache.vehicle_documents = [];
   loaded = false; loadingPromise = null;
   bump();
 }
@@ -1402,57 +1401,78 @@ export function hasLocalDataToImport(): boolean {
   });
 }
 
-// ============ Drivers ============
-export function getDrivers(): Driver[] { return cache.drivers.slice(); }
-export function getDriver(id: string): Driver | undefined { return cache.drivers.find((d) => d.id === id); }
-export function saveDriver(input: Omit<Driver, "id" | "createdAt">): Driver {
-  const d: Driver = { ...input, id: uid(), createdAt: new Date().toISOString() };
-  cache.drivers.push(d); bump();
-  bg((supabase.from("drivers" as any) as any).insert(driverToDb(d)));
-  return d;
+// ============ Vehicle Maintenance ============
+export function getVehicleMaintenance(vehicleId?: string): VehicleMaintenance[] {
+  const list = vehicleId
+    ? cache.vehicle_maintenance.filter((m) => m.vehicleId === vehicleId)
+    : cache.vehicle_maintenance.slice();
+  return list.sort((a, b) => new Date(b.serviceDate).getTime() - new Date(a.serviceDate).getTime());
 }
-export function updateDriver(id: string, updates: Partial<Omit<Driver, "id" | "createdAt">>): void {
-  const idx = cache.drivers.findIndex((d) => d.id === id);
-  if (idx < 0) return;
-  cache.drivers[idx] = { ...cache.drivers[idx], ...updates }; bump();
-  bg((supabase.from("drivers" as any) as any).update(driverToDb(cache.drivers[idx])).eq("id", id));
+export function saveVehicleMaintenance(input: Omit<VehicleMaintenance, "id" | "createdAt">): VehicleMaintenance {
+  const m: VehicleMaintenance = { ...input, id: uid(), createdAt: new Date().toISOString() };
+  cache.vehicle_maintenance.push(m); bump();
+  bg(supabase.from("vehicle_maintenance").insert(vehicleMaintenanceToDb(m)));
+  return m;
 }
-export function deleteDriver(id: string): void {
-  cache.drivers = cache.drivers.filter((d) => d.id !== id);
-  cache.driver_transactions = cache.driver_transactions.filter((t) => t.driverId !== id);
-  bump();
-  bg((supabase.from("drivers" as any) as any).delete().eq("id", id));
+export function deleteVehicleMaintenance(id: string): void {
+  cache.vehicle_maintenance = cache.vehicle_maintenance.filter((m) => m.id !== id); bump();
+  bg(supabase.from("vehicle_maintenance").delete().eq("id", id));
 }
 
-// ============ Driver Transactions ============
-export function getDriverTransactions(driverId?: string): DriverTransaction[] {
-  const list = driverId ? cache.driver_transactions.filter((t) => t.driverId === driverId) : cache.driver_transactions.slice();
-  return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+// ============ Vehicle Documents ============
+export function getVehicleDocuments(vehicleId?: string): VehicleDocument[] {
+  return vehicleId
+    ? cache.vehicle_documents.filter((d) => d.vehicleId === vehicleId)
+    : cache.vehicle_documents.slice();
 }
-export function saveDriverTransaction(input: Omit<DriverTransaction, "id" | "createdAt">): DriverTransaction {
-  const t: DriverTransaction = { ...input, id: uid(), createdAt: new Date().toISOString() };
-  cache.driver_transactions.push(t); bump();
-  bg((supabase.from("driver_transactions" as any) as any).insert(driverTxnToDb(t)));
-  return t;
+export function saveVehicleDocument(input: Omit<VehicleDocument, "id" | "createdAt">): VehicleDocument {
+  // Upsert by (vehicleId, docType): replace any existing
+  const existing = cache.vehicle_documents.find(
+    (d) => d.vehicleId === input.vehicleId && d.docType === input.docType,
+  );
+  if (existing) {
+    existing.expiryDate = input.expiryDate;
+    existing.notes = input.notes;
+    bump();
+    bg(supabase.from("vehicle_documents").update(vehicleDocumentToDb(existing)).eq("id", existing.id));
+    return existing;
+  }
+  const d: VehicleDocument = { ...input, id: uid(), createdAt: new Date().toISOString() };
+  cache.vehicle_documents.push(d); bump();
+  bg(supabase.from("vehicle_documents").insert(vehicleDocumentToDb(d)));
+  return d;
 }
-export function deleteDriverTransaction(id: string): void {
-  cache.driver_transactions = cache.driver_transactions.filter((t) => t.id !== id); bump();
-  bg((supabase.from("driver_transactions" as any) as any).delete().eq("id", id));
+export function deleteVehicleDocument(id: string): void {
+  cache.vehicle_documents = cache.vehicle_documents.filter((d) => d.id !== id); bump();
+  bg(supabase.from("vehicle_documents").delete().eq("id", id));
 }
-export function getDriverBalance(driverId: string): number {
-  // Balance = advances - settlements (positive = driver owes back / advances outstanding)
-  return cache.driver_transactions
-    .filter((t) => t.driverId === driverId)
-    .reduce((s, t) => s + (t.txnType === "advance" ? t.amount : -t.amount), 0);
-}
-export function getDriverStats(driverId: string): { trips: number; revenue: number; profit: number } {
-  const bills = cache.bills.filter((b) => b.driverId === driverId);
+
+// ============ Vehicle Stats ============
+export function getVehicleStats(vehicleNumber: string): {
+  trips: number; revenue: number; collected: number; outstanding: number;
+  expenses: number; profit: number; profitPct: number;
+} {
+  const vn = vehicleNumber.trim().toLowerCase();
+  const bills = cache.bills.filter((b) => (b.vehicleNumber || "").trim().toLowerCase() === vn);
   const revenue = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
-  // Profit contribution = revenue - linked expenses for those bills
+  const collected = bills.reduce((s, b) => s + (b.paidAmount || 0), 0);
+  const outstanding = bills.reduce((s, b) => s + (b.outstandingAmount || 0), 0);
   const billIds = new Set(bills.map((b) => b.id));
   const linkedExp = cache.expenses
     .filter((e) => e.linkedBillId && billIds.has(e.linkedBillId))
     .reduce((s, e) => s + e.amount, 0);
-  return { trips: bills.length, revenue, profit: revenue - linkedExp };
+  const maintExp = cache.vehicle_maintenance
+    .filter((m) => {
+      const v = cache.vehicles.find((x) => x.id === m.vehicleId);
+      return v && v.vehicleNumber.trim().toLowerCase() === vn;
+    })
+    .reduce((s, m) => s + m.cost, 0);
+  const expenses = linkedExp + maintExp;
+  const profit = revenue - expenses;
+  return {
+    trips: bills.length, revenue, collected, outstanding,
+    expenses, profit, profitPct: revenue > 0 ? (profit / revenue) * 100 : 0,
+  };
 }
+
 
