@@ -192,9 +192,9 @@ function CompanyDetailsPage() {
       debit: b.totalAmount || 0, credit: 0,
     }));
     payments.forEach((p) => events.push({
-      ts: new Date(p.createdAt).getTime(),
-      date: p.createdAt,
-      description: `Payment received${p.notes ? ` — ${p.notes}` : ""}`,
+      ts: new Date(p.paymentDate).getTime(),
+      date: p.paymentDate,
+      description: `Payment received${p.paymentMethod ? ` [${p.paymentMethod}]` : ""}${p.referenceNumber ? ` (Ref: ${p.referenceNumber})` : ""}${p.notes ? ` — ${p.notes}` : ""}`,
       debit: 0, credit: p.amount || 0,
     }));
     adjustments.forEach((a) => events.push({
