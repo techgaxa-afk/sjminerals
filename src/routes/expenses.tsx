@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState } from "react";
-import { getExpenses, saveExpense, updateExpense, deleteExpense, type Expense, type ExpenseCategory } from "../lib/store";
-import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, Check, UtensilsCrossed } from "lucide-react";
+import {
+  getExpenses, saveExpense, updateExpense, deleteExpense,
+  getCashSales, getUpiSales, getCashExpenses, getUpiExpenses,
+  type Expense, type ExpenseCategory, type ExpensePaymentMode,
+} from "../lib/store";
+import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, UtensilsCrossed, Banknote, CreditCard } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/expenses")({
@@ -24,31 +28,62 @@ function ExpensesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<ExpenseCategory | "all">("all");
+  const [filterMode, setFilterMode] = useState<ExpensePaymentMode | "all">("all");
   const [category, setCategory] = useState<ExpenseCategory>("fuel");
+  const [paymentMode, setPaymentMode] = useState<ExpensePaymentMode>("cash");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [notes, setNotes] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const sorted = [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const filtered = sorted.filter((e) => {
     const matchSearch = e.notes.toLowerCase().includes(search.toLowerCase()) || e.category.includes(search.toLowerCase());
     const matchCat = filterCat === "all" || e.category === filterCat;
-    return matchSearch && matchCat;
+    const matchMode = filterMode === "all" || e.paymentMode === filterMode;
+    return matchSearch && matchCat && matchMode;
   });
 
-  const resetForm = () => { setShowForm(false); setEditingId(null); setAmount(""); setNotes(""); setCategory("fuel"); };
+  const resetForm = () => {
+    setShowForm(false); setEditingId(null);
+    setAmount(""); setNotes(""); setCategory("fuel"); setPaymentMode("cash"); setError(null);
+  };
 
   const handleSave = () => {
-    if (!amount.trim()) return;
-    if (editingId) updateExpense(editingId, { category, amount: Number(amount), date, notes: notes.trim() });
-    else saveExpense({ category, amount: Number(amount), date, notes: notes.trim() });
+    setError(null);
+    const amt = Number(amount);
+    if (!amount.trim() || !(amt > 0)) { setError("Amount must be greater than zero."); return; }
+    if (!date) { setError("Date is required."); return; }
+    if (!paymentMode) { setError("Payment mode is required."); return; }
+
+    // Balance validation (exclude the current row when editing so user can edit without false-positive)
+    const editingAmt = editingId ? (expenses.find((e) => e.id === editingId)?.amount ?? 0) : 0;
+    const editingMode = editingId ? expenses.find((e) => e.id === editingId)?.paymentMode : undefined;
+
+    if (paymentMode === "cash") {
+      const available = getCashSales() - getCashExpenses() + (editingMode === "cash" ? editingAmt : 0);
+      if (amt > available) {
+        setError(`Insufficient Cash Balance. Available Cash: ₹${available.toLocaleString()}`);
+        return;
+      }
+    } else {
+      const available = getUpiSales() - getUpiExpenses() + (editingMode === "upi" ? editingAmt : 0);
+      if (amt > available) {
+        setError(`Insufficient UPI Balance. Available UPI: ₹${available.toLocaleString()}`);
+        return;
+      }
+    }
+
+    if (editingId) updateExpense(editingId, { category, amount: amt, date, notes: notes.trim(), paymentMode });
+    else saveExpense({ category, amount: amt, date, notes: notes.trim(), paymentMode });
     setExpenses(getExpenses());
     resetForm();
   };
 
   const startEdit = (e: Expense) => {
-    setEditingId(e.id); setCategory(e.category); setAmount(String(e.amount)); setDate(e.date); setNotes(e.notes);
-    setShowForm(true);
+    setEditingId(e.id); setCategory(e.category); setAmount(String(e.amount));
+    setDate(e.date); setNotes(e.notes); setPaymentMode(e.paymentMode || "cash");
+    setError(null); setShowForm(true);
   };
 
   const handleDelete = (id: string) => { deleteExpense(id); setExpenses(getExpenses()); };
@@ -58,12 +93,26 @@ function ExpensesPage() {
     return c ? c.icon : MoreHorizontal;
   };
 
+  const availableCash = getCashSales() - getCashExpenses();
+  const availableUpi = getUpiSales() - getUpiExpenses();
+
   return (
     <AppLayout>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="module-header mb-0">Expenses</h1>
           <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> Add</button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="stat-card border-success/30 bg-success/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-success"><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
+            <p className="text-xl font-bold text-success">₹{availableCash.toLocaleString()}</p>
+          </div>
+          <div className="stat-card border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
+            <p className="text-xl font-bold text-primary">₹{availableUpi.toLocaleString()}</p>
+          </div>
         </div>
 
         {showForm && (
@@ -79,11 +128,33 @@ function ExpensesPage() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="field-label">Amount (₹)</label><input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-              <div><label className="field-label">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+            <div>
+              <label className="field-label">Amount (₹)</label>
+              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
-            <div><label className="field-label">Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+            <div>
+              <label className="field-label">Payment Mode</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setPaymentMode("cash")} className={`flex items-center justify-center gap-1.5 rounded-md border p-2 text-xs font-medium transition-colors ${paymentMode === "cash" ? "border-success bg-success/10 text-success" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                  <Banknote className="h-4 w-4" /> Cash
+                </button>
+                <button onClick={() => setPaymentMode("upi")} className={`flex items-center justify-center gap-1.5 rounded-md border p-2 text-xs font-medium transition-colors ${paymentMode === "upi" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                  <CreditCard className="h-4 w-4" /> UPI
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Available {paymentMode === "cash" ? "Cash" : "UPI"}: ₹{(paymentMode === "cash" ? availableCash : availableUpi).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <label className="field-label">Date</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="field-label">Notes</label>
+              <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive whitespace-pre-line">{error}</div>}
             <div className="flex gap-2">
               <button onClick={handleSave} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Save</button>
               <button onClick={resetForm} className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-muted transition-colors">Cancel</button>
@@ -92,13 +163,18 @@ function ExpensesPage() {
         )}
 
         <div className="flex gap-2 flex-wrap">
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search expenses..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <select value={filterCat} onChange={(e) => setFilterCat(e.target.value as ExpenseCategory | "all")} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
-            <option value="all">All</option>
+            <option value="all">All Categories</option>
             {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+          <select value={filterMode} onChange={(e) => setFilterMode(e.target.value as ExpensePaymentMode | "all")} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+            <option value="all">All Modes</option>
+            <option value="cash">Cash</option>
+            <option value="upi">UPI</option>
           </select>
         </div>
 
@@ -110,7 +186,10 @@ function ExpensesPage() {
                 <div className="flex items-center gap-3">
                   <div className="rounded-md bg-secondary p-2"><Icon className="h-4 w-4 text-muted-foreground" /></div>
                   <div>
-                    <p className="font-medium text-foreground capitalize">{exp.category}</p>
+                    <p className="font-medium text-foreground capitalize flex items-center gap-2">
+                      {exp.category}
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${exp.paymentMode === "upi" ? "bg-primary/15 text-primary" : "bg-success/15 text-success"}`}>{(exp.paymentMode || "cash").toUpperCase()}</span>
+                    </p>
                     <p className="text-xs text-muted-foreground">{format(parseISO(exp.date + "T00:00:00"), "dd MMM yyyy")}{exp.notes ? ` · ${exp.notes}` : ""}</p>
                   </div>
                 </div>
