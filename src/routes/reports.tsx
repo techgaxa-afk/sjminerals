@@ -118,7 +118,7 @@ function ReportsPage() {
 
   const exportLedgerCSV = () => {
     const headers = ["Date", "Company", "Amount", "Method", "Reference", "Notes"];
-    const escape = (v: string | undefined) => `"${String(v ?~~ "").replace(/"/g, '""')}"`;
+    const escape = (v: string | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const lines = [headers.join(",")].concat(
       ledger.map((r) => [r.date, r.company, r.amount.toString(), r.method, r.reference, r.notes].map(escape).join(","))
     );
