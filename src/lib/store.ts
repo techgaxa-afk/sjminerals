@@ -252,12 +252,14 @@ const fuelToDb = (f: HitachiFuel) => ({
 });
 const mapExpense = (r: any): Expense => ({
   id: r.id, category: r.category, amount: Number(r.amount) || 0, date: r.date, notes: r.notes ?? "",
+  paymentMode: (r.payment_mode === "upi" ? "upi" : "cash"),
   linkedBillId: r.linked_bill_id ?? undefined, linkedCompanyId: r.linked_company_id ?? undefined,
   linkedOperatorId: r.linked_operator_id ?? undefined, linkedMachineId: r.linked_machine_id ?? undefined,
   createdAt: r.created_at,
 });
 const expenseToDb = (e: Expense) => ({
   id: e.id, category: e.category, amount: e.amount, date: e.date, notes: e.notes,
+  payment_mode: e.paymentMode || "cash",
   linked_bill_id: e.linkedBillId || null, linked_company_id: e.linkedCompanyId || null,
   linked_operator_id: e.linkedOperatorId || null, linked_machine_id: e.linkedMachineId || null,
 });
