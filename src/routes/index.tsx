@@ -112,7 +112,12 @@ function DashboardPage() {
       return s + b.d30 + b.d60 + b.d90 + b.d90plus;
     }, 0);
     const creditExceeded = companies.filter((c) => (c.creditLimit || 0) > 0 && getCompanyOutstanding(c.id) > (c.creditLimit || 0));
-    return { today, month, outstanding, overdue, creditExceeded };
+    const allBills = getBills();
+    const todayInvoices = allBills.filter((b) => new Date(b.createdAt).getTime() >= startOfDay).length;
+    const monthInvoices = allBills.filter((b) => new Date(b.createdAt).getTime() >= startOfMonth).length;
+    const availableCash = getCashSales() - getCashExpenses();
+    const availableUpi = getUpiSales() - getUpiExpenses();
+    return { today, month, outstanding, overdue, creditExceeded, todayInvoices, monthInvoices, availableCash, availableUpi };
   }, []);
 
   const recentPayments = useMemo(() => {
