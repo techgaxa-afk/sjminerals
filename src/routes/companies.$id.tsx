@@ -251,7 +251,7 @@ function CompanyDetailsPage() {
         {/* Summary */}
         <div className="grid grid-cols-2 gap-2">
           <div className="stat-card"><p className="text-xs text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Total Sales</p><p className="font-bold text-foreground">₹{totalSales.toLocaleString()}</p></div>
-          <div className="stat-card"><p className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" /> Total Paid</p><p className="font-bold text-success">₹{totalPaid.toLocaleString()}</p></div>
+          <div className="stat-card"><p className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" /> Collected</p><p className="font-bold text-success">₹{totalPaid.toLocaleString()}</p></div>
           <div className="stat-card"><p className="text-xs text-muted-foreground">Outstanding</p><p className="font-bold text-warning">₹{outstanding.toLocaleString()}</p></div>
           <div className="stat-card"><p className="text-xs text-muted-foreground">Invoices</p><p className="font-bold text-foreground">{bills.length}</p></div>
           <div className="stat-card col-span-2"><p className="text-xs text-muted-foreground">Last Payment</p>
