@@ -5,13 +5,14 @@ import { toast } from "sonner";
 import {
   getCompanies, getBillsByCompany, getCompanyPayments,
   getCompanyOutstanding, saveCompanyPayment, updateCompanyPayment, deleteCompanyPayment,
+  reverseCompanyPayment,
   getCompanyTotalSales, getCompanyTotalPaid,
   getVehiclesByCompany, saveVehicle, updateVehicle, deleteVehicle,
   getCreditAdjustmentsByCompany, saveCreditAdjustment, deleteCreditAdjustment,
   useCloudData, type Bill, type Vehicle, type CompanyPayment,
 } from "../lib/store";
-import { exportInvoicePDF, exportCompanyStatementPDF } from "../lib/pdf";
-import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale } from "lucide-react";
+import { exportInvoicePDF, exportCompanyStatementPDF, exportReceiptPDF } from "../lib/pdf";
+import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale, Undo2, Receipt, AlertTriangle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
