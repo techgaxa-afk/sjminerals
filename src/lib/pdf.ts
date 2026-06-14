@@ -1,4 +1,45 @@
-import type { Bill, Company, Payment } from "./store";
+import type { Bill, Company, CompanyPayment, Payment } from "./store";
+
+export function exportReceiptPDF(payment: CompanyPayment, company: Company) {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  const dateStr = new Date(payment.paymentDate).toLocaleDateString();
+  const status = payment.status === "reversed" ? "REVERSED" : "ACTIVE";
+  const statusColor = payment.status === "reversed" ? "#b91c1c" : "#047857";
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt ${esc(payment.receiptNumber || payment.id.slice(-8))}</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111}
+    h1{margin:0 0 4px;font-size:22px}
+    .muted{color:#6b7280;font-size:12px}
+    .box{margin:14px 0;padding:14px;border:1px solid #e5e7eb;border-radius:8px}
+    .row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px dashed #e5e7eb}
+    .row:last-child{border:0}
+    .row b{color:#374151}
+    .amount{font-size:28px;font-weight:bold;color:#047857;text-align:center;padding:12px 0}
+    .tag{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;background:${statusColor}}
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:8px">
+    <div><h1>Payment Receipt</h1><p class="muted">SJ Minerals</p></div>
+    <div style="text-align:right">
+      <p class="muted" style="margin:0;font-size:10px;letter-spacing:1px;text-transform:uppercase">Receipt No.</p>
+      <p style="margin:2px 0 4px;font-size:16px;font-weight:bold;font-family:ui-monospace,Menlo,monospace">${esc(payment.receiptNumber || payment.id.slice(-8).toUpperCase())}</p>
+      <span class="tag">${status}</span>
+    </div>
+  </div>
+  <div class="amount">₹${(payment.amount || 0).toLocaleString()}</div>
+  <div class="box">
+    <div class="row"><b>Date</b><span>${esc(dateStr)}</span></div>
+    <div class="row"><b>Received From</b><span>${esc(company.name)}</span></div>
+    ${company.contactNumber ? `<div class="row"><b>Contact</b><span>${esc(company.contactNumber)}</span></div>` : ""}
+    <div class="row"><b>Payment Method</b><span>${esc(payment.paymentMethod || "—")}</span></div>
+    <div class="row"><b>Reference No.</b><span>${esc(payment.referenceNumber || "—")}</span></div>
+    ${payment.notes ? `<div class="row"><b>Notes</b><span>${esc(payment.notes)}</span></div>` : ""}
+    ${payment.status === "reversed" ? `<div class="row"><b>Reversal Reason</b><span>${esc(payment.reversalReason || "—")}</span></div>` : ""}
+  </div>
+  <p class="muted" style="margin-top:20px;text-align:center">Thank you for your payment.</p>
+  <script>setTimeout(function(){window.print()},300)</script></body></html>`);
+  w.document.close();
+}
 
 // HTML-escape to prevent stored XSS via fields like company/driver/product names and notes.
 function esc(s: unknown): string {

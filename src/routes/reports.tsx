@@ -4,14 +4,15 @@ import { useState, useMemo } from "react";
 import {
   getBills, getCompanies, getDateRange, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
+  getCompanyAging,
 } from "../lib/store";
-import { Building2, Users, Settings, Search, Wallet, FileDown } from "lucide-react";
+import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger";
+type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging";
 type FilterType = "daily" | "weekly" | "monthly";
 
 function ReportsPage() {
@@ -116,6 +117,32 @@ function ReportsPage() {
 
   const ledgerTotal = useMemo(() => ledger.reduce((s, r) => s + r.amount, 0), [ledger]);
 
+  const aging = useMemo(() => {
+    if (reportType !== "aging") return [];
+    return getCompanies()
+      .map((c) => {
+        const b = getCompanyAging(c.id);
+        return { id: c.id, name: c.name, ...b };
+      })
+      .filter((r) => r.total > 0 && (!search || r.name.toLowerCase().includes(search.toLowerCase())))
+      .sort((a, b) => b.total - a.total);
+  }, [reportType, search]);
+
+  const agingTotals = useMemo(
+    () => aging.reduce(
+      (acc, r) => ({
+        current: acc.current + r.current,
+        d30: acc.d30 + r.d30,
+        d60: acc.d60 + r.d60,
+        d90: acc.d90 + r.d90,
+        d90plus: acc.d90plus + r.d90plus,
+        total: acc.total + r.total,
+      }),
+      { current: 0, d30: 0, d60: 0, d90: 0, d90plus: 0, total: 0 },
+    ),
+    [aging],
+  );
+
   const exportLedgerCSV = () => {
     const headers = ["Date", "Company", "Amount", "Method", "Reference", "Notes"];
     const escape = (v: string | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -136,6 +163,7 @@ function ReportsPage() {
     { id: "hitachi", label: "Hitachi", icon: Settings },
     { id: "operator", label: "Operator", icon: Users },
     { id: "ledger", label: "Ledger", icon: Wallet },
+    { id: "aging", label: "Aging", icon: AlertTriangle },
   ];
 
   return (
@@ -211,6 +239,46 @@ function ReportsPage() {
                 <span className="col-span-5" />
               </div>
             )}
+          </div>
+        ) : reportType === "aging" ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">{aging.length} compan{aging.length === 1 ? "y" : "ies"} with outstanding · Sorted by total DESC</p>
+            <div className="overflow-x-auto">
+              <div className="min-w-[760px] space-y-2">
+                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "2fr repeat(6,1fr)" }}>
+                  <span>Company</span>
+                  <span className="text-right">Current</span>
+                  <span className="text-right">1–30 d</span>
+                  <span className="text-right">31–60 d</span>
+                  <span className="text-right">61–90 d</span>
+                  <span className="text-right">90+ d</span>
+                  <span className="text-right">Total</span>
+                </div>
+                {aging.map((r) => (
+                  <div key={r.id} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "2fr repeat(6,1fr)" }}>
+                    <span className="font-medium text-foreground truncate">{r.name}</span>
+                    <span className="text-right text-foreground">₹{r.current.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.d30.toLocaleString()}</span>
+                    <span className="text-right text-warning">₹{r.d60.toLocaleString()}</span>
+                    <span className="text-right text-warning">₹{r.d90.toLocaleString()}</span>
+                    <span className="text-right text-destructive font-medium">₹{r.d90plus.toLocaleString()}</span>
+                    <span className="text-right font-bold text-foreground">₹{r.total.toLocaleString()}</span>
+                  </div>
+                ))}
+                {aging.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No outstanding balances.</p>}
+                {aging.length > 0 && (
+                  <div className="stat-card grid gap-2 items-center border-primary/30" style={{ gridTemplateColumns: "2fr repeat(6,1fr)" }}>
+                    <span className="font-bold text-sm text-foreground">Total</span>
+                    <span className="text-right text-sm font-bold text-foreground">₹{agingTotals.current.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-foreground">₹{agingTotals.d30.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-warning">₹{agingTotals.d60.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-warning">₹{agingTotals.d90.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-destructive">₹{agingTotals.d90plus.toLocaleString()}</span>
+                    <span className="text-right text-sm font-bold text-primary">₹{agingTotals.total.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">

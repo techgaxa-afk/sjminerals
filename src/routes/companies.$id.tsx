@@ -5,13 +5,14 @@ import { toast } from "sonner";
 import {
   getCompanies, getBillsByCompany, getCompanyPayments,
   getCompanyOutstanding, saveCompanyPayment, updateCompanyPayment, deleteCompanyPayment,
+  reverseCompanyPayment,
   getCompanyTotalSales, getCompanyTotalPaid,
   getVehiclesByCompany, saveVehicle, updateVehicle, deleteVehicle,
   getCreditAdjustmentsByCompany, saveCreditAdjustment, deleteCreditAdjustment,
   useCloudData, type Bill, type Vehicle, type CompanyPayment,
 } from "../lib/store";
-import { exportInvoicePDF, exportCompanyStatementPDF } from "../lib/pdf";
-import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale } from "lucide-react";
+import { exportInvoicePDF, exportCompanyStatementPDF, exportReceiptPDF } from "../lib/pdf";
+import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale, Undo2, Receipt, AlertTriangle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
@@ -52,6 +53,15 @@ function CompanyDetailsPage() {
 
   // Adjustment form
   const [adjForm, setAdjForm] = useState<{ amount: string; reason: string; date: string } | null>(null);
+
+  // Reverse payment dialog state
+  const [reverseTarget, setReverseTarget] = useState<CompanyPayment | null>(null);
+  const [reverseReason, setReverseReason] = useState("");
+  const [reversing, setReversing] = useState(false);
+
+  // Statement date range
+  const [stmtFrom, setStmtFrom] = useState("");
+  const [stmtTo, setStmtTo] = useState("");
 
   const bills = useMemo(() => getBillsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const payments = useMemo<CompanyPayment[]>(
@@ -137,6 +147,34 @@ function CompanyDetailsPage() {
     } catch (e: any) {
       toast.error(e?.message || "Failed to delete payment");
     }
+  };
+
+  const handleReversePayment = async () => {
+    if (!reverseTarget) return;
+    if (!reverseReason.trim()) { toast.error("Reason is required"); return; }
+    setReversing(true);
+    try {
+      await reverseCompanyPayment(reverseTarget.id, reverseReason.trim());
+      toast.success("Payment reversed");
+      setReverseTarget(null); setReverseReason("");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to reverse payment");
+    } finally { setReversing(false); }
+  };
+
+  const handleExportStatement = () => {
+    let fb = bills, fp = payments;
+    if (stmtFrom) {
+      const t = new Date(stmtFrom).getTime();
+      fb = fb.filter((b) => new Date(b.createdAt).getTime() >= t);
+      fp = fp.filter((p) => new Date(p.paymentDate).getTime() >= t);
+    }
+    if (stmtTo) {
+      const t = new Date(stmtTo).getTime() + 86400000;
+      fb = fb.filter((b) => new Date(b.createdAt).getTime() <= t);
+      fp = fp.filter((p) => new Date(p.paymentDate).getTime() <= t);
+    }
+    exportCompanyStatementPDF(company!, fb, fp.filter((p) => p.status !== "reversed") as any, outstanding);
   };
 
   const handleSaveVehicle = async () => {
@@ -243,19 +281,36 @@ function CompanyDetailsPage() {
               <span className={`text-xs font-semibold px-2 py-1 rounded ${outstanding <= 0 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
                 {outstanding <= 0 ? <span className="inline-flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Settled</span> : `Due ₹${outstanding.toLocaleString()}`}
               </span>
-              <button onClick={() => exportCompanyStatementPDF(company, bills, payments as any, outstanding)} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] text-foreground hover:bg-secondary/70"><FileDown className="h-3 w-3" /> Statement</button>
+              <button onClick={handleExportStatement} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] text-foreground hover:bg-secondary/70"><FileDown className="h-3 w-3" /> Statement</button>
             </div>
           </div>
         </div>
+
+        {/* Credit limit warning */}
+        {(company.creditLimit || 0) > 0 && outstanding > (company.creditLimit || 0) && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 flex items-center gap-2 text-xs font-semibold text-destructive">
+            <AlertTriangle className="h-4 w-4" /> CREDIT LIMIT EXCEEDED — Outstanding ₹{outstanding.toLocaleString()} exceeds limit ₹{(company.creditLimit || 0).toLocaleString()}
+          </div>
+        )}
 
         {/* Summary */}
         <div className="grid grid-cols-2 gap-2">
           <div className="stat-card"><p className="text-xs text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Total Sales</p><p className="font-bold text-foreground">₹{totalSales.toLocaleString()}</p></div>
           <div className="stat-card"><p className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" /> Collected</p><p className="font-bold text-success">₹{totalPaid.toLocaleString()}</p></div>
           <div className="stat-card"><p className="text-xs text-muted-foreground">Outstanding</p><p className="font-bold text-warning">₹{outstanding.toLocaleString()}</p></div>
-          <div className="stat-card"><p className="text-xs text-muted-foreground">Invoices</p><p className="font-bold text-foreground">{bills.length}</p></div>
+          <div className="stat-card"><p className="text-xs text-muted-foreground">Credit Limit</p><p className="font-bold text-foreground">{(company.creditLimit || 0) > 0 ? `₹${(company.creditLimit || 0).toLocaleString()}` : "—"}</p></div>
           <div className="stat-card col-span-2"><p className="text-xs text-muted-foreground">Last Payment</p>
             <p className="font-bold text-foreground">{lastPayment ? `₹${lastPayment.amount.toLocaleString()} · ${format(parseISO(lastPayment.paymentDate), "dd MMM yyyy")}` : "—"}</p>
+          </div>
+          <div className="stat-card col-span-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Statement Date Range</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="date" value={stmtFrom} onChange={(e) => setStmtFrom(e.target.value)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground" />
+              <span className="text-xs text-muted-foreground">to</span>
+              <input type="date" value={stmtTo} onChange={(e) => setStmtTo(e.target.value)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground" />
+              <button onClick={handleExportStatement} className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] text-primary-foreground hover:bg-primary/90"><FileDown className="h-3 w-3" /> Print / PDF</button>
+              {(stmtFrom || stmtTo) && <button onClick={() => { setStmtFrom(""); setStmtTo(""); }} className="text-[11px] text-muted-foreground hover:text-foreground">Reset</button>}
+            </div>
           </div>
         </div>
 
@@ -376,28 +431,63 @@ function CompanyDetailsPage() {
 
         {tab === "payments" && (
           <div className="space-y-2">
-            <div className="stat-card grid grid-cols-12 gap-1 text-[10px] font-medium text-muted-foreground uppercase">
+            <div className="stat-card grid grid-cols-14 gap-1 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "repeat(14,minmax(0,1fr))" }}>
               <span className="col-span-2">Date</span>
+              <span className="col-span-2">Receipt No</span>
               <span className="col-span-2 text-right">Amount</span>
               <span className="col-span-2">Method</span>
               <span className="col-span-2">Reference</span>
-              <span className="col-span-2">Notes</span>
-              <span className="col-span-2 text-right">Actions</span>
+              <span className="col-span-1">Status</span>
+              <span className="col-span-3 text-right">Actions</span>
             </div>
-            {payments.map((p) => (
-              <div key={p.id} className="stat-card grid grid-cols-12 gap-1 items-center text-xs">
-                <span className="col-span-2 text-muted-foreground">{format(parseISO(p.paymentDate), "dd MMM yy")}</span>
-                <span className="col-span-2 text-right font-medium text-success">₹{p.amount.toLocaleString()}</span>
-                <span className="col-span-2 text-foreground">{p.paymentMethod || "—"}</span>
-                <span className="col-span-2 text-foreground truncate" title={p.referenceNumber}>{p.referenceNumber || "—"}</span>
-                <span className="col-span-2 text-muted-foreground truncate" title={p.notes}>{p.notes || "—"}</span>
-                <span className="col-span-2 flex items-center justify-end gap-1">
-                  <button onClick={() => handleEditPayment(p)} className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => handleDeletePayment(p)} className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-3.5 w-3.5" /></button>
-                </span>
-              </div>
-            ))}
+            {payments.map((p) => {
+              const isReversed = p.status === "reversed";
+              return (
+                <div key={p.id} className={`stat-card grid gap-1 items-center text-xs ${isReversed ? "opacity-60" : ""}`} style={{ gridTemplateColumns: "repeat(14,minmax(0,1fr))" }}>
+                  <span className="col-span-2 text-muted-foreground">{format(parseISO(p.paymentDate), "dd MMM yy")}</span>
+                  <span className="col-span-2 font-mono text-[10px] text-foreground truncate" title={p.receiptNumber}>{p.receiptNumber || "—"}</span>
+                  <span className={`col-span-2 text-right font-medium ${isReversed ? "line-through text-muted-foreground" : "text-success"}`}>₹{p.amount.toLocaleString()}</span>
+                  <span className="col-span-2 text-foreground">{p.paymentMethod || "—"}</span>
+                  <span className="col-span-2 text-foreground truncate" title={p.referenceNumber}>{p.referenceNumber || "—"}</span>
+                  <span className="col-span-1">
+                    {isReversed
+                      ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive" title={p.reversalReason}>REVERSED</span>
+                      : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-success/20 text-success">ACTIVE</span>}
+                  </span>
+                  <span className="col-span-3 flex items-center justify-end gap-1">
+                    <button onClick={() => exportReceiptPDF(p, company)} title="Print / Download Receipt" className="rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-secondary"><Receipt className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => handleEditPayment(p)} disabled={isReversed} title="Edit" className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"><Pencil className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => { setReverseTarget(p); setReverseReason(""); }} disabled={isReversed} title="Reverse" className="rounded-md p-1 text-muted-foreground hover:text-warning hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"><Undo2 className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => handleDeletePayment(p)} disabled={isReversed} title="Delete" className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </span>
+                </div>
+              );
+            })}
             {payments.length === 0 && <p className="text-center text-sm text-muted-foreground py-6">No payments recorded.</p>}
+          </div>
+        )}
+
+        {/* Reverse Payment Dialog */}
+        {reverseTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !reversing && setReverseTarget(null)}>
+            <div className="w-full max-w-sm rounded-lg bg-card border border-border p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5"><Undo2 className="h-4 w-4 text-warning" /> Reverse Payment</h3>
+                <button onClick={() => setReverseTarget(null)} disabled={reversing} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Receipt <span className="font-mono text-foreground">{reverseTarget.receiptNumber || reverseTarget.id.slice(-8)}</span> · ₹{reverseTarget.amount.toLocaleString()} on {format(parseISO(reverseTarget.paymentDate), "dd MMM yyyy")}
+              </div>
+              <div>
+                <label className="field-label">Reason *</label>
+                <textarea value={reverseReason} onChange={(e) => setReverseReason(e.target.value)} rows={3} placeholder="Why is this payment being reversed?" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <p className="text-[11px] text-muted-foreground">Reversed payments are excluded from totals but remain in history for audit.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setReverseTarget(null)} disabled={reversing} className="flex-1 rounded-md bg-secondary px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary/70">Cancel</button>
+                <button onClick={handleReversePayment} disabled={reversing || !reverseReason.trim()} className="flex-1 rounded-md bg-warning px-3 py-2 text-sm font-medium text-warning-foreground hover:bg-warning/90 disabled:opacity-60">{reversing ? "Reversing…" : "Reverse Payment"}</button>
+              </div>
+            </div>
           </div>
         )}
 
