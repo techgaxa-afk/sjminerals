@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import {
   getCompanies, getBillsByCompany, getCompanyPayments,
-  getCompanyOutstanding, saveCompanyPayment, updateCompanyPayment, deleteCompanyPayment,
+  getCompanyOutstanding, saveCompanyPayment, updateCompanyPayment,
   reverseCompanyPayment,
   getCompanyTotalSales, getCompanyTotalPaid,
   getVehiclesByCompany, saveVehicle, updateVehicle, deleteVehicle,
@@ -12,7 +12,8 @@ import {
   useCloudData, type Bill, type Vehicle, type CompanyPayment,
 } from "../lib/store";
 import { exportInvoicePDF, exportCompanyStatementPDF, exportReceiptPDF } from "../lib/pdf";
-import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale, Undo2, Receipt, AlertTriangle } from "lucide-react";
+import { ReceiptModal } from "../components/ReceiptModal";
+import { ArrowLeft, Building2, Truck, Phone, MapPin, Plus, X, FileText, Download, Pencil, Wallet, TrendingUp, BadgeCheck, FileDown, Trash2, Scale, Undo2, Receipt, AlertTriangle, Info } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/companies/$id")({
