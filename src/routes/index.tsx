@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses, getRecentActivity, type ActivityKind } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock, Activity, RotateCcw } from "lucide-react";
+import { format, parseISO, formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
@@ -100,11 +100,11 @@ function DashboardPage() {
 
   const collectionStats = useMemo(() => {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const all = getAllCompanyPayments().filter((p) => p.status !== "reversed");
-    const today = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfDay).reduce((s, p) => s + p.amount, 0);
-    const month = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfMonth).reduce((s, p) => s + p.amount, 0);
+    const today = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfDay.getTime()).reduce((s, p) => s + p.amount, 0);
+    const month = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfMonth.getTime()).reduce((s, p) => s + p.amount, 0);
     const companies = getCompanies();
     const outstanding = companies.reduce((s, c) => s + Math.max(0, getCompanyOutstanding(c.id)), 0);
     const overdue = companies.reduce((s, c) => {
@@ -113,11 +113,34 @@ function DashboardPage() {
     }, 0);
     const creditExceeded = companies.filter((c) => (c.creditLimit || 0) > 0 && getCompanyOutstanding(c.id) > (c.creditLimit || 0));
     const allBills = getBills();
-    const todayInvoices = allBills.filter((b) => new Date(b.createdAt).getTime() >= startOfDay).length;
-    const monthInvoices = allBills.filter((b) => new Date(b.createdAt).getTime() >= startOfMonth).length;
+    const breakdown = (since: Date) => {
+      const list = allBills.filter((b) => new Date(b.createdAt).getTime() >= since.getTime());
+      let cash = 0, upi = 0, credit = 0;
+      list.forEach((b) => {
+        if (b.paymentMode === "credit" || (b.outstandingAmount || 0) > 0) credit++;
+        else if (b.splitPayment) {
+          if ((b.cashAmount || 0) >= (b.upiAmount || 0)) cash++; else upi++;
+        } else if (b.paymentMode === "cash") cash++;
+        else if (b.paymentMode === "upi") upi++;
+      });
+      return { count: list.length, cash, upi, credit };
+    };
+    const todayInv = breakdown(startOfDay);
+    const monthInv = breakdown(startOfMonth);
     const availableCash = getCashSales() - getCashExpenses();
     const availableUpi = getUpiSales() - getUpiExpenses();
-    return { today, month, outstanding, overdue, creditExceeded, todayInvoices, monthInvoices, availableCash, availableUpi };
+    const cashSalesToday = getCashSales(startOfDay);
+    const upiSalesToday = getUpiSales(startOfDay);
+    const cashExpToday = getCashExpenses(startOfDay);
+    const upiExpToday = getUpiExpenses(startOfDay);
+    return {
+      today, month, outstanding, overdue, creditExceeded,
+      todayInv, monthInv,
+      availableCash, availableUpi,
+      cashSalesToday, upiSalesToday, cashExpToday, upiExpToday,
+      netCashToday: cashSalesToday - cashExpToday,
+      netUpiToday: upiSalesToday - upiExpToday,
+    };
   }, []);
 
   const recentPayments = useMemo(() => {
@@ -125,6 +148,8 @@ function DashboardPage() {
     const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
     return getRecentPayments(10).map((p) => ({ ...p, companyName: nameOf(p.companyId) }));
   }, []);
+
+  const recentActivity = useMemo(() => getRecentActivity(10), []);
 
   const handleExportReport = () => { exportReportPDF(filter, stats); };
 
@@ -159,8 +184,44 @@ function DashboardPage() {
         )}
         {importMsg && <div className="rounded-md border border-success/30 bg-success/5 p-2 text-xs text-success">{importMsg}</div>}
 
-        {/* Payment Method Breakdown */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {/* Cash & UPI Flow Today */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="stat-card border-success/30 bg-success/5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-success"><Banknote className="h-4 w-4" /> Cash Flow Today</div>
+              {collectionStats.availableCash <= 0 ? (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH AVAILABLE</span>
+              ) : collectionStats.availableCash < 1000 ? (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW CASH BALANCE</span>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div><p className="text-[10px] text-muted-foreground">Sales</p><p className="text-sm font-bold text-success">₹{collectionStats.cashSalesToday.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Expenses</p><p className="text-sm font-bold text-destructive">₹{collectionStats.cashExpToday.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Net</p><p className={`text-sm font-bold ${collectionStats.netCashToday >= 0 ? "text-success" : "text-destructive"}`}>₹{collectionStats.netCashToday.toLocaleString()}</p></div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">Available Cash: <span className="font-semibold text-foreground">₹{collectionStats.availableCash.toLocaleString()}</span></p>
+          </div>
+          <div className="stat-card border-primary/30 bg-primary/5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-primary"><CreditCard className="h-4 w-4" /> UPI Flow Today</div>
+              {collectionStats.availableUpi <= 0 ? (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI BALANCE</span>
+              ) : collectionStats.availableUpi < 1000 ? (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW UPI BALANCE</span>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div><p className="text-[10px] text-muted-foreground">Sales</p><p className="text-sm font-bold text-primary">₹{collectionStats.upiSalesToday.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Expenses</p><p className="text-sm font-bold text-destructive">₹{collectionStats.upiExpToday.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Net</p><p className={`text-sm font-bold ${collectionStats.netUpiToday >= 0 ? "text-success" : "text-destructive"}`}>₹{collectionStats.netUpiToday.toLocaleString()}</p></div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">Available UPI: <span className="font-semibold text-foreground">₹{collectionStats.availableUpi.toLocaleString()}</span></p>
+          </div>
+        </div>
+
+        {/* Period totals + Invoice breakdown */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="stat-card border-success/30 bg-success/5">
             <div className="flex items-center gap-2 text-xs mb-1 text-success"><Banknote className="h-3.5 w-3.5" /> Cash Sales</div>
             <p className="text-xl font-bold text-success">₹{stats.cashSales.toLocaleString()}</p>
@@ -168,36 +229,23 @@ function DashboardPage() {
           <div className="stat-card border-primary/30 bg-primary/5">
             <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> UPI Sales</div>
             <p className="text-xl font-bold text-primary">₹{stats.upiSales.toLocaleString()}</p>
-        </div>
-
-        {/* Available Balance + Invoice Counts */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="stat-card border-success/30 bg-success/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-success"><Wallet className="h-3.5 w-3.5" /> Available Cash</div>
-            <p className="text-xl font-bold text-success">₹{collectionStats.availableCash.toLocaleString()}</p>
-            <p className="text-[10px] text-muted-foreground">Cash Sales − Cash Expenses</p>
-          </div>
-          <div className="stat-card border-primary/30 bg-primary/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
-            <p className="text-xl font-bold text-primary">₹{collectionStats.availableUpi.toLocaleString()}</p>
-            <p className="text-[10px] text-muted-foreground">UPI Sales − UPI Expenses</p>
           </div>
           <div className="stat-card">
             <div className="flex items-center gap-2 text-xs mb-1 text-muted-foreground"><FileText className="h-3.5 w-3.5 text-primary" /> Today's Invoices</div>
-            <p className="text-xl font-bold text-foreground">{collectionStats.todayInvoices}</p>
-            <p className="text-[10px] text-muted-foreground">Invoices created today</p>
+            <p className="text-xl font-bold text-foreground">{collectionStats.todayInv.count}</p>
+            <p className="text-[10px] text-muted-foreground">Cash: {collectionStats.todayInv.cash} · UPI: {collectionStats.todayInv.upi} · Credit: {collectionStats.todayInv.credit}</p>
           </div>
           <div className="stat-card">
             <div className="flex items-center gap-2 text-xs mb-1 text-muted-foreground"><Calendar className="h-3.5 w-3.5 text-primary" /> This Month Invoices</div>
-            <p className="text-xl font-bold text-foreground">{collectionStats.monthInvoices}</p>
-            <p className="text-[10px] text-muted-foreground">Invoices this month</p>
+            <p className="text-xl font-bold text-foreground">{collectionStats.monthInv.count}</p>
+            <p className="text-[10px] text-muted-foreground">Cash: {collectionStats.monthInv.cash} · UPI: {collectionStats.monthInv.upi} · Credit: {collectionStats.monthInv.credit}</p>
           </div>
         </div>
-          <div className="stat-card border-warning/30 bg-warning/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Credit / Outstanding</div>
-            <p className="text-xl font-bold text-warning">₹{stats.totalOutstanding.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">{stats.creditBillsCount} credit bills</p>
-          </div>
+
+        <div className="stat-card border-warning/30 bg-warning/5">
+          <div className="flex items-center gap-2 text-xs mb-1 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Credit / Outstanding</div>
+          <p className="text-xl font-bold text-warning">₹{stats.totalOutstanding.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">{stats.creditBillsCount} credit bills</p>
         </div>
 
         {/* Overall Stats */}
@@ -289,6 +337,36 @@ function DashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Activity */}
+        {recentActivity.length > 0 && (
+          <div className="stat-card">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Recent Activity</h3>
+            <div className="space-y-1">
+              {recentActivity.map((a) => {
+                const kindMeta: Record<ActivityKind, { icon: typeof FileText; cls: string }> = {
+                  invoice:  { icon: FileText,  cls: "text-primary" },
+                  payment:  { icon: Receipt,   cls: "text-success" },
+                  expense:  { icon: TrendingDown, cls: "text-destructive" },
+                  reversal: { icon: RotateCcw, cls: "text-warning" },
+                };
+                const m = kindMeta[a.kind];
+                const Icon = m.icon;
+                return (
+                  <div key={a.id} className="flex items-center justify-between gap-2 text-xs py-1.5 border-b border-border/40 last:border-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Icon className={`h-3.5 w-3.5 shrink-0 ${m.cls}`} />
+                      <span className="text-foreground truncate">{a.label}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground truncate">{a.ref}</span>
+                    </div>
+                    <span className={`font-medium whitespace-nowrap ${m.cls}`}>{a.kind === "expense" || a.kind === "reversal" ? "-" : "+"}₹{a.amount.toLocaleString()}</span>
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:inline">{formatDistanceToNow(new Date(a.time), { addSuffix: true })}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -973,6 +973,50 @@ export function getRecentPayments(limit = 10): CompanyPayment[] {
     .slice(0, limit);
 }
 
+// ============ Recent Activity feed ============
+export type ActivityKind = "invoice" | "payment" | "expense" | "reversal";
+export interface ActivityItem {
+  id: string; kind: ActivityKind; time: string; label: string;
+  amount: number; ref: string;
+}
+export function getRecentActivity(limit = 10): ActivityItem[] {
+  const items: ActivityItem[] = [];
+  cache.bills.forEach((b) => {
+    items.push({
+      id: `bill-${b.id}`, kind: "invoice", time: b.createdAt,
+      label: `Invoice · ${b.companyName || "Walk-in"}`,
+      amount: b.totalAmount, ref: b.invoiceNumber || "—",
+    });
+  });
+  const companyName = (id: string) => cache.companies.find((c) => c.id === id)?.name ?? "—";
+  cache.company_payments.forEach((p) => {
+    if (p.status === "reversed") {
+      items.push({
+        id: `rev-${p.id}`, kind: "reversal", time: p.reversedAt || p.createdAt,
+        label: `Reversed · ${companyName(p.companyId)}`,
+        amount: p.amount, ref: p.receiptNumber || "—",
+      });
+    } else {
+      items.push({
+        id: `pay-${p.id}`, kind: "payment", time: p.createdAt,
+        label: `Payment · ${companyName(p.companyId)}`,
+        amount: p.amount, ref: p.receiptNumber || "—",
+      });
+    }
+  });
+  cache.expenses.forEach((e) => {
+    items.push({
+      id: `exp-${e.id}`, kind: "expense", time: e.createdAt,
+      label: `Expense · ${e.category}`,
+      amount: e.amount, ref: (e.paymentMode || "cash").toUpperCase(),
+    });
+  });
+  return items
+    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+    .slice(0, limit);
+}
+
+
 
 // ============ Hitachi Machines ============
 export function getHitachiMachines(): HitachiMachine[] { return cache.hitachi_machines.slice(); }

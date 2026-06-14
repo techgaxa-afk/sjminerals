@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   getExpenses, saveExpense, updateExpense, deleteExpense,
   getCashSales, getUpiSales, getCashExpenses, getUpiExpenses,
+  useCloudData,
   type Expense, type ExpenseCategory, type ExpensePaymentMode,
 } from "../lib/store";
 import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, UtensilsCrossed, Banknote, CreditCard } from "lucide-react";
@@ -23,6 +24,7 @@ const CATEGORIES: { value: ExpenseCategory; label: string; icon: typeof Fuel }[]
 ];
 
 function ExpensesPage() {
+  useCloudData();
   const [expenses, setExpenses] = useState<Expense[]>(getExpenses);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -36,7 +38,7 @@ function ExpensesPage() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const sorted = [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sorted = [...expenses].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const filtered = sorted.filter((e) => {
     const matchSearch = e.notes.toLowerCase().includes(search.toLowerCase()) || e.category.includes(search.toLowerCase());
     const matchCat = filterCat === "all" || e.category === filterCat;
@@ -96,6 +98,24 @@ function ExpensesPage() {
   const availableCash = getCashSales() - getCashExpenses();
   const availableUpi = getUpiSales() - getUpiExpenses();
 
+  const analytics = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    let today = 0, month = 0, cash = 0, upi = 0;
+    const byCat: Record<string, number> = {};
+    expenses.forEach((e) => {
+      const t = new Date(e.date).getTime();
+      if (t >= startOfDay) today += e.amount;
+      if (t >= startOfMonth) {
+        month += e.amount;
+        byCat[e.category] = (byCat[e.category] || 0) + e.amount;
+      }
+      if (e.paymentMode === "upi") upi += e.amount; else cash += e.amount;
+    });
+    return { today, month, cash, upi, byCat };
+  }, [expenses]);
+
   return (
     <AppLayout>
       <div className="space-y-4">
@@ -106,12 +126,53 @@ function ExpensesPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="stat-card border-success/30 bg-success/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-success"><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-xs text-success"><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
+              {availableCash <= 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH</span>
+                : availableCash < 1000 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW</span> : null}
+            </div>
             <p className="text-xl font-bold text-success">₹{availableCash.toLocaleString()}</p>
           </div>
           <div className="stat-card border-primary/30 bg-primary/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-xs text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
+              {availableUpi <= 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI</span>
+                : availableUpi < 1000 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW</span> : null}
+            </div>
             <p className="text-xl font-bold text-primary">₹{availableUpi.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Quick Expense Analytics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="stat-card">
+            <p className="text-[10px] text-muted-foreground uppercase">Today</p>
+            <p className="text-lg font-bold text-destructive">₹{analytics.today.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-[10px] text-muted-foreground uppercase">This Month</p>
+            <p className="text-lg font-bold text-destructive">₹{analytics.month.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-[10px] text-muted-foreground uppercase">Cash (All)</p>
+            <p className="text-lg font-bold text-success">₹{analytics.cash.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-[10px] text-muted-foreground uppercase">UPI (All)</p>
+            <p className="text-lg font-bold text-primary">₹{analytics.upi.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Category totals — this month */}
+        <div className="stat-card">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">Categories · This Month</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CATEGORIES.map((c) => (
+              <div key={c.value} className="flex items-center justify-between rounded-md bg-secondary/50 px-2 py-1.5 text-xs">
+                <span className="flex items-center gap-1.5 text-muted-foreground"><c.icon className="h-3.5 w-3.5" />{c.label}</span>
+                <span className="font-semibold text-foreground">₹{(analytics.byCat[c.value] || 0).toLocaleString()}</span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -191,6 +252,7 @@ function ExpensesPage() {
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${exp.paymentMode === "upi" ? "bg-primary/15 text-primary" : "bg-success/15 text-success"}`}>{(exp.paymentMode || "cash").toUpperCase()}</span>
                     </p>
                     <p className="text-xs text-muted-foreground">{format(parseISO(exp.date + "T00:00:00"), "dd MMM yyyy")}{exp.notes ? ` · ${exp.notes}` : ""}</p>
+                    <p className="text-[10px] text-muted-foreground">Logged {format(new Date(exp.createdAt), "dd MMM, hh:mm a")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
