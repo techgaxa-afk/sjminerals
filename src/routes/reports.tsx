@@ -94,11 +94,48 @@ function ReportsPage() {
     }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(search.toLowerCase()));
   }, [reportType, filter, start, search, allBillsInRange]);
 
+  const ledger = useMemo(() => {
+    if (reportType !== "ledger") return [];
+    const companies = getCompanies();
+    const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
+    const rows = getAllCompanyPayments()
+      .filter((p) => new Date(p.paymentDate) >= start)
+      .map((p) => ({
+        id: p.id,
+        date: p.paymentDate,
+        company: nameOf(p.companyId),
+        amount: p.amount,
+        method: p.paymentMethod,
+        reference: p.referenceNumber ?? "",
+        notes: p.notes ?? "",
+      }))
+      .filter((r) => !search || r.company.toLowerCase().includes(search.toLowerCase()) || r.reference.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return rows;
+  }, [reportType, start, search]);
+
+  const ledgerTotal = useMemo(() => ledger.reduce((s, r) => s + r.amount, 0), [ledger]);
+
+  const exportLedgerCSV = () => {
+    const headers = ["Date", "Company", "Amount", "Method", "Reference", "Notes"];
+    const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [headers.join(",")].concat(
+      ledger.map((r) => [r.date, r.company, r.amount.toString(), r.method, r.reference, r.notes].map(escape).join(","))
+    );
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `payment-ledger-${filter}-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
     { id: "vehicle", label: "Vehicle", icon: Building2 },
     { id: "hitachi", label: "Hitachi", icon: Settings },
     { id: "operator", label: "Operator", icon: Users },
+    { id: "ledger", label: "Ledger", icon: Wallet },
   ];
 
   return (
