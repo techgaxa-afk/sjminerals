@@ -78,6 +78,7 @@ type Cache = {
   bills: Omit<Bill, "items">[];
   billItems: (BillItem & { id: string; billId: string })[];
   payments: Payment[];
+  company_payments: CompanyPayment[];
   hitachi_machines: HitachiMachine[];
   hitachi_entries: HitachiEntry[];
   hitachi_fuel: HitachiFuel[];
@@ -87,6 +88,7 @@ type Cache = {
 };
 const cache: Cache = {
   products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
+  company_payments: [],
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
   credit_adjustments: [],
 };
