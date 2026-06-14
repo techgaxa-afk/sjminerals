@@ -58,29 +58,12 @@ function ExpensesPage() {
     if (!date) { setError("Date is required."); return; }
     if (!paymentMode) { setError("Payment mode is required."); return; }
 
-    // Balance validation (exclude the current row when editing so user can edit without false-positive)
-    const editingAmt = editingId ? (expenses.find((e) => e.id === editingId)?.amount ?? 0) : 0;
-    const editingMode = editingId ? expenses.find((e) => e.id === editingId)?.paymentMode : undefined;
-
-    if (paymentMode === "cash") {
-      const available = getCashSales() - getCashExpenses() + (editingMode === "cash" ? editingAmt : 0);
-      if (amt > available) {
-        setError(`Insufficient Cash Balance. Available Cash: ₹${available.toLocaleString()}`);
-        return;
-      }
-    } else {
-      const available = getUpiSales() - getUpiExpenses() + (editingMode === "upi" ? editingAmt : 0);
-      if (amt > available) {
-        setError(`Insufficient UPI Balance. Available UPI: ₹${available.toLocaleString()}`);
-        return;
-      }
-    }
-
     if (editingId) updateExpense(editingId, { category, amount: amt, date, notes: notes.trim(), paymentMode });
     else saveExpense({ category, amount: amt, date, notes: notes.trim(), paymentMode });
     setExpenses(getExpenses());
     resetForm();
   };
+
 
   const startEdit = (e: Expense) => {
     setEditingId(e.id); setCategory(e.category); setAmount(String(e.amount));
