@@ -45,6 +45,10 @@ export interface CompanyPayment {
   paymentMethod?: string;
   referenceNumber?: string;
   notes?: string;
+  receiptNumber?: string;
+  status: "active" | "reversed";
+  reversalReason?: string;
+  reversedAt?: string;
   createdAt: string;
 }
 export interface HitachiMachine { id: string; name: string; hourlyRate: number; createdAt: string; }
