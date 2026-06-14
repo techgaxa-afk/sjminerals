@@ -683,6 +683,7 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
             id: uid(), companyId: billRow.companyId, amount: billRow.cashAmount ?? 0,
             paymentDate: billDate, paymentMethod: "cash", referenceNumber: invRef,
             notes: `Initial payment for invoice ${invRef}`,
+            status: "active",
             createdAt: billRow.createdAt,
           });
         }
@@ -691,6 +692,7 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
             id: uid(), companyId: billRow.companyId, amount: billRow.upiAmount ?? 0,
             paymentDate: billDate, paymentMethod: "upi", referenceNumber: invRef,
             notes: `Initial payment for invoice ${invRef}`,
+            status: "active",
             createdAt: billRow.createdAt,
           });
         }
@@ -701,6 +703,7 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
           paymentMethod: billRow.paymentMode === "upi" ? "upi" : billRow.paymentMode === "cash" ? "cash" : billRow.paymentMode,
           referenceNumber: invRef,
           notes: `Initial payment for invoice ${invRef}`,
+          status: "active",
           createdAt: billRow.createdAt,
         });
       }
