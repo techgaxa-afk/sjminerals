@@ -172,6 +172,7 @@ const mapBill = (r: any): Omit<Bill, "items"> => ({
   tipsRate: Number(r.tips_rate) || 0, tipsAmount: Number(r.tips_amount) || 0,
   splitPayment: !!r.split_payment, cashAmount: Number(r.cash_amount) || 0, upiAmount: Number(r.upi_amount) || 0,
   passEnabled: !!r.pass_enabled, passAmount: Number(r.pass_amount) || 0,
+  driverId: r.driver_id ?? null,
   createdAt: r.created_at,
 });
 const billToDb = (b: Omit<Bill, "items">) => ({
@@ -183,6 +184,7 @@ const billToDb = (b: Omit<Bill, "items">) => ({
   tips_rate: b.tipsRate, tips_amount: b.tipsAmount,
   split_payment: !!b.splitPayment, cash_amount: b.cashAmount ?? 0, upi_amount: b.upiAmount ?? 0,
   pass_enabled: !!b.passEnabled, pass_amount: b.passAmount ?? 0,
+  driver_id: b.driverId ?? null,
 });
 const mapBillItem = (r: any) => ({
   id: r.id, billId: r.bill_id, productId: r.product_id ?? "", productName: r.product_name,
