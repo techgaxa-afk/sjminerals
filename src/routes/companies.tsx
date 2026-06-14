@@ -175,8 +175,12 @@ function CompaniesPage() {
             const vehicles = getVehiclesByCompany(c.id);
             const vehicleTotals = vehicles.map((v) => ({ v, ...getVehicleTotals(c.id, v.vehicleNumber) }));
             const sales = getCompanyTotalSales(c.id);
-            const paid = getCompanyTotalPaid(c.id);
-            const due = getCompanyOutstanding(c.id);
+            const collected = getCompanyTotalPaid(c.id);
+            const outstanding = getCompanyOutstanding(c.id);
+            const payList = getCompanyPayments(c.id);
+            const lastPay = payList.length
+              ? payList.reduce((a, b) => (new Date(a.paymentDate) > new Date(b.paymentDate) ? a : b))
+              : null;
             const isOpen = expanded.has(c.id);
             const isEditingVeh = vehForm && vehForm.companyId === c.id;
 
@@ -189,9 +193,13 @@ function CompaniesPage() {
                     {c.contactNumber && <p className="text-xs text-muted-foreground">{c.contactNumber}</p>}
                     <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
                       <div><p className="text-muted-foreground">Sales</p><p className="font-semibold text-foreground">₹{sales.toLocaleString()}</p></div>
-                      <div><p className="text-muted-foreground">Paid</p><p className="font-semibold text-success">₹{paid.toLocaleString()}</p></div>
-                      <div><p className="text-muted-foreground">Due</p><p className={`font-semibold ${due > 0 ? "text-warning" : "text-success"}`}>₹{due.toLocaleString()}</p></div>
+                      <div><p className="text-muted-foreground">Collected</p><p className="font-semibold text-success">₹{collected.toLocaleString()}</p></div>
+                      <div><p className="text-muted-foreground">Outstanding</p><p className={`font-semibold ${outstanding > 0 ? "text-warning" : "text-success"}`}>₹{outstanding.toLocaleString()}</p></div>
                     </div>
+                    <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                      <Wallet className="h-3 w-3" />
+                      {lastPay ? `Last payment: ₹${lastPay.amount.toLocaleString()} · ${format(parseISO(lastPay.paymentDate), "dd MMM yyyy")}` : "No payments yet"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-1 ml-2">
                     <button onClick={(e) => handleEdit(e, c)} aria-label="Edit company" className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button>
