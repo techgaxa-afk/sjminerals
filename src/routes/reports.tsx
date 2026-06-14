@@ -4,14 +4,15 @@ import { useState, useMemo } from "react";
 import {
   getBills, getCompanies, getDateRange, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
+  getCompanyAging,
 } from "../lib/store";
-import { Building2, Users, Settings, Search, Wallet, FileDown } from "lucide-react";
+import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger";
+type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging";
 type FilterType = "daily" | "weekly" | "monthly";
 
 function ReportsPage() {
