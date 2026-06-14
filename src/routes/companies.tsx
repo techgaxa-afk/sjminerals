@@ -18,7 +18,7 @@ export const Route = createFileRoute("/companies")({
   component: CompaniesPage,
 });
 
-type CompanyForm = { name: string; contactNumber: string; address: string; notes: string; openingBalance: string };
+type CompanyForm = { name: string; contactNumber: string; address: string; notes: string; openingBalance: string; creditLimit: string };
 type VehicleForm = { id?: string; companyId: string; vehicleNumber: string; driverName: string; vehicleCapacity: string; status: "active" | "inactive" | "maintenance" };
 
 function CompaniesPage() {
@@ -27,7 +27,7 @@ function CompaniesPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<CompanyForm>({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
+  const [form, setForm] = useState<CompanyForm>({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "", creditLimit: "" });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [vehForm, setVehForm] = useState<VehicleForm | null>(null);
 
@@ -37,7 +37,7 @@ function CompaniesPage() {
   );
 
   const resetForm = () => {
-    setForm({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
+    setForm({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "", creditLimit: "" });
     setEditingId(null); setShowForm(false);
   };
 
@@ -50,6 +50,7 @@ function CompaniesPage() {
       address: form.address.trim(),
       notes: form.notes.trim(),
       openingBalance: Number(form.openingBalance) || 0,
+      creditLimit: Number(form.creditLimit) || 0,
     };
     try {
       if (editingId) {
@@ -76,6 +77,7 @@ function CompaniesPage() {
       address: c.address || "",
       notes: c.notes || "",
       openingBalance: c.openingBalance ? String(c.openingBalance) : "",
+      creditLimit: c.creditLimit ? String(c.creditLimit) : "",
     });
     setEditingId(c.id);
     setShowForm(true);
@@ -165,6 +167,7 @@ function CompaniesPage() {
             <div><label className="field-label">Address (optional)</label><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
             <div><label className="field-label">Notes (optional)</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Internal notes" rows={2} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
             <div><label className="field-label">Opening Balance / Previous Due (₹)</label><input type="number" value={form.openingBalance} onChange={(e) => setForm({ ...form, openingBalance: e.target.value })} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /><p className="text-[11px] text-muted-foreground mt-1">Adds to the company's outstanding balance immediately.</p></div>
+            <div><label className="field-label">Credit Limit (₹)</label><input type="number" value={form.creditLimit} onChange={(e) => setForm({ ...form, creditLimit: e.target.value })} placeholder="0 = no limit" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /><p className="text-[11px] text-muted-foreground mt-1">A warning shows when outstanding exceeds this limit.</p></div>
             <p className="text-xs text-muted-foreground">Vehicles are added by expanding a company below.</p>
             <button onClick={handleSave} className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">{editingId ? "Update" : "Save"} Company</button>
           </div>
@@ -196,6 +199,17 @@ function CompaniesPage() {
                       <div><p className="text-muted-foreground">Collected</p><p className="font-semibold text-success">₹{collected.toLocaleString()}</p></div>
                       <div><p className="text-muted-foreground">Outstanding</p><p className={`font-semibold ${outstanding > 0 ? "text-warning" : "text-success"}`}>₹{outstanding.toLocaleString()}</p></div>
                     </div>
+                    {c.creditLimit > 0 && (
+                      <p className="text-[11px] mt-1.5">
+                        <span className="text-muted-foreground">Limit: </span>
+                        <span className={`font-semibold ${outstanding > c.creditLimit ? "text-destructive" : "text-foreground"}`}>
+                          ₹{outstanding.toLocaleString()} / ₹{c.creditLimit.toLocaleString()}
+                        </span>
+                        {outstanding > c.creditLimit && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">Credit Limit Exceeded</span>
+                        )}
+                      </p>
+                    )}
                     <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
                       <Wallet className="h-3 w-3" />
                       {lastPay ? `Last payment: ₹${lastPay.amount.toLocaleString()} · ${format(parseISO(lastPay.paymentDate), "dd MMM yyyy")}` : "No payments yet"}

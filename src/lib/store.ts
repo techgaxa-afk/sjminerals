@@ -8,7 +8,7 @@ export interface Product {
 }
 export interface Company {
   id: string; name: string; contactNumber: string;
-  address: string; notes: string; openingBalance: number; createdAt: string;
+  address: string; notes: string; openingBalance: number; creditLimit: number; createdAt: string;
 }
 export interface Vehicle {
   id: string; companyId: string; vehicleNumber: string;
@@ -45,6 +45,10 @@ export interface CompanyPayment {
   paymentMethod?: string;
   referenceNumber?: string;
   notes?: string;
+  receiptNumber?: string;
+  status: "active" | "reversed";
+  reversalReason?: string;
+  reversedAt?: string;
   createdAt: string;
 }
 export interface HitachiMachine { id: string; name: string; hourlyRate: number; createdAt: string; }
@@ -127,12 +131,15 @@ const productToDb = (p: Product) => ({
 const mapCompany = (r: any): Company => ({
   id: r.id, name: r.name, contactNumber: r.contact_number ?? "",
   address: r.address ?? "", notes: r.notes ?? "",
-  openingBalance: Number(r.opening_balance) || 0, createdAt: r.created_at,
+  openingBalance: Number(r.opening_balance) || 0,
+  creditLimit: Number(r.credit_limit) || 0,
+  createdAt: r.created_at,
 });
 const companyToDb = (c: Company) => ({
   id: c.id, name: c.name, contact_number: c.contactNumber,
   address: c.address ?? "", notes: c.notes ?? "",
   opening_balance: c.openingBalance || 0,
+  credit_limit: c.creditLimit || 0,
 });
 const mapVehicle = (r: any): Vehicle => ({
   id: r.id, companyId: r.company_id, vehicleNumber: r.vehicle_number,
@@ -194,6 +201,10 @@ const mapCompanyPayment = (r: any): CompanyPayment => ({
   id: r.id, companyId: r.company_id, amount: Number(r.amount) || 0,
   paymentDate: r.payment_date, paymentMethod: r.payment_method ?? undefined,
   referenceNumber: r.reference_number ?? undefined, notes: r.notes ?? undefined,
+  receiptNumber: r.receipt_number ?? undefined,
+  status: r.status === "reversed" ? "reversed" : "active",
+  reversalReason: r.reversal_reason ?? undefined,
+  reversedAt: r.reversed_at ?? undefined,
   createdAt: r.created_at,
 });
 const companyPaymentToDb = (p: CompanyPayment) => ({
@@ -202,6 +213,8 @@ const companyPaymentToDb = (p: CompanyPayment) => ({
   payment_method: p.paymentMethod ?? null,
   reference_number: p.referenceNumber ?? null,
   notes: p.notes ?? null,
+  receipt_number: p.receiptNumber ?? null,
+  status: p.status ?? "active",
 });
 const mapMachine = (r: any): HitachiMachine => ({
   id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0, createdAt: r.created_at,
@@ -670,6 +683,7 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
             id: uid(), companyId: billRow.companyId, amount: billRow.cashAmount ?? 0,
             paymentDate: billDate, paymentMethod: "cash", referenceNumber: invRef,
             notes: `Initial payment for invoice ${invRef}`,
+            status: "active",
             createdAt: billRow.createdAt,
           });
         }
@@ -678,6 +692,7 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
             id: uid(), companyId: billRow.companyId, amount: billRow.upiAmount ?? 0,
             paymentDate: billDate, paymentMethod: "upi", referenceNumber: invRef,
             notes: `Initial payment for invoice ${invRef}`,
+            status: "active",
             createdAt: billRow.createdAt,
           });
         }
@@ -688,6 +703,7 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
           paymentMethod: billRow.paymentMode === "upi" ? "upi" : billRow.paymentMode === "cash" ? "cash" : billRow.paymentMode,
           referenceNumber: invRef,
           notes: `Initial payment for invoice ${invRef}`,
+          status: "active",
           createdAt: billRow.createdAt,
         });
       }
@@ -820,6 +836,16 @@ export async function saveCompanyPayment(
   if (!input.companyId) throw new Error("Company is required");
   if (!input.amount || input.amount <= 0) throw new Error("Amount must be greater than zero");
   if (!input.paymentDate) throw new Error("Payment date is required");
+  const today = new Date(); today.setHours(23, 59, 59, 999);
+  if (new Date(input.paymentDate).getTime() > today.getTime()) throw new Error("Payment date cannot be in the future");
+
+  let receiptNumber: string | undefined;
+  try {
+    const yr = new Date(input.paymentDate).getFullYear();
+    const r = await supabase.rpc("next_receipt_number", { _year: yr });
+    if (!r.error && typeof r.data === "string") receiptNumber = r.data;
+  } catch { /* fall back to db-null; not fatal */ }
+
   const payment: CompanyPayment = {
     id: uid(),
     companyId: input.companyId,
@@ -828,11 +854,14 @@ export async function saveCompanyPayment(
     paymentMethod: input.paymentMethod,
     referenceNumber: input.referenceNumber,
     notes: input.notes,
+    receiptNumber,
+    status: "active",
     createdAt: new Date().toISOString(),
   };
   const res = await supabase.from("company_payments").insert(companyPaymentToDb(payment)).select("id").single();
   if (res.error) { emitError(res.error.message || "Payment insert failed"); throw res.error; }
   cache.company_payments.push(payment); bump();
+  writeAuditLog("payment.created", "company_payment", payment.id, { amount: payment.amount, companyId: payment.companyId, receiptNumber });
   return payment;
 }
 export async function updateCompanyPayment(
@@ -841,7 +870,12 @@ export async function updateCompanyPayment(
 ): Promise<void> {
   const existing = cache.company_payments.find((p) => p.id === id);
   if (!existing) throw new Error("Payment not found");
+  if (existing.status === "reversed") throw new Error("Cannot edit a reversed payment");
   if (updates.amount !== undefined && (!updates.amount || updates.amount <= 0)) throw new Error("Amount must be greater than zero");
+  if (updates.paymentDate) {
+    const today = new Date(); today.setHours(23, 59, 59, 999);
+    if (new Date(updates.paymentDate).getTime() > today.getTime()) throw new Error("Payment date cannot be in the future");
+  }
   const merged: CompanyPayment = { ...existing, ...updates };
   const res = await supabase.from("company_payments").update({
     amount: merged.amount,
@@ -853,20 +887,86 @@ export async function updateCompanyPayment(
   if (res.error) { emitError(res.error.message || "Payment update failed"); throw res.error; }
   cache.company_payments = cache.company_payments.map((p) => p.id === id ? merged : p);
   bump();
+  writeAuditLog("payment.updated", "company_payment", id, { changes: updates });
+}
+export async function reverseCompanyPayment(id: string, reason: string): Promise<void> {
+  const existing = cache.company_payments.find((p) => p.id === id);
+  if (!existing) throw new Error("Payment not found");
+  if (existing.status === "reversed") throw new Error("Payment is already reversed");
+  if (!reason || !reason.trim()) throw new Error("Reversal reason is required");
+  const reversedAt = new Date().toISOString();
+  const { data: userRes } = await supabase.auth.getUser();
+  const res = await supabase.from("company_payments").update({
+    status: "reversed",
+    reversal_reason: reason.trim(),
+    reversed_at: reversedAt,
+    reversed_by: userRes?.user?.id ?? null,
+  }).eq("id", id);
+  if (res.error) { emitError(res.error.message || "Reversal failed"); throw res.error; }
+  cache.company_payments = cache.company_payments.map((p) =>
+    p.id === id ? { ...p, status: "reversed", reversalReason: reason.trim(), reversedAt } : p,
+  );
+  bump();
+  writeAuditLog("payment.reversed", "company_payment", id, { reason: reason.trim() });
 }
 export async function deleteCompanyPayment(id: string): Promise<void> {
   const res = await supabase.from("company_payments").delete().eq("id", id);
   if (res.error) { emitError(res.error.message || "Payment delete failed"); throw res.error; }
   cache.company_payments = cache.company_payments.filter((p) => p.id !== id);
   bump();
+  writeAuditLog("payment.deleted", "company_payment", id, {});
 }
 
-// Total helpers (single source of truth)
+// Total helpers (single source of truth) — exclude reversed payments
 export function getCompanyTotalSales(companyId: string): number {
   return cache.bills.filter((b) => b.companyId === companyId).reduce((s, b) => s + (b.totalAmount || 0), 0);
 }
 export function getCompanyTotalPaid(companyId: string): number {
-  return cache.company_payments.filter((p) => p.companyId === companyId).reduce((s, p) => s + (p.amount || 0), 0);
+  return cache.company_payments
+    .filter((p) => p.companyId === companyId && p.status !== "reversed")
+    .reduce((s, p) => s + (p.amount || 0), 0);
+}
+
+// ============ Audit log + aging helpers ============
+export function writeAuditLog(action: string, entityType: string, entityId: string, details: Record<string, unknown>) {
+  (async () => {
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      await supabase.from("audit_log").insert({
+        action, entity_type: entityType, entity_id: entityId,
+        user_id: u?.user?.id ?? null,
+        details: (details ?? {}) as any,
+      });
+    } catch { /* audit failures should never break user flow */ }
+  })();
+}
+
+export type AgingBuckets = { current: number; d30: number; d60: number; d90: number; d90plus: number; total: number };
+export function getCompanyAging(companyId: string): AgingBuckets {
+  const now = Date.now();
+  const buckets: AgingBuckets = { current: 0, d30: 0, d60: 0, d90: 0, d90plus: 0, total: 0 };
+  const opening = cache.companies.find((c) => c.id === companyId)?.openingBalance || 0;
+  if (opening > 0) { buckets.d90plus += opening; buckets.total += opening; }
+  cache.bills
+    .filter((b) => b.companyId === companyId && (b.outstandingAmount || 0) > 0)
+    .forEach((b) => {
+      const days = Math.floor((now - new Date(b.createdAt).getTime()) / 86400000);
+      const out = b.outstandingAmount || 0;
+      if (days <= 0) buckets.current += out;
+      else if (days <= 30) buckets.d30 += out;
+      else if (days <= 60) buckets.d60 += out;
+      else if (days <= 90) buckets.d90 += out;
+      else buckets.d90plus += out;
+      buckets.total += out;
+    });
+  return buckets;
+}
+export function getRecentPayments(limit = 10): CompanyPayment[] {
+  return cache.company_payments
+    .filter((p) => p.status !== "reversed")
+    .slice()
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
 }
 
 
