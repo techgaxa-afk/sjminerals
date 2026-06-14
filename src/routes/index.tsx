@@ -77,9 +77,14 @@ function DashboardPage() {
     });
 
     const companyOutstandings = companies.map((c) => ({
-      name: c.name, vehicle: "",
+      id: c.id, name: c.name, vehicle: "",
       outstanding: getCompanyOutstanding(c.id),
-    })).filter((c) => c.outstanding > 0).sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
+      creditLimit: c.creditLimit || 0,
+      lastPaymentDate: getAllCompanyPayments()
+        .filter((p) => p.companyId === c.id && p.status !== "reversed")
+        .map((p) => p.paymentDate)
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0],
+    })).filter((c) => c.outstanding > 0).sort((a, b) => b.outstanding - a.outstanding).slice(0, 10);
 
     return {
       totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses,
