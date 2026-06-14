@@ -379,6 +379,24 @@ function UsersInner() {
           busy={busy}
         />
       )}
+
+      {viewing && <UserDetailsDrawer user={viewing} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+function Stat({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "green" | "red" | "amber" | "blue" }) {
+  const tones: Record<string, string> = {
+    default: "text-foreground",
+    green: "text-green-600",
+    red: "text-destructive",
+    amber: "text-amber-600",
+    blue: "text-blue-600",
+  };
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className={`text-xl font-bold ${tones[tone]}`}>{value}</div>
     </div>
   );
 }
