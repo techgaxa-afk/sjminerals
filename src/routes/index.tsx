@@ -111,7 +111,8 @@ function DashboardPage() {
       const b = getCompanyAging(c.id);
       return s + b.d30 + b.d60 + b.d90 + b.d90plus;
     }, 0);
-    return { today, month, outstanding, overdue };
+    const creditExceeded = companies.filter((c) => (c.creditLimit || 0) > 0 && getCompanyOutstanding(c.id) > (c.creditLimit || 0));
+    return { today, month, outstanding, overdue, creditExceeded };
   }, []);
 
   const recentPayments = useMemo(() => {
