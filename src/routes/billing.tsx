@@ -130,7 +130,7 @@ function BillingPage() {
       });
       const company = getCompanies().find((c) => c.id === newVeh.companyId);
       if (company) {
-        selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
+        selectSuggestion({ company, vehicle });
       }
       setShowCreateVehicle(false);
       setNewVeh({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
