@@ -28,9 +28,13 @@ function CompanyDetailsPage() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [showPayForm, setShowPayForm] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [payForm, setPayForm] = useState({
-    date: new Date().toISOString().split("T")[0],
-    amount: "", method: "cash" as "cash" | "upi" | "bank", notes: "",
+    paymentDate: new Date().toISOString().split("T")[0],
+    amount: "",
+    paymentMethod: "Cash" as "Cash" | "UPI" | "Bank Transfer" | "Cheque",
+    referenceNumber: "",
+    notes: "",
   });
 
   // Vehicle form state
@@ -40,12 +44,15 @@ function CompanyDetailsPage() {
   const [adjForm, setAdjForm] = useState<{ amount: string; reason: string; date: string } | null>(null);
 
   const bills = useMemo(() => getBillsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
-  const payments = useMemo(() => getPaymentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
+  const payments = useMemo<CompanyPayment[]>(
+    () => getCompanyPayments(id).sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()),
+    [id],
+  );
   const vehicles = useMemo(() => getVehiclesByCompany(id), [id]);
   const adjustments = useMemo(() => getCreditAdjustmentsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const outstanding = getCompanyOutstanding(id);
-  const totalSales = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
-  const totalPaid = bills.reduce((s, b) => s + (b.paidAmount || 0), 0);
+  const totalSales = getCompanyTotalSales(id);
+  const totalPaid = getCompanyTotalPaid(id);
   const lastPayment = payments[0];
 
   if (!company) {
