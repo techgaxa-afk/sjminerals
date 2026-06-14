@@ -391,7 +391,7 @@ export function resetStore() {
   cache.products = []; cache.companies = []; cache.vehicles = []; cache.bills = []; cache.billItems = [];
   cache.payments = []; cache.company_payments = []; cache.hitachi_machines = []; cache.hitachi_entries = [];
   cache.hitachi_fuel = []; cache.operators = []; cache.expenses = []; cache.credit_adjustments = [];
-  cache.drivers = []; cache.driver_transactions = [];
+  cache.vehicle_maintenance = []; cache.vehicle_documents = [];
   loaded = false; loadingPromise = null;
   bump();
 }
