@@ -304,6 +304,7 @@ function setupRealtime() {
     { table: "bills", map: mapBill, key: "bills" },
     { table: "bill_items", map: mapBillItem, key: "billItems" },
     { table: "payments", map: mapPayment, key: "payments" },
+    { table: "company_payments", map: mapCompanyPayment, key: "company_payments" },
     { table: "hitachi_machines", map: mapMachine, key: "hitachi_machines" },
     { table: "hitachi_entries", map: mapEntry, key: "hitachi_entries" },
     { table: "hitachi_fuel", map: mapFuel, key: "hitachi_fuel" },
