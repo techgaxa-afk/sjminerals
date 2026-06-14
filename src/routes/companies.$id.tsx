@@ -68,16 +68,20 @@ function CompanyDetailsPage() {
     setShowPayForm(false);
   };
 
-  const handleSaveVehicle = () => {
+  const handleSaveVehicle = async () => {
     if (!vehForm || !vehForm.vehicleNumber.trim()) { toast.error("Vehicle number required"); return; }
     const data = {
       vehicleNumber: vehForm.vehicleNumber.trim(),
       vehicleCapacity: Number(vehForm.vehicleCapacity) || 0,
       driverName: vehForm.driverName.trim(),
     };
-    if (vehForm.id) { updateVehicle(vehForm.id, data); toast.success("Vehicle updated"); }
-    else { saveVehicle({ ...data, companyId: id, status: "active" }); toast.success("Vehicle added"); }
-    setVehForm(null);
+    try {
+      if (vehForm.id) { updateVehicle(vehForm.id, data); toast.success("Vehicle updated"); }
+      else { await saveVehicle({ ...data, companyId: id, status: "active" }); toast.success("Vehicle added"); }
+      setVehForm(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save vehicle");
+    }
   };
 
   const handleDeleteVehicle = (v: Vehicle) => {
