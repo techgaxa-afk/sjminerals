@@ -92,7 +92,7 @@ function ReportsPage() {
   useMemo(() => { navigate({ search: (prev) => ({ ...prev, tab: reportType }), replace: true }); }, [reportType]); // eslint-disable-line
 
 
-  const allBillsInRange = useMemo(() => getBills().filter((b) => new Date(b.createdAt) >= start), [start]);
+  const allBillsInRange = useMemo(() => getBills().filter((b) => (new Date(b.createdAt) >= start && new Date(b.createdAt) <= end)), [start, end]);
   const passStats = useMemo(() => {
     const passBills = allBillsInRange.filter((b) => b.passEnabled);
     return {
@@ -104,8 +104,8 @@ function ReportsPage() {
   const data = useMemo(() => {
     const bills = allBillsInRange;
     const companies = getCompanies();
-    const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
-    const hitachiFuel = getHitachiFuel().filter((f) => new Date(f.createdAt) >= start);
+    const hitachiEntries = getHitachiEntries().filter((e) => (new Date(e.createdAt) >= start && new Date(e.createdAt) <= end));
+    const hitachiFuel = getHitachiFuel().filter((f) => (new Date(f.createdAt) >= start && new Date(f.createdAt) <= end));
     const ops = getOperators();
 
     if (reportType === "company") {
@@ -164,14 +164,14 @@ function ReportsPage() {
         trips: oEntries.length, revenue: totalHrs, outstanding: totalSalary, isOperator: true,
       };
     }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(searchText.toLowerCase()));
-  }, [reportType, filter, start, searchText, allBillsInRange]);
+  }, [reportType, start, end, searchText, allBillsInRange]);
 
   const ledger = useMemo(() => {
     if (reportType !== "ledger") return [];
     const companies = getCompanies();
     const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
     const rows = getAllCompanyPayments()
-      .filter((p) => new Date(p.paymentDate) >= start)
+      .filter((p) => (new Date(p.paymentDate) >= start && new Date(p.paymentDate) <= end))
       .map((p) => ({
         id: p.id,
         date: p.paymentDate,
@@ -184,7 +184,7 @@ function ReportsPage() {
       .filter((r) => !searchText || r.company.toLowerCase().includes(searchText.toLowerCase()) || r.reference.toLowerCase().includes(searchText.toLowerCase()))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return rows;
-  }, [reportType, start, searchText]);
+  }, [reportType, start, end, searchText]);
 
   const ledgerTotal = useMemo(() => ledger.reduce((s, r) => s + r.amount, 0), [ledger]);
 
