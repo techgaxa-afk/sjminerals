@@ -752,27 +752,68 @@ export function savePayment(p: Omit<Payment, "id" | "createdAt">): Payment {
 export function getPaymentsByBill(billId: string): Payment[] { return cache.payments.filter((p) => p.billId === billId); }
 export function getPaymentsByCompany(companyId: string): Payment[] { return cache.payments.filter((p) => p.companyId === companyId); }
 
-// Allocate a single payment across the company's oldest outstanding bills (FIFO).
-// Creates one Payment row per allocated bill so existing per-bill linkage stays intact.
-export function saveCompanyPayment(input: { companyId: string; amount: number; date: string; notes: string }): Payment[] {
-  let remaining = input.amount;
-  const created: Payment[] = [];
-  const bills = cache.bills
-    .filter((b) => b.companyId === input.companyId && (b.outstandingAmount || 0) > 0)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  for (const b of bills) {
-    if (remaining <= 0) break;
-    const apply = Math.min(remaining, b.outstandingAmount || 0);
-    if (apply <= 0) continue;
-    created.push(savePayment({ billId: b.id, companyId: input.companyId, amount: apply, date: input.date, notes: input.notes }));
-    remaining -= apply;
-  }
-  // If anything remains (overpayment / no outstanding bills), record it against the most recent bill, or a standalone row.
-  if (remaining > 0) {
-    const fallback = cache.bills.filter((b) => b.companyId === input.companyId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    created.push(savePayment({ billId: fallback?.id ?? "", companyId: input.companyId, amount: remaining, date: input.date, notes: input.notes + (fallback ? " (advance)" : " (no bill)") }));
-  }
-  return created;
+// ============ Company Payments (company-level ledger) ============
+export function getCompanyPayments(companyId: string): CompanyPayment[] {
+  return cache.company_payments
+    .filter((p) => p.companyId === companyId)
+    .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+}
+export function getAllCompanyPayments(): CompanyPayment[] {
+  return cache.company_payments.slice();
+}
+export async function saveCompanyPayment(
+  input: { companyId: string; amount: number; paymentDate: string; paymentMethod?: string; referenceNumber?: string; notes?: string },
+): Promise<CompanyPayment> {
+  if (!input.companyId) throw new Error("Company is required");
+  if (!input.amount || input.amount <= 0) throw new Error("Amount must be greater than zero");
+  if (!input.paymentDate) throw new Error("Payment date is required");
+  const payment: CompanyPayment = {
+    id: uid(),
+    companyId: input.companyId,
+    amount: Number(input.amount),
+    paymentDate: input.paymentDate,
+    paymentMethod: input.paymentMethod,
+    referenceNumber: input.referenceNumber,
+    notes: input.notes,
+    createdAt: new Date().toISOString(),
+  };
+  const res = await supabase.from("company_payments").insert(companyPaymentToDb(payment)).select("id").single();
+  if (res.error) { emitError(res.error.message || "Payment insert failed"); throw res.error; }
+  cache.company_payments.push(payment); bump();
+  return payment;
+}
+export async function updateCompanyPayment(
+  id: string,
+  updates: Partial<Omit<CompanyPayment, "id" | "companyId" | "createdAt">>,
+): Promise<void> {
+  const existing = cache.company_payments.find((p) => p.id === id);
+  if (!existing) throw new Error("Payment not found");
+  if (updates.amount !== undefined && (!updates.amount || updates.amount <= 0)) throw new Error("Amount must be greater than zero");
+  const merged: CompanyPayment = { ...existing, ...updates };
+  const res = await supabase.from("company_payments").update({
+    amount: merged.amount,
+    payment_date: merged.paymentDate,
+    payment_method: merged.paymentMethod ?? null,
+    reference_number: merged.referenceNumber ?? null,
+    notes: merged.notes ?? null,
+  }).eq("id", id);
+  if (res.error) { emitError(res.error.message || "Payment update failed"); throw res.error; }
+  cache.company_payments = cache.company_payments.map((p) => p.id === id ? merged : p);
+  bump();
+}
+export async function deleteCompanyPayment(id: string): Promise<void> {
+  const res = await supabase.from("company_payments").delete().eq("id", id);
+  if (res.error) { emitError(res.error.message || "Payment delete failed"); throw res.error; }
+  cache.company_payments = cache.company_payments.filter((p) => p.id !== id);
+  bump();
+}
+
+// Total helpers (single source of truth)
+export function getCompanyTotalSales(companyId: string): number {
+  return cache.bills.filter((b) => b.companyId === companyId).reduce((s, b) => s + (b.totalAmount || 0), 0);
+}
+export function getCompanyTotalPaid(companyId: string): number {
+  return cache.company_payments.filter((p) => p.companyId === companyId).reduce((s, p) => s + (p.amount || 0), 0);
 }
 
 
