@@ -201,6 +201,10 @@ const mapCompanyPayment = (r: any): CompanyPayment => ({
   id: r.id, companyId: r.company_id, amount: Number(r.amount) || 0,
   paymentDate: r.payment_date, paymentMethod: r.payment_method ?? undefined,
   referenceNumber: r.reference_number ?? undefined, notes: r.notes ?? undefined,
+  receiptNumber: r.receipt_number ?? undefined,
+  status: r.status === "reversed" ? "reversed" : "active",
+  reversalReason: r.reversal_reason ?? undefined,
+  reversedAt: r.reversed_at ?? undefined,
   createdAt: r.created_at,
 });
 const companyPaymentToDb = (p: CompanyPayment) => ({
@@ -209,6 +213,8 @@ const companyPaymentToDb = (p: CompanyPayment) => ({
   payment_method: p.paymentMethod ?? null,
   reference_number: p.referenceNumber ?? null,
   notes: p.notes ?? null,
+  receipt_number: p.receiptNumber ?? null,
+  status: p.status ?? "active",
 });
 const mapMachine = (r: any): HitachiMachine => ({
   id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0, createdAt: r.created_at,
