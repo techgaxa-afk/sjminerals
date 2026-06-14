@@ -199,6 +199,17 @@ function CompaniesPage() {
                       <div><p className="text-muted-foreground">Collected</p><p className="font-semibold text-success">₹{collected.toLocaleString()}</p></div>
                       <div><p className="text-muted-foreground">Outstanding</p><p className={`font-semibold ${outstanding > 0 ? "text-warning" : "text-success"}`}>₹{outstanding.toLocaleString()}</p></div>
                     </div>
+                    {c.creditLimit > 0 && (
+                      <p className="text-[11px] mt-1.5">
+                        <span className="text-muted-foreground">Limit: </span>
+                        <span className={`font-semibold ${outstanding > c.creditLimit ? "text-destructive" : "text-foreground"}`}>
+                          ₹{outstanding.toLocaleString()} / ₹{c.creditLimit.toLocaleString()}
+                        </span>
+                        {outstanding > c.creditLimit && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">Credit Limit Exceeded</span>
+                        )}
+                      </p>
+                    )}
                     <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
                       <Wallet className="h-3 w-3" />
                       {lastPay ? `Last payment: ₹${lastPay.amount.toLocaleString()} · ${format(parseISO(lastPay.paymentDate), "dd MMM yyyy")}` : "No payments yet"}
