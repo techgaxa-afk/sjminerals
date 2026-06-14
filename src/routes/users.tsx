@@ -253,6 +253,18 @@ function UsersInner() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
+                <th className="p-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && filtered.every((u) => selected.has(u.id))}
+                    onChange={(e) => {
+                      const next = new Set(selected);
+                      if (e.target.checked) filtered.forEach((u) => next.add(u.id));
+                      else filtered.forEach((u) => next.delete(u.id));
+                      setSelected(next);
+                    }}
+                  />
+                </th>
                 <th className="text-left p-3 font-medium">User</th>
                 <th className="text-left p-3 font-medium">Role</th>
                 <th className="text-left p-3 font-medium">Status</th>
@@ -264,8 +276,11 @@ function UsersInner() {
               {filtered.map((u) => {
                 const isSelf = u.id === user?.id;
                 return (
-                  <tr key={u.id} className="border-t border-border">
+                  <tr key={u.id} className="border-t border-border hover:bg-muted/30">
                     <td className="p-3">
+                      <input type="checkbox" checked={selected.has(u.id)} onChange={() => toggleSel(u.id)} />
+                    </td>
+                    <td className="p-3 cursor-pointer" onClick={() => setViewing(u)}>
                       <div className="font-medium text-foreground">{u.fullName ?? "—"}</div>
                       <div className="text-xs text-muted-foreground">{u.email ?? u.id}</div>
                       {isSelf && <span className="text-[10px] uppercase tracking-wide text-primary">you</span>}
