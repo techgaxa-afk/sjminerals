@@ -65,6 +65,9 @@ function UsersInner() {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
+  const [viewing, setViewing] = useState<AdminUser | null>(null);
+  const [roleFilter, setRoleFilter] = useState<"all" | Role>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const reload = useCallback(async () => {
     setLoading(true);
