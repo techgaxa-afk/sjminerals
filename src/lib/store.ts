@@ -64,8 +64,10 @@ export interface HitachiFuel {
   hourReading: number; date: string; createdAt: string;
 }
 export type ExpenseCategory = "fuel" | "salary" | "maintenance" | "miscellaneous" | "tips" | "food";
+export type ExpensePaymentMode = "cash" | "upi";
 export interface Expense {
   id: string; category: ExpenseCategory; amount: number; date: string; notes: string;
+  paymentMode: ExpensePaymentMode;
   linkedBillId?: string; linkedCompanyId?: string; linkedOperatorId?: string; linkedMachineId?: string;
   createdAt: string;
 }
