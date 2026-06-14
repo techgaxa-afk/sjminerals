@@ -229,6 +229,14 @@ function ExpensesPage() {
               <label className="field-label">Notes</label>
               <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
+            {showOverdraftWarning && (
+              <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning space-y-0.5">
+                <p className="font-semibold">⚠ This expense will result in a negative {paymentMode === "cash" ? "cash" : "UPI"} balance.</p>
+                <p>Current Balance: ₹{currentBalance.toLocaleString()}</p>
+                <p>Expense: ₹{amtNum.toLocaleString()}</p>
+                <p>Projected Balance: <span className="font-bold">₹{projected.toLocaleString()}</span></p>
+              </div>
+            )}
             {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive whitespace-pre-line">{error}</div>}
             <div className="flex gap-2">
               <button onClick={handleSave} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Save</button>
