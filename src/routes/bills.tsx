@@ -190,13 +190,68 @@ function BillsPage() {
       <div className="space-y-4">
         <h1 className="module-header">Bill History</h1>
 
+  const allVisibleSelected = filtered.length > 0 && filtered.every((b) => selected.has(b.id));
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((b) => next.delete(b.id));
+        return next;
+      });
+    } else {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((b) => next.add(b.id));
+        return next;
+      });
+    }
+  };
+
+  const selectedBills = useMemo(() => bills.filter((b) => selected.has(b.id)), [bills, selected]);
+  const creditCount = selectedBills.filter((b) => b.outstandingAmount > 0).length;
+
+  const performBulkDelete = () => {
+    const ids = Array.from(selected);
+    const invoiceNumbers = selectedBills.map((b) => b.invoiceNumber || b.id.slice(-6).toUpperCase());
+    ids.forEach((id) => deleteBill(id));
+    try {
+      console.info(`[AUDIT] Bulk delete ${ids.length} invoices @ ${new Date().toISOString()}:`, invoiceNumbers);
+    } catch { /* noop */ }
+    clearSelection();
+    setBulkConfirm(false);
+    refresh();
+  };
+
+  const exportSelectedPDFs = async () => {
+    for (const b of selectedBills) {
+      // eslint-disable-next-line no-await-in-loop
+      await exportInvoicePDF(b);
+    }
+  };
+
+  return (
+    <AppLayout>
+      <div className="space-y-4 pb-24">
+        <h1 className="module-header">Bill History</h1>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search invoice #, company, vehicle..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search company, driver, vehicle..." className="w-full rounded-md border border-input bg-secondary pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
         </div>
+
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2">
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+              <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="h-4 w-4 rounded border-border accent-primary" />
+              <CheckSquare className="h-4 w-4 text-muted-foreground" />
+              Select All ({filtered.length})
+            </label>
+            <span className="text-xs text-muted-foreground">Selected: <span className="font-semibold text-foreground">{selected.size}</span></span>
+          </div>
+        )}
 
         <div className="space-y-2">
           {filtered.map((bill) => (
