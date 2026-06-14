@@ -726,6 +726,13 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
       else cache.payments.push(payment);
     }
 
+    for (const cp of companyPaymentRows) {
+      const idx = cache.company_payments.findIndex((row) => row.id === cp.id);
+      if (idx >= 0) cache.company_payments[idx] = cp;
+      else cache.company_payments.push(cp);
+    }
+
+
     bump();
     return assembleBill(persistedBill);
   } catch (error) {
