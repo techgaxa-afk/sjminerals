@@ -101,12 +101,15 @@ type Cache = {
   operators: Operator[];
   expenses: Expense[];
   credit_adjustments: CreditAdjustment[];
+  drivers: Driver[];
+  driver_transactions: DriverTransaction[];
 };
 const cache: Cache = {
   products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
   company_payments: [],
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
   credit_adjustments: [],
+  drivers: [], driver_transactions: [],
 };
 let version = 0;
 const listeners = new Set<() => void>();
