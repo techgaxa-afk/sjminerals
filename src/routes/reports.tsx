@@ -117,6 +117,32 @@ function ReportsPage() {
 
   const ledgerTotal = useMemo(() => ledger.reduce((s, r) => s + r.amount, 0), [ledger]);
 
+  const aging = useMemo(() => {
+    if (reportType !== "aging") return [];
+    return getCompanies()
+      .map((c) => {
+        const b = getCompanyAging(c.id);
+        return { id: c.id, name: c.name, ...b };
+      })
+      .filter((r) => r.total > 0 && (!search || r.name.toLowerCase().includes(search.toLowerCase())))
+      .sort((a, b) => b.total - a.total);
+  }, [reportType, search]);
+
+  const agingTotals = useMemo(
+    () => aging.reduce(
+      (acc, r) => ({
+        current: acc.current + r.current,
+        d30: acc.d30 + r.d30,
+        d60: acc.d60 + r.d60,
+        d90: acc.d90 + r.d90,
+        d90plus: acc.d90plus + r.d90plus,
+        total: acc.total + r.total,
+      }),
+      { current: 0, d30: 0, d60: 0, d90: 0, d90plus: 0, total: 0 },
+    ),
+    [aging],
+  );
+
   const exportLedgerCSV = () => {
     const headers = ["Date", "Company", "Amount", "Method", "Reference", "Notes"];
     const escape = (v: string | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -137,6 +163,7 @@ function ReportsPage() {
     { id: "hitachi", label: "Hitachi", icon: Settings },
     { id: "operator", label: "Operator", icon: Users },
     { id: "ledger", label: "Ledger", icon: Wallet },
+    { id: "aging", label: "Aging", icon: AlertTriangle },
   ];
 
   return (
