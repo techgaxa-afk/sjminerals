@@ -3,11 +3,12 @@ import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
-  getProducts, getCompanies, saveCompany, saveBill, saveExpense,
-  getVehicles, getVehiclesByCompany, saveVehicle,
+  getProducts, getCompanies, saveBill, saveExpense,
+  getVehicles, saveVehicle,
   type BillItem, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, Building2 } from "lucide-react";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search } from "lucide-react";
+
 
 export const Route = createFileRoute("/billing")({
   component: BillingPage,
@@ -40,9 +41,10 @@ function BillingPage() {
   const [passAmount, setPassAmount] = useState<number>(DEFAULT_PASS_AMOUNT);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
-  const [showNewCompany, setShowNewCompany] = useState(false);
-  const [newComp, setNewComp] = useState({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
+  const [showCreateVehicle, setShowCreateVehicle] = useState(false);
+  const [newVeh, setNewVeh] = useState({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
   const [suggestions, setSuggestions] = useState<Company[]>([]);
+
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
   const total = items.reduce((s, i) => s + i.total, 0);
@@ -109,32 +111,40 @@ function BillingPage() {
     selectCompany({ ...c, driverName: v.driverName, vehicleNumber: v.vehicleNumber, vehicleCapacity: v.vehicleCapacity });
   };
 
-  const handleAddCompany = async () => {
-    if (!newComp.name.trim() || !newComp.vehicleNumber.trim()) return;
+  const openCreateVehicle = () => {
+    const cos = getCompanies();
+    setNewVeh({
+      companyId: cos[0]?.id ?? "",
+      vehicleNumber: vehicleSearch.trim(),
+      driverName: "",
+      vehicleCapacity: "",
+    });
+    setShowCreateVehicle(true);
+  };
+
+  const handleCreateVehicle = async () => {
+    if (!newVeh.companyId) { toast.error("Select a company"); return; }
+    if (!newVeh.vehicleNumber.trim()) { toast.error("Vehicle number is required"); return; }
     try {
-      // Reuse existing company by name if one already exists (case-insensitive)
-      const existing = getCompanies().find((c) => c.name.toLowerCase() === newComp.name.trim().toLowerCase());
-      const company = existing ?? (await saveCompany({
-        name: newComp.name.trim(),
-        contactNumber: newComp.contactNumber,
-        address: "", notes: "", openingBalance: 0,
-        driverName: "", vehicleNumber: "", vehicleCapacity: 0,
-      }));
       const vehicle = await saveVehicle({
-        companyId: company.id,
-        vehicleNumber: newComp.vehicleNumber.trim(),
-        vehicleCapacity: Number(newComp.vehicleCapacity) || 0,
-        driverName: newComp.driverName,
+        companyId: newVeh.companyId,
+        vehicleNumber: newVeh.vehicleNumber.trim(),
+        driverName: newVeh.driverName.trim(),
+        vehicleCapacity: Number(newVeh.vehicleCapacity) || 0,
         status: "active",
       });
-      selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
-
-      setNewComp({ name: "", driverName: "", vehicleNumber: "", vehicleCapacity: "", contactNumber: "" });
-      setShowNewCompany(false);
+      const company = getCompanies().find((c) => c.id === newVeh.companyId);
+      if (company) {
+        selectCompany({ ...company, driverName: vehicle.driverName, vehicleNumber: vehicle.vehicleNumber, vehicleCapacity: vehicle.vehicleCapacity });
+      }
+      setShowCreateVehicle(false);
+      setNewVeh({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
+      toast.success("Vehicle created");
     } catch (e: any) {
-      toast.error(e?.message || "Failed to create company/vehicle");
+      toast.error(e?.message || "Failed to create vehicle");
     }
   };
+
 
   const addItem = (productId: string) => {
     const product = products.find((p) => p.id === productId);
@@ -217,22 +227,32 @@ function BillingPage() {
                 ))}
               </div>
             )}
-            <button onClick={() => setShowNewCompany(!showNewCompany)} className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"><Plus className="h-3 w-3" /> Add New Company</button>
+            {vehicleSearch.trim().length >= 2 && suggestions.length === 0 && !selectedCompany && !showCreateVehicle && (
+              <div className="mt-2 rounded-md border border-dashed border-border bg-secondary/40 p-3 flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">Vehicle not found</p>
+                <button onClick={openCreateVehicle} className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-3 w-3" /> Create Vehicle</button>
+              </div>
+            )}
           </div>
 
-          {showNewCompany && (
+          {showCreateVehicle && (
             <div className="rounded-md border border-border bg-secondary/50 p-3 space-y-2">
-              <div className="flex items-center justify-between"><span className="text-xs font-medium text-foreground">New Company</span><button onClick={() => setShowNewCompany(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button></div>
-              <input value={newComp.name} onChange={(e) => setNewComp({ ...newComp, name: e.target.value })} placeholder="Company Name *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <input value={newComp.driverName} onChange={(e) => setNewComp({ ...newComp, driverName: e.target.value })} placeholder="Driver Name" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <div className="grid grid-cols-2 gap-2">
-                <input value={newComp.vehicleNumber} onChange={(e) => setNewComp({ ...newComp, vehicleNumber: e.target.value })} placeholder="Vehicle Number *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                <input type="number" value={newComp.vehicleCapacity} onChange={(e) => setNewComp({ ...newComp, vehicleCapacity: e.target.value })} placeholder="Capacity (tons)" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <div className="flex items-center justify-between"><span className="text-xs font-medium text-foreground">Create Vehicle</span><button onClick={() => setShowCreateVehicle(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button></div>
+              <div>
+                <label className="text-xs text-muted-foreground">Existing Company *</label>
+                <select value={newVeh.companyId} onChange={(e) => setNewVeh({ ...newVeh, companyId: e.target.value })} className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">— Select company —</option>
+                  {getCompanies().map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                {getCompanies().length === 0 && <p className="text-[11px] text-warning mt-1">No companies exist. Create one in the Companies page first.</p>}
               </div>
-              <input value={newComp.contactNumber} onChange={(e) => setNewComp({ ...newComp, contactNumber: e.target.value })} placeholder="Contact Number" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <button onClick={handleAddCompany} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Save & Select</button>
+              <input value={newVeh.vehicleNumber} onChange={(e) => setNewVeh({ ...newVeh, vehicleNumber: e.target.value })} placeholder="Vehicle Number *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input value={newVeh.driverName} onChange={(e) => setNewVeh({ ...newVeh, driverName: e.target.value })} placeholder="Driver Name" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="number" value={newVeh.vehicleCapacity} onChange={(e) => setNewVeh({ ...newVeh, vehicleCapacity: e.target.value })} placeholder="Capacity (tons)" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <button onClick={handleCreateVehicle} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Save & Select</button>
             </div>
           )}
+
 
           {(companyName || driverName) && (
             <div className="rounded-md bg-primary/5 border border-primary/20 p-3 space-y-1">

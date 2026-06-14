@@ -5,14 +5,18 @@ import { toast } from "sonner";
 
 import {
   getCompanies, saveCompany, updateCompany, deleteCompany,
-  getCompanyOutstanding, getBillsByCompany, getVehiclesByCompany,
-  useCloudData, type Company,
+  getCompanyOutstanding, getVehiclesByCompany, getVehicleTotals,
+  saveVehicle, updateVehicle, deleteVehicle,
+  useCloudData, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronRight } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/companies")({
   component: CompaniesPage,
 });
+
+type CompanyForm = { name: string; contactNumber: string; address: string; notes: string; openingBalance: string };
+type VehicleForm = { id?: string; companyId: string; vehicleNumber: string; driverName: string; vehicleCapacity: string; status: "active" | "inactive" };
 
 function CompaniesPage() {
   useCloudData();
@@ -20,7 +24,9 @@ function CompaniesPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
+  const [form, setForm] = useState<CompanyForm>({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [vehForm, setVehForm] = useState<VehicleForm | null>(null);
 
   const filtered = useMemo(() =>
     companies.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())),
@@ -33,9 +39,10 @@ function CompaniesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error("Company name is required"); return; }
+    const name = form.name.trim();
+    if (!name) { toast.error("Company name is required"); return; }
     const payload = {
-      name: form.name.trim(),
+      name,
       contactNumber: form.contactNumber.trim(),
       address: form.address.trim(),
       notes: form.notes.trim(),
@@ -43,6 +50,9 @@ function CompaniesPage() {
     };
     try {
       if (editingId) {
+        // Local duplicate check (excluding self)
+        const dup = companies.find((c) => c.id !== editingId && c.name.trim().toLowerCase() === name.toLowerCase());
+        if (dup) { toast.error(`Company "${dup.name}" already exists`); return; }
         updateCompany(editingId, payload);
         toast.success("Company updated");
       } else {
@@ -75,6 +85,44 @@ function CompaniesPage() {
     toast.success("Company deleted");
   };
 
+  const toggleExpanded = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSaveVehicle = async () => {
+    if (!vehForm) return;
+    const vehicleNumber = vehForm.vehicleNumber.trim();
+    if (!vehicleNumber) { toast.error("Vehicle number is required"); return; }
+    const data = {
+      vehicleNumber,
+      vehicleCapacity: Number(vehForm.vehicleCapacity) || 0,
+      driverName: vehForm.driverName.trim(),
+      status: vehForm.status,
+    };
+    try {
+      if (vehForm.id) {
+        updateVehicle(vehForm.id, data);
+        toast.success("Vehicle updated");
+      } else {
+        await saveVehicle({ companyId: vehForm.companyId, ...data });
+        toast.success("Vehicle added");
+      }
+      setVehForm(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save vehicle");
+    }
+  };
+
+  const handleDeleteVehicle = (e: React.MouseEvent, v: Vehicle) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!confirm(`Delete vehicle ${v.vehicleNumber}? Past bills are kept.`)) return;
+    deleteVehicle(v.id);
+    toast.success("Vehicle deleted");
+  };
 
   return (
     <AppLayout>
@@ -97,37 +145,98 @@ function CompaniesPage() {
             <div><label className="field-label">Address (optional)</label><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
             <div><label className="field-label">Notes (optional)</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Internal notes" rows={2} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
             <div><label className="field-label">Opening Balance / Previous Due (₹)</label><input type="number" value={form.openingBalance} onChange={(e) => setForm({ ...form, openingBalance: e.target.value })} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /><p className="text-[11px] text-muted-foreground mt-1">Adds to the company's outstanding balance immediately.</p></div>
-
-            <p className="text-xs text-muted-foreground">Vehicles are managed inside the company's page.</p>
+            <p className="text-xs text-muted-foreground">Vehicles are added by expanding a company below.</p>
             <button onClick={handleSave} className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">{editingId ? "Update" : "Save"} Company</button>
           </div>
         )}
 
         <div className="space-y-2">
           {filtered.map((c) => {
-            const outstanding = getCompanyOutstanding(c.id);
-            const cBills = getBillsByCompany(c.id);
             const vehicles = getVehiclesByCompany(c.id);
-            const totalSales = cBills.reduce((s, b) => s + (b.totalAmount || 0), 0);
-            const totalPaid = cBills.reduce((s, b) => s + (b.paidAmount || 0), 0);
+            const vehicleTotals = vehicles.map((v) => ({ v, ...getVehicleTotals(c.id, v.vehicleNumber) }));
+            const sales = vehicleTotals.reduce((s, x) => s + x.sales, 0);
+            const paid = vehicleTotals.reduce((s, x) => s + x.paid, 0);
+            const due = getCompanyOutstanding(c.id);
+            const isOpen = expanded.has(c.id);
+            const isEditingVeh = vehForm && vehForm.companyId === c.id;
+
             return (
-              <Link key={c.id} to="/companies/$id" params={{ id: c.id }} className="stat-card flex items-start justify-between hover:border-primary/40 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> {c.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Truck className="h-3 w-3" /> {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"}</p>
-                  {c.contactNumber && <p className="text-xs text-muted-foreground">{c.contactNumber}</p>}
-                  <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-                    <div><p className="text-muted-foreground">Sales</p><p className="font-semibold text-foreground">₹{totalSales.toLocaleString()}</p></div>
-                    <div><p className="text-muted-foreground">Paid</p><p className="font-semibold text-success">₹{totalPaid.toLocaleString()}</p></div>
-                    <div><p className="text-muted-foreground">Due</p><p className={`font-semibold ${outstanding > 0 ? "text-warning" : "text-success"}`}>₹{outstanding.toLocaleString()}</p></div>
+              <div key={c.id} className="stat-card">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> {c.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Truck className="h-3 w-3" /> {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"}</p>
+                    {c.contactNumber && <p className="text-xs text-muted-foreground">{c.contactNumber}</p>}
+                    <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                      <div><p className="text-muted-foreground">Sales</p><p className="font-semibold text-foreground">₹{sales.toLocaleString()}</p></div>
+                      <div><p className="text-muted-foreground">Paid</p><p className="font-semibold text-success">₹{paid.toLocaleString()}</p></div>
+                      <div><p className="text-muted-foreground">Due</p><p className={`font-semibold ${due > 0 ? "text-warning" : "text-success"}`}>₹{due.toLocaleString()}</p></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    <button onClick={(e) => handleEdit(e, c)} aria-label="Edit company" className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={(e) => handleDelete(e, c.id)} aria-label="Delete company" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={() => toggleExpanded(c.id)} aria-label={isOpen ? "Collapse" : "Expand"} aria-expanded={isOpen} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary">
+                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 ml-2">
-                  <button onClick={(e) => handleEdit(e, c)} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={(e) => handleDelete(e, c.id)} className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </Link>
+
+                {isOpen && (
+                  <div className="mt-3 pt-3 border-t border-border space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-foreground">Vehicles</p>
+                      <Link to="/companies/$id" params={{ id: c.id }} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">View details <ArrowRight className="h-3 w-3" /></Link>
+                    </div>
+
+                    {vehicleTotals.length === 0 && !isEditingVeh && (
+                      <p className="text-xs text-muted-foreground py-1">No vehicles yet.</p>
+                    )}
+
+                    {vehicleTotals.map(({ v, sales: vs, paid: vp, due: vd }) => (
+                      <div key={v.id} className="rounded-md border border-border bg-secondary/40 p-2.5">
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground flex items-center gap-1.5"><Truck className="h-3.5 w-3.5 text-primary" /> {v.vehicleNumber}</p>
+                            {v.driverName && <p className="text-[11px] text-muted-foreground">Driver: {v.driverName}</p>}
+                            {v.vehicleCapacity > 0 && <p className="text-[11px] text-muted-foreground">Capacity: {v.vehicleCapacity} t</p>}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setVehForm({ id: v.id, companyId: c.id, vehicleNumber: v.vehicleNumber, driverName: v.driverName, vehicleCapacity: String(v.vehicleCapacity || ""), status: v.status })} aria-label="Edit vehicle" className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={(e) => handleDeleteVehicle(e, v)} aria-label="Delete vehicle" className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mt-2 text-[11px]">
+                          <div><p className="text-muted-foreground">Sales</p><p className="font-semibold text-foreground">₹{vs.toLocaleString()}</p></div>
+                          <div><p className="text-muted-foreground">Paid</p><p className="font-semibold text-success">₹{vp.toLocaleString()}</p></div>
+                          <div><p className="text-muted-foreground">Due</p><p className={`font-semibold ${vd > 0 ? "text-warning" : "text-success"}`}>₹{vd.toLocaleString()}</p></div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {isEditingVeh ? (
+                      <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-foreground">{vehForm!.id ? "Edit Vehicle" : "New Vehicle"}</p>
+                          <button onClick={() => setVehForm(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+                        </div>
+                        <input value={vehForm!.vehicleNumber} onChange={(e) => setVehForm({ ...vehForm!, vehicleNumber: e.target.value })} placeholder="Vehicle Number *" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                        <input value={vehForm!.driverName} onChange={(e) => setVehForm({ ...vehForm!, driverName: e.target.value })} placeholder="Driver Name" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="number" step="0.01" value={vehForm!.vehicleCapacity} onChange={(e) => setVehForm({ ...vehForm!, vehicleCapacity: e.target.value })} placeholder="Capacity (t)" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                          <select value={vehForm!.status} onChange={(e) => setVehForm({ ...vehForm!, status: e.target.value as "active" | "inactive" })} className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </div>
+                        <button onClick={handleSaveVehicle} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">{vehForm!.id ? "Update" : "Save"} Vehicle</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setVehForm({ companyId: c.id, vehicleNumber: "", driverName: "", vehicleCapacity: "", status: "active" })} className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-secondary/40 px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary/70 transition-colors"><Plus className="h-3.5 w-3.5" /> Add Vehicle</button>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })}
           {filtered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No companies found.</p>}
