@@ -104,6 +104,7 @@ export type Database = {
           company_id: string
           company_name: string
           created_at: string
+          driver_id: string | null
           driver_name: string
           id: string
           invoice_number: string | null
@@ -126,6 +127,7 @@ export type Database = {
           company_id: string
           company_name: string
           created_at?: string
+          driver_id?: string | null
           driver_name?: string
           id?: string
           invoice_number?: string | null
@@ -148,6 +150,7 @@ export type Database = {
           company_id?: string
           company_name?: string
           created_at?: string
+          driver_id?: string | null
           driver_name?: string
           id?: string
           invoice_number?: string | null
@@ -171,6 +174,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bills_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
         ]
@@ -294,6 +304,80 @@ export type Database = {
           date?: string
           id?: string
           reason?: string
+        }
+        Relationships: []
+      }
+      driver_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          driver_id: string
+          id: string
+          notes: string
+          txn_date: string
+          txn_type: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          driver_id: string
+          id?: string
+          notes?: string
+          txn_date?: string
+          txn_type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          driver_id?: string
+          id?: string
+          notes?: string
+          txn_date?: string
+          txn_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_transactions_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drivers: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          license_number: string
+          mobile: string
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string
+          created_at?: string
+          id?: string
+          license_number?: string
+          mobile?: string
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          license_number?: string
+          mobile?: string
+          name?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
