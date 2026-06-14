@@ -88,6 +88,7 @@ function HitachiPage() {
           amount: operatorSalary,
           date: entryDate,
           notes: `Operator ${operator?.name || ""} - ${machine?.name || ""} - ${totalHours}hrs`,
+          paymentMode: "cash",
           linkedOperatorId: entryOperatorId,
           linkedMachineId: entryMachineId,
         });
