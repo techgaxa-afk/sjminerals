@@ -438,24 +438,34 @@ function CompanyDetailsPage() {
             </div>
             {payments.map((p) => {
               const isReversed = p.status === "reversed";
+              const isExpanded = expandedReversal === p.id;
               return (
-                <div key={p.id} className={`stat-card grid gap-1 items-center text-xs ${isReversed ? "opacity-60" : ""}`} style={{ gridTemplateColumns: "repeat(14,minmax(0,1fr))" }}>
-                  <span className="col-span-2 text-muted-foreground">{format(parseISO(p.paymentDate), "dd MMM yy")}</span>
-                  <span className="col-span-2 font-mono text-[10px] text-foreground truncate" title={p.receiptNumber}>{p.receiptNumber || "—"}</span>
-                  <span className={`col-span-2 text-right font-medium ${isReversed ? "line-through text-muted-foreground" : "text-success"}`}>₹{p.amount.toLocaleString()}</span>
-                  <span className="col-span-2 text-foreground">{p.paymentMethod || "—"}</span>
-                  <span className="col-span-2 text-foreground truncate" title={p.referenceNumber}>{p.referenceNumber || "—"}</span>
-                  <span className="col-span-1">
-                    {isReversed
-                      ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive" title={p.reversalReason}>REVERSED</span>
-                      : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-success/20 text-success">ACTIVE</span>}
-                  </span>
-                  <span className="col-span-3 flex items-center justify-end gap-1">
-                    <button onClick={() => exportReceiptPDF(p, company)} title="Print / Download Receipt" className="rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-secondary"><Receipt className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => handleEditPayment(p)} disabled={isReversed} title="Edit" className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"><Pencil className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => { setReverseTarget(p); setReverseReason(""); }} disabled={isReversed} title="Reverse" className="rounded-md p-1 text-muted-foreground hover:text-warning hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"><Undo2 className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => handleDeletePayment(p)} disabled={isReversed} title="Delete" className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"><Trash2 className="h-3.5 w-3.5" /></button>
-                  </span>
+                <div key={p.id} className="space-y-1">
+                  <div className={`stat-card grid gap-1 items-center text-xs ${isReversed ? "opacity-60" : ""}`} style={{ gridTemplateColumns: "repeat(14,minmax(0,1fr))" }}>
+                    <span className="col-span-2 text-muted-foreground">{format(parseISO(p.paymentDate), "dd MMM yy")}</span>
+                    <span className="col-span-2 font-mono text-[10px] text-foreground truncate" title={p.receiptNumber}>{p.receiptNumber || "—"}</span>
+                    <span className={`col-span-2 text-right font-medium ${isReversed ? "line-through text-muted-foreground" : "text-success"}`}>₹{p.amount.toLocaleString()}</span>
+                    <span className="col-span-2 text-foreground">{p.paymentMethod || "—"}</span>
+                    <span className="col-span-2 text-foreground truncate" title={p.referenceNumber}>{p.referenceNumber || "—"}</span>
+                    <span className="col-span-1">
+                      {isReversed
+                        ? <button onClick={() => setExpandedReversal(isExpanded ? null : p.id)} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive hover:bg-destructive/30 inline-flex items-center gap-0.5" title="Tap for reversal details"><Info className="h-2.5 w-2.5" />REVERSED</button>
+                        : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-success/20 text-success">ACTIVE</span>}
+                    </span>
+                    <span className="col-span-3 flex items-center justify-end gap-1">
+                      <button onClick={() => setReceiptForModal(p)} title="Receipt (preview / print / share)" className="rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-secondary"><Receipt className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => exportReceiptPDF(p, company)} title="Download Receipt PDF" className="rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-secondary"><Download className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => handleEditPayment(p)} disabled={isReversed} title="Edit" className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"><Pencil className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => { setReverseTarget(p); setReverseReason(""); }} disabled={isReversed} title="Reverse" className="rounded-md p-1 text-muted-foreground hover:text-warning hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"><Undo2 className="h-3.5 w-3.5" /></button>
+                    </span>
+                  </div>
+                  {isReversed && isExpanded && (
+                    <div className="ml-2 rounded-md border-l-2 border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-muted-foreground space-y-0.5">
+                      <div><span className="text-destructive font-semibold">Reversed:</span> {p.reversedAt ? format(parseISO(p.reversedAt), "dd MMM yyyy, HH:mm") : "—"}</div>
+                      {p.reversalReason && <div><span className="font-semibold">Reason:</span> {p.reversalReason}</div>}
+                      <div className="text-[10px] italic">Excluded from totals · preserved for audit</div>
+                    </div>
+                  )}
                 </div>
               );
             })}
