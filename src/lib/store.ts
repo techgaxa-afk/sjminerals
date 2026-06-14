@@ -8,7 +8,7 @@ export interface Product {
 }
 export interface Company {
   id: string; name: string; contactNumber: string;
-  address: string; notes: string; openingBalance: number; createdAt: string;
+  address: string; notes: string; openingBalance: number; creditLimit: number; createdAt: string;
 }
 export interface Vehicle {
   id: string; companyId: string; vehicleNumber: string;
