@@ -199,6 +199,54 @@ function DashboardPage() {
           </div>
         )}
 
+        {/* AR Collection Widgets */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="stat-card border-success/30 bg-success/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-success"><Wallet className="h-3.5 w-3.5" /> Today's Collections</div>
+            <p className="text-xl font-bold text-success">₹{collectionStats.today.toLocaleString()}</p>
+          </div>
+          <div className="stat-card border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><Calendar className="h-3.5 w-3.5" /> This Month
+            </div>
+            <p className="text-xl font-bold text-primary">₹{collectionStats.month.toLocaleString()}</p>
+          </div>
+          <div className="stat-card border-warning/30 bg-warning/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Outstanding</div>
+            <p className="text-xl font-bold text-warning">₹{collectionStats.outstanding.toLocaleString()}</p>
+          </div>
+          <div className="stat-card border-destructive/30 bg-destructive/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-destructive"><Clock className="h-3.5 w-3.5" /> Overdue (30+ d)</div>
+            <p className="text-xl font-bold text-destructive">₹{collectionStats.overdue.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Recent Payments */}
+        {recentPayments.length > 0 && (
+          <div className="stat-card">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Receipt className="h-4 w-4 text-primary" /> Recent Payments</h3>
+            <div className="overflow-x-auto">
+              <div className="min-w-[560px] space-y-1">
+                <div className="grid gap-2 text-[10px] font-medium text-muted-foreground uppercase px-1" style={{ gridTemplateColumns: "1.2fr 1.4fr 2fr 1fr 1fr" }}>
+                  <span>Date</span>
+                  <span>Receipt</span>
+                  <span>Company</span>
+                  <span className="text-right">Amount</span>
+                  <span>Method</span>
+                </div>
+                {recentPayments.map((p) => (
+                  <div key={p.id} className="grid gap-2 items-center text-xs py-1.5 px-1 border-b border-border/40 last:border-0" style={{ gridTemplateColumns: "1.2fr 1.4fr 2fr 1fr 1fr" }}>
+                    <span className="text-muted-foreground">{format(parseISO(p.paymentDate), "dd MMM yy")}</span>
+                    <span className="font-mono text-[10px] text-foreground truncate">{p.receiptNumber || "—"}</span>
+                    <span className="text-foreground truncate">{p.companyName}</span>
+                    <span className="text-right font-medium text-success">₹{p.amount.toLocaleString()}</span>
+                    <span className="text-foreground">{p.paymentMethod || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="stat-card">
             <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Calendar className="h-4 w-4" /> Revenue Trend</h3>
