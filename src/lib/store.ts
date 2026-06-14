@@ -1401,3 +1401,58 @@ export function hasLocalDataToImport(): boolean {
     try { const d = localStorage.getItem(k); return d && JSON.parse(d).length > 0; } catch { return false; }
   });
 }
+
+// ============ Drivers ============
+export function getDrivers(): Driver[] { return cache.drivers.slice(); }
+export function getDriver(id: string): Driver | undefined { return cache.drivers.find((d) => d.id === id); }
+export function saveDriver(input: Omit<Driver, "id" | "createdAt">): Driver {
+  const d: Driver = { ...input, id: uid(), createdAt: new Date().toISOString() };
+  cache.drivers.push(d); bump();
+  bg((supabase.from("drivers" as any) as any).insert(driverToDb(d)));
+  return d;
+}
+export function updateDriver(id: string, updates: Partial<Omit<Driver, "id" | "createdAt">>): void {
+  const idx = cache.drivers.findIndex((d) => d.id === id);
+  if (idx < 0) return;
+  cache.drivers[idx] = { ...cache.drivers[idx], ...updates }; bump();
+  bg((supabase.from("drivers" as any) as any).update(driverToDb(cache.drivers[idx])).eq("id", id));
+}
+export function deleteDriver(id: string): void {
+  cache.drivers = cache.drivers.filter((d) => d.id !== id);
+  cache.driver_transactions = cache.driver_transactions.filter((t) => t.driverId !== id);
+  bump();
+  bg((supabase.from("drivers" as any) as any).delete().eq("id", id));
+}
+
+// ============ Driver Transactions ============
+export function getDriverTransactions(driverId?: string): DriverTransaction[] {
+  const list = driverId ? cache.driver_transactions.filter((t) => t.driverId === driverId) : cache.driver_transactions.slice();
+  return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+export function saveDriverTransaction(input: Omit<DriverTransaction, "id" | "createdAt">): DriverTransaction {
+  const t: DriverTransaction = { ...input, id: uid(), createdAt: new Date().toISOString() };
+  cache.driver_transactions.push(t); bump();
+  bg((supabase.from("driver_transactions" as any) as any).insert(driverTxnToDb(t)));
+  return t;
+}
+export function deleteDriverTransaction(id: string): void {
+  cache.driver_transactions = cache.driver_transactions.filter((t) => t.id !== id); bump();
+  bg((supabase.from("driver_transactions" as any) as any).delete().eq("id", id));
+}
+export function getDriverBalance(driverId: string): number {
+  // Balance = advances - settlements (positive = driver owes back / advances outstanding)
+  return cache.driver_transactions
+    .filter((t) => t.driverId === driverId)
+    .reduce((s, t) => s + (t.txnType === "advance" ? t.amount : -t.amount), 0);
+}
+export function getDriverStats(driverId: string): { trips: number; revenue: number; profit: number } {
+  const bills = cache.bills.filter((b) => b.driverId === driverId);
+  const revenue = bills.reduce((s, b) => s + (b.totalAmount || 0), 0);
+  // Profit contribution = revenue - linked expenses for those bills
+  const billIds = new Set(bills.map((b) => b.id));
+  const linkedExp = cache.expenses
+    .filter((e) => e.linkedBillId && billIds.has(e.linkedBillId))
+    .reduce((s, e) => s + e.amount, 0);
+  return { trips: bills.length, revenue, profit: revenue - linkedExp };
+}
+
