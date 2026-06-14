@@ -149,6 +149,34 @@ function CompanyDetailsPage() {
     }
   };
 
+  const handleReversePayment = async () => {
+    if (!reverseTarget) return;
+    if (!reverseReason.trim()) { toast.error("Reason is required"); return; }
+    setReversing(true);
+    try {
+      await reverseCompanyPayment(reverseTarget.id, reverseReason.trim());
+      toast.success("Payment reversed");
+      setReverseTarget(null); setReverseReason("");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to reverse payment");
+    } finally { setReversing(false); }
+  };
+
+  const handleExportStatement = () => {
+    let fb = bills, fp = payments;
+    if (stmtFrom) {
+      const t = new Date(stmtFrom).getTime();
+      fb = fb.filter((b) => new Date(b.createdAt).getTime() >= t);
+      fp = fp.filter((p) => new Date(p.paymentDate).getTime() >= t);
+    }
+    if (stmtTo) {
+      const t = new Date(stmtTo).getTime() + 86400000;
+      fb = fb.filter((b) => new Date(b.createdAt).getTime() <= t);
+      fp = fp.filter((p) => new Date(p.paymentDate).getTime() <= t);
+    }
+    exportCompanyStatementPDF(company!, fb, fp.filter((p) => p.status !== "reversed") as any, outstanding);
+  };
+
   const handleSaveVehicle = async () => {
     if (!vehForm || !vehForm.vehicleNumber.trim()) { toast.error("Vehicle number required"); return; }
     const data = {
