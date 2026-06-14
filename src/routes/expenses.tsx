@@ -24,6 +24,7 @@ const CATEGORIES: { value: ExpenseCategory; label: string; icon: typeof Fuel }[]
 ];
 
 function ExpensesPage() {
+  useCloudData();
   const [expenses, setExpenses] = useState<Expense[]>(getExpenses);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -37,7 +38,7 @@ function ExpensesPage() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const sorted = [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sorted = [...expenses].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const filtered = sorted.filter((e) => {
     const matchSearch = e.notes.toLowerCase().includes(search.toLowerCase()) || e.category.includes(search.toLowerCase());
     const matchCat = filterCat === "all" || e.category === filterCat;
