@@ -305,6 +305,9 @@ function UsersInner() {
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1 justify-end flex-wrap">
+                        <IconBtn title="View details" onClick={() => setViewing(u)} disabled={busy}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </IconBtn>
                         {u.status === "pending" && u.email && (
                           <IconBtn title="Resend invite" onClick={() => runAction(() => resend({ data: { email: u.email! } }), "Invitation resent")} disabled={busy}>
                             <Mail className="h-3.5 w-3.5" />
