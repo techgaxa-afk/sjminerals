@@ -56,7 +56,7 @@ export default function UserDetailsDrawer({ user, onClose }: { user: AdminUser; 
     if (tab !== "activity" || activity) return;
     setLoadingAct(true);
     fetchAct({ data: { userId: user.id, limit: 200 } })
-      .then(setActivity)
+      .then((rows) => setActivity(rows as UserActivity[]))
       .catch((e) => toast.error((e as Error).message))
       .finally(() => setLoadingAct(false));
   }, [tab, activity, fetchAct, user.id]);
