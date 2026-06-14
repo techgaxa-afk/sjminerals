@@ -115,7 +115,7 @@ function CompanyDetailsPage() {
         });
         toast.success("Payment updated");
       } else {
-        await saveCompanyPayment({
+        const saved = await saveCompanyPayment({
           companyId: id,
           amount: amt,
           paymentDate: payForm.paymentDate,
@@ -124,6 +124,7 @@ function CompanyDetailsPage() {
           notes: payForm.notes.trim() || undefined,
         });
         toast.success(`Payment of ₹${amt.toLocaleString()} recorded`);
+        setReceiptForModal(saved);
       }
       resetPayForm();
     } catch (e: any) {
@@ -142,16 +143,6 @@ function CompanyDetailsPage() {
     });
     setShowPayForm(true);
     setTab("payments");
-  };
-
-  const handleDeletePayment = async (p: CompanyPayment) => {
-    if (!confirm("Delete this payment?\nThis action cannot be undone.")) return;
-    try {
-      await deleteCompanyPayment(p.id);
-      toast.success("Payment deleted");
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to delete payment");
-    }
   };
 
   const handleReversePayment = async () => {
