@@ -281,19 +281,36 @@ function CompanyDetailsPage() {
               <span className={`text-xs font-semibold px-2 py-1 rounded ${outstanding <= 0 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
                 {outstanding <= 0 ? <span className="inline-flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Settled</span> : `Due ₹${outstanding.toLocaleString()}`}
               </span>
-              <button onClick={() => exportCompanyStatementPDF(company, bills, payments as any, outstanding)} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] text-foreground hover:bg-secondary/70"><FileDown className="h-3 w-3" /> Statement</button>
+              <button onClick={handleExportStatement} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] text-foreground hover:bg-secondary/70"><FileDown className="h-3 w-3" /> Statement</button>
             </div>
           </div>
         </div>
+
+        {/* Credit limit warning */}
+        {(company.creditLimit || 0) > 0 && outstanding > (company.creditLimit || 0) && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 flex items-center gap-2 text-xs font-semibold text-destructive">
+            <AlertTriangle className="h-4 w-4" /> CREDIT LIMIT EXCEEDED — Outstanding ₹{outstanding.toLocaleString()} exceeds limit ₹{(company.creditLimit || 0).toLocaleString()}
+          </div>
+        )}
 
         {/* Summary */}
         <div className="grid grid-cols-2 gap-2">
           <div className="stat-card"><p className="text-xs text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Total Sales</p><p className="font-bold text-foreground">₹{totalSales.toLocaleString()}</p></div>
           <div className="stat-card"><p className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" /> Collected</p><p className="font-bold text-success">₹{totalPaid.toLocaleString()}</p></div>
           <div className="stat-card"><p className="text-xs text-muted-foreground">Outstanding</p><p className="font-bold text-warning">₹{outstanding.toLocaleString()}</p></div>
-          <div className="stat-card"><p className="text-xs text-muted-foreground">Invoices</p><p className="font-bold text-foreground">{bills.length}</p></div>
+          <div className="stat-card"><p className="text-xs text-muted-foreground">Credit Limit</p><p className="font-bold text-foreground">{(company.creditLimit || 0) > 0 ? `₹${(company.creditLimit || 0).toLocaleString()}` : "—"}</p></div>
           <div className="stat-card col-span-2"><p className="text-xs text-muted-foreground">Last Payment</p>
             <p className="font-bold text-foreground">{lastPayment ? `₹${lastPayment.amount.toLocaleString()} · ${format(parseISO(lastPayment.paymentDate), "dd MMM yyyy")}` : "—"}</p>
+          </div>
+          <div className="stat-card col-span-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Statement Date Range</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="date" value={stmtFrom} onChange={(e) => setStmtFrom(e.target.value)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground" />
+              <span className="text-xs text-muted-foreground">to</span>
+              <input type="date" value={stmtTo} onChange={(e) => setStmtTo(e.target.value)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground" />
+              <button onClick={handleExportStatement} className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] text-primary-foreground hover:bg-primary/90"><FileDown className="h-3 w-3" /> Print / PDF</button>
+              {(stmtFrom || stmtTo) && <button onClick={() => { setStmtFrom(""); setStmtTo(""); }} className="text-[11px] text-muted-foreground hover:text-foreground">Reset</button>}
+            </div>
           </div>
         </div>
 
