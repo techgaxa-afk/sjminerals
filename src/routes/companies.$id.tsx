@@ -54,6 +54,15 @@ function CompanyDetailsPage() {
   // Adjustment form
   const [adjForm, setAdjForm] = useState<{ amount: string; reason: string; date: string } | null>(null);
 
+  // Reverse payment dialog state
+  const [reverseTarget, setReverseTarget] = useState<CompanyPayment | null>(null);
+  const [reverseReason, setReverseReason] = useState("");
+  const [reversing, setReversing] = useState(false);
+
+  // Statement date range
+  const [stmtFrom, setStmtFrom] = useState("");
+  const [stmtTo, setStmtTo] = useState("");
+
   const bills = useMemo(() => getBillsByCompany(id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [id]);
   const payments = useMemo<CompanyPayment[]>(
     () => getCompanyPayments(id).sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()),
