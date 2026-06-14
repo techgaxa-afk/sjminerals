@@ -75,14 +75,15 @@ export interface JCBLog {
   id: string; date: string; startTime: string; endTime: string;
   totalHours: number; hourlyRate: number; totalCost: number; notes: string; createdAt: string;
 }
-export interface Driver {
-  id: string; name: string; mobile: string; licenseNumber: string; address: string;
-  status: "active" | "inactive"; createdAt: string;
+export type MaintenanceCategory = "fuel" | "service" | "tyres" | "battery" | "repairs" | "other";
+export interface VehicleMaintenance {
+  id: string; vehicleId: string; category: MaintenanceCategory;
+  vendor: string; cost: number; serviceDate: string; notes: string; createdAt: string;
 }
-export type DriverTxnType = "advance" | "settlement";
-export interface DriverTransaction {
-  id: string; driverId: string; txnType: DriverTxnType; amount: number;
-  date: string; notes: string; createdAt: string;
+export type DocumentType = "insurance" | "fc" | "permit" | "pollution" | "road_tax";
+export interface VehicleDocument {
+  id: string; vehicleId: string; docType: DocumentType;
+  expiryDate: string; notes: string; createdAt: string;
 }
 
 // ============ Cache + subscriptions ============
