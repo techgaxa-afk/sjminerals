@@ -2,11 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useMemo, useState } from "react";
 import {
-  getBills, getExpenses, getCompanies, getCompanyOutstanding, getDrivers,
+  getBills, getExpenses, getCompanies, getCompanyOutstanding,
   useCloudData, type Bill, type Expense,
 } from "../lib/store";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
-import { TrendingUp, TrendingDown, AlertTriangle, Download, FileText, FileSpreadsheet, Truck, Building2, Users, Fuel } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Download, FileText, FileSpreadsheet, Truck, Building2, Fuel } from "lucide-react";
 import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 
 export const Route = createFileRoute("/profitability")({
