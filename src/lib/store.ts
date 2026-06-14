@@ -13,7 +13,7 @@ export interface Company {
 }
 export interface Vehicle {
   id: string; companyId: string; vehicleNumber: string;
-  vehicleCapacity: number; driverName: string; status: "active" | "inactive"; createdAt: string;
+  vehicleCapacity: number; driverName: string; status: "active" | "inactive" | "maintenance"; createdAt: string;
 }
 export interface CreditAdjustment {
   id: string; companyId: string; amount: number; reason: string; date: string; createdAt: string;
@@ -128,7 +128,7 @@ const companyToDb = (c: Company) => ({
 const mapVehicle = (r: any): Vehicle => ({
   id: r.id, companyId: r.company_id, vehicleNumber: r.vehicle_number,
   vehicleCapacity: Number(r.vehicle_capacity) || 0, driverName: r.driver_name ?? "",
-  status: r.status === "inactive" ? "inactive" : "active",
+  status: r.status === "inactive" ? "inactive" : r.status === "maintenance" ? "maintenance" : "active",
   createdAt: r.created_at,
 });
 const vehicleToDb = (v: Vehicle) => ({
@@ -388,9 +388,21 @@ export function updateCompany(id: string, updates: Partial<Company>): void {
   const merged = cache.companies.find((c) => c.id === id);
   if (merged) bg(supabase.from("companies").update(companyToDb(merged)).eq("id", id));
 }
-export function deleteCompany(id: string): void {
-  cache.companies = cache.companies.filter((c) => c.id !== id); bump();
-  bg(supabase.from("companies").delete().eq("id", id));
+export async function deleteCompany(id: string): Promise<void> {
+  const billCount = cache.bills.filter((b) => b.companyId === id).length;
+  if (billCount > 0) {
+    throw new Error(`Cannot delete: ${billCount} bill${billCount === 1 ? "" : "s"} linked to this company. Delete the bills first.`);
+  }
+  const res = await supabase.from("companies").delete().eq("id", id);
+  if (res.error) {
+    const msg = res.error.code === "23503"
+      ? "Cannot delete: bills or payments reference this company."
+      : res.error.message || "Delete failed";
+    emitError(msg);
+    throw new Error(msg);
+  }
+  cache.companies = cache.companies.filter((c) => c.id !== id);
+  bump();
 }
 export function getCompanyByVehicle(vehicleNumber: string): Company | undefined {
   const v = cache.vehicles.find((x) => x.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase());
@@ -452,9 +464,33 @@ export function updateVehicle(id: string, updates: Partial<Vehicle>): void {
   const merged = cache.vehicles.find((v) => v.id === id);
   if (merged) bg(supabase.from("vehicles").update(vehicleToDb(merged)).eq("id", id));
 }
-export function deleteVehicle(id: string): void {
-  cache.vehicles = cache.vehicles.filter((v) => v.id !== id); bump();
-  bg(supabase.from("vehicles").delete().eq("id", id));
+export async function deleteVehicle(id: string): Promise<void> {
+  const vehicle = cache.vehicles.find((v) => v.id === id);
+  if (vehicle) {
+    const billCount = cache.bills.filter(
+      (b) => b.companyId === vehicle.companyId
+        && (b.vehicleNumber || "").trim().toLowerCase() === vehicle.vehicleNumber.trim().toLowerCase(),
+    ).length;
+    if (billCount > 0) {
+      throw new Error(`Cannot delete: ${billCount} bill${billCount === 1 ? "" : "s"} linked to this vehicle.`);
+    }
+  }
+  const res = await supabase.from("vehicles").delete().eq("id", id);
+  if (res.error) {
+    emitError(res.error.message || "Delete failed");
+    throw new Error(res.error.message || "Delete failed");
+  }
+  cache.vehicles = cache.vehicles.filter((v) => v.id !== id);
+  bump();
+}
+
+// Count helpers for delete-warning UI
+export function countBillsByCompany(companyId: string): number {
+  return cache.bills.filter((b) => b.companyId === companyId).length;
+}
+export function countBillsByVehicle(companyId: string, vehicleNumber: string): number {
+  const vn = (vehicleNumber || "").trim().toLowerCase();
+  return cache.bills.filter((b) => b.companyId === companyId && (b.vehicleNumber || "").trim().toLowerCase() === vn).length;
 }
 
 // ============ Bills ============

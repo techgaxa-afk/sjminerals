@@ -7,6 +7,7 @@ import {
   getCompanies, saveCompany, updateCompany, deleteCompany,
   getCompanyOutstanding, getVehiclesByCompany, getVehicleTotals,
   saveVehicle, updateVehicle, deleteVehicle,
+  countBillsByCompany, countBillsByVehicle,
   useCloudData, type Company, type Vehicle,
 } from "../lib/store";
 import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/companies")({
 });
 
 type CompanyForm = { name: string; contactNumber: string; address: string; notes: string; openingBalance: string };
-type VehicleForm = { id?: string; companyId: string; vehicleNumber: string; driverName: string; vehicleCapacity: string; status: "active" | "inactive" };
+type VehicleForm = { id?: string; companyId: string; vehicleNumber: string; driverName: string; vehicleCapacity: string; status: "active" | "inactive" | "maintenance" };
 
 function CompaniesPage() {
   useCloudData();
@@ -78,11 +79,19 @@ function CompaniesPage() {
     setShowForm(true);
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, c: Company) => {
     e.preventDefault(); e.stopPropagation();
-    if (!confirm("Delete this company and all its vehicles? Bills remain linked to this company id.")) return;
-    deleteCompany(id);
-    toast.success("Company deleted");
+    const bc = countBillsByCompany(c.id);
+    const msg = bc > 0
+      ? `"${c.name}" has ${bc} historical bill${bc === 1 ? "" : "s"}. Deletion is blocked. Continue anyway? (Will fail)`
+      : `Delete "${c.name}" and all its vehicles? This cannot be undone.`;
+    if (!confirm(msg)) return;
+    try {
+      await deleteCompany(c.id);
+      toast.success("Company deleted");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete company");
+    }
   };
 
   const toggleExpanded = (id: string) => {
@@ -117,11 +126,20 @@ function CompaniesPage() {
     }
   };
 
-  const handleDeleteVehicle = (e: React.MouseEvent, v: Vehicle) => {
+  const handleDeleteVehicle = async (e: React.MouseEvent, v: Vehicle) => {
     e.preventDefault(); e.stopPropagation();
-    if (!confirm(`Delete vehicle ${v.vehicleNumber}? Past bills are kept.`)) return;
-    deleteVehicle(v.id);
-    toast.success("Vehicle deleted");
+    const bc = countBillsByVehicle(v.companyId, v.vehicleNumber);
+    const msg = bc > 0
+      ? `Vehicle ${v.vehicleNumber} has ${bc} historical bill${bc === 1 ? "" : "s"}. Deletion is blocked.`
+      : `Delete vehicle ${v.vehicleNumber}?`;
+    if (bc > 0) { toast.error(msg); return; }
+    if (!confirm(msg)) return;
+    try {
+      await deleteVehicle(v.id);
+      toast.success("Vehicle deleted");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete vehicle");
+    }
   };
 
   return (
@@ -175,7 +193,7 @@ function CompaniesPage() {
                   </div>
                   <div className="flex items-center gap-1 ml-2">
                     <button onClick={(e) => handleEdit(e, c)} aria-label="Edit company" className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={(e) => handleDelete(e, c.id)} aria-label="Delete company" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={(e) => handleDelete(e, c)} aria-label="Delete company" className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
                     <button onClick={() => toggleExpanded(c.id)} aria-label={isOpen ? "Collapse" : "Expand"} aria-expanded={isOpen} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary">
                       {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </button>
@@ -224,9 +242,10 @@ function CompaniesPage() {
                         <input value={vehForm!.driverName} onChange={(e) => setVehForm({ ...vehForm!, driverName: e.target.value })} placeholder="Driver Name" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                         <div className="grid grid-cols-2 gap-2">
                           <input type="number" step="0.01" value={vehForm!.vehicleCapacity} onChange={(e) => setVehForm({ ...vehForm!, vehicleCapacity: e.target.value })} placeholder="Capacity (t)" className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                          <select value={vehForm!.status} onChange={(e) => setVehForm({ ...vehForm!, status: e.target.value as "active" | "inactive" })} className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                          <select value={vehForm!.status} onChange={(e) => setVehForm({ ...vehForm!, status: e.target.value as "active" | "inactive" | "maintenance" })} className="w-full rounded-md border border-input bg-secondary px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
+                            <option value="maintenance">Maintenance</option>
                           </select>
                         </div>
                         <button onClick={handleSaveVehicle} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">{vehForm!.id ? "Update" : "Save"} Vehicle</button>
