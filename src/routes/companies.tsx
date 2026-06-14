@@ -18,7 +18,7 @@ export const Route = createFileRoute("/companies")({
   component: CompaniesPage,
 });
 
-type CompanyForm = { name: string; contactNumber: string; address: string; notes: string; openingBalance: string };
+type CompanyForm = { name: string; contactNumber: string; address: string; notes: string; openingBalance: string; creditLimit: string };
 type VehicleForm = { id?: string; companyId: string; vehicleNumber: string; driverName: string; vehicleCapacity: string; status: "active" | "inactive" | "maintenance" };
 
 function CompaniesPage() {
@@ -27,7 +27,7 @@ function CompaniesPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<CompanyForm>({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
+  const [form, setForm] = useState<CompanyForm>({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "", creditLimit: "" });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [vehForm, setVehForm] = useState<VehicleForm | null>(null);
 
@@ -37,7 +37,7 @@ function CompaniesPage() {
   );
 
   const resetForm = () => {
-    setForm({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "" });
+    setForm({ name: "", contactNumber: "", address: "", notes: "", openingBalance: "", creditLimit: "" });
     setEditingId(null); setShowForm(false);
   };
 
@@ -50,6 +50,7 @@ function CompaniesPage() {
       address: form.address.trim(),
       notes: form.notes.trim(),
       openingBalance: Number(form.openingBalance) || 0,
+      creditLimit: Number(form.creditLimit) || 0,
     };
     try {
       if (editingId) {
