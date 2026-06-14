@@ -5,12 +5,13 @@ import { toast } from "sonner";
 
 import {
   getCompanies, saveCompany, updateCompany, deleteCompany,
-  getCompanyOutstanding, getVehiclesByCompany, getVehicleTotals,
+  getCompanyOutstanding, getCompanyTotalSales, getCompanyTotalPaid,
+  getVehiclesByCompany, getVehicleTotals,
   saveVehicle, updateVehicle, deleteVehicle,
   countBillsByCompany, countBillsByVehicle,
   useCloudData, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronDown, ChevronRight, ArrowRight, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/companies")({
   component: CompaniesPage,
