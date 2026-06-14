@@ -76,6 +76,15 @@ export interface JCBLog {
   id: string; date: string; startTime: string; endTime: string;
   totalHours: number; hourlyRate: number; totalCost: number; notes: string; createdAt: string;
 }
+export interface Driver {
+  id: string; name: string; mobile: string; licenseNumber: string; address: string;
+  status: "active" | "inactive"; createdAt: string;
+}
+export type DriverTxnType = "advance" | "settlement";
+export interface DriverTransaction {
+  id: string; driverId: string; txnType: DriverTxnType; amount: number;
+  date: string; notes: string; createdAt: string;
+}
 
 // ============ Cache + subscriptions ============
 type Cache = {
