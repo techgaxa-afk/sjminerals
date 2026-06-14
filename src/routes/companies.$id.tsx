@@ -366,20 +366,31 @@ function CompanyDetailsPage() {
 
         {tab === "payments" && (
           <div className="space-y-2">
-            {payments.map((p) => {
-              const mode = p.notes.match(/\[(CASH|UPI|BANK)\]/)?.[1] ?? "—";
-              return (
-                <div key={p.id} className="stat-card grid grid-cols-4 gap-2 items-center text-sm">
-                  <span className="text-xs text-muted-foreground">{format(parseISO(p.createdAt), "dd MMM yy")}</span>
-                  <span className="text-right font-medium text-success">₹{p.amount.toLocaleString()}</span>
-                  <span className="text-xs text-foreground">{mode}</span>
-                  <span className="text-right text-xs text-muted-foreground truncate">{p.notes.replace(/\[(CASH|UPI|BANK)\]\s*/, "")}</span>
-                </div>
-              );
-            })}
+            <div className="stat-card grid grid-cols-12 gap-1 text-[10px] font-medium text-muted-foreground uppercase">
+              <span className="col-span-2">Date</span>
+              <span className="col-span-2 text-right">Amount</span>
+              <span className="col-span-2">Method</span>
+              <span className="col-span-2">Reference</span>
+              <span className="col-span-2">Notes</span>
+              <span className="col-span-2 text-right">Actions</span>
+            </div>
+            {payments.map((p) => (
+              <div key={p.id} className="stat-card grid grid-cols-12 gap-1 items-center text-xs">
+                <span className="col-span-2 text-muted-foreground">{format(parseISO(p.paymentDate), "dd MMM yy")}</span>
+                <span className="col-span-2 text-right font-medium text-success">₹{p.amount.toLocaleString()}</span>
+                <span className="col-span-2 text-foreground">{p.paymentMethod || "—"}</span>
+                <span className="col-span-2 text-foreground truncate" title={p.referenceNumber}>{p.referenceNumber || "—"}</span>
+                <span className="col-span-2 text-muted-foreground truncate" title={p.notes}>{p.notes || "—"}</span>
+                <span className="col-span-2 flex items-center justify-end gap-1">
+                  <button onClick={() => handleEditPayment(p)} className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => handleDeletePayment(p)} className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-3.5 w-3.5" /></button>
+                </span>
+              </div>
+            ))}
             {payments.length === 0 && <p className="text-center text-sm text-muted-foreground py-6">No payments recorded.</p>}
           </div>
         )}
+
 
         {tab === "adjustments" && (
           <div className="space-y-2">
