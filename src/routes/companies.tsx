@@ -202,7 +202,7 @@ function CompaniesPage() {
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Link to="/companies/$id" params={{ id: c.id }} className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors">
+                  <Link to="/companies/$id" params={{ id: c.id }} search={{ pay: undefined }} className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors">
                     View Details <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                   <Link to="/companies/$id" params={{ id: c.id }} search={{ pay: 1 }} className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
