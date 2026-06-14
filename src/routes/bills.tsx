@@ -263,6 +263,7 @@ function BillsPage() {
                   {bill.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {bill.vehicleNumber} {bill.vehicleCapacity > 0 && `(${bill.vehicleCapacity}t)`}</p>}
                   {bill.driverName && <p className="text-xs text-muted-foreground">Driver: {bill.driverName}</p>}
                   <p className="text-xs text-muted-foreground">{format(parseISO(bill.createdAt), "dd MMM yyyy, hh:mm a")}</p>
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-primary">₹{bill.totalAmount.toLocaleString()}</p>
