@@ -136,23 +136,26 @@ function ExpensesPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="stat-card border-success/30 bg-success/5">
+          <div className={`stat-card ${availableCash < 0 ? "border-destructive/40 bg-destructive/5" : "border-success/30 bg-success/5"}`}>
             <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2 text-xs text-success"><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
-              {availableCash <= 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH</span>
+              <div className={`flex items-center gap-2 text-xs ${availableCash < 0 ? "text-destructive" : "text-success"}`}><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
+              {availableCash < 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">OVERDRAWN</span>
+                : availableCash === 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH</span>
                 : availableCash < 1000 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW</span> : null}
             </div>
-            <p className="text-xl font-bold text-success">₹{availableCash.toLocaleString()}</p>
+            <p className={`text-xl font-bold ${availableCash < 0 ? "text-destructive" : "text-success"}`}>₹{availableCash.toLocaleString()}</p>
           </div>
-          <div className="stat-card border-primary/30 bg-primary/5">
+          <div className={`stat-card ${availableUpi < 0 ? "border-destructive/40 bg-destructive/5" : "border-primary/30 bg-primary/5"}`}>
             <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2 text-xs text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
-              {availableUpi <= 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI</span>
+              <div className={`flex items-center gap-2 text-xs ${availableUpi < 0 ? "text-destructive" : "text-primary"}`}><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
+              {availableUpi < 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">OVERDRAWN</span>
+                : availableUpi === 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI</span>
                 : availableUpi < 1000 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW</span> : null}
             </div>
-            <p className="text-xl font-bold text-primary">₹{availableUpi.toLocaleString()}</p>
+            <p className={`text-xl font-bold ${availableUpi < 0 ? "text-destructive" : "text-primary"}`}>₹{availableUpi.toLocaleString()}</p>
           </div>
         </div>
+
 
         {/* Quick Expense Analytics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
