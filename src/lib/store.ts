@@ -658,6 +658,45 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
     }
     console.log("[STEP 4] payments inserted");
 
+    // Mirror initial bill payment(s) into company_payments so the company-level
+    // outstanding (Sales − Payments) accounts for cash/UPI collected at billing.
+    const companyPaymentRows: CompanyPayment[] = [];
+    const billDate = (billRow.createdAt || new Date().toISOString()).split("T")[0];
+    if ((billRow.paidAmount ?? 0) > 0 && billRow.companyId) {
+      const invRef = billRow.invoiceNumber || returnedBillId.slice(-6).toUpperCase();
+      if (billRow.splitPayment) {
+        if ((billRow.cashAmount ?? 0) > 0) {
+          companyPaymentRows.push({
+            id: uid(), companyId: billRow.companyId, amount: billRow.cashAmount ?? 0,
+            paymentDate: billDate, paymentMethod: "cash", referenceNumber: invRef,
+            notes: `Initial payment for invoice ${invRef}`,
+            createdAt: billRow.createdAt,
+          });
+        }
+        if ((billRow.upiAmount ?? 0) > 0) {
+          companyPaymentRows.push({
+            id: uid(), companyId: billRow.companyId, amount: billRow.upiAmount ?? 0,
+            paymentDate: billDate, paymentMethod: "upi", referenceNumber: invRef,
+            notes: `Initial payment for invoice ${invRef}`,
+            createdAt: billRow.createdAt,
+          });
+        }
+      } else {
+        companyPaymentRows.push({
+          id: uid(), companyId: billRow.companyId, amount: billRow.paidAmount,
+          paymentDate: billDate,
+          paymentMethod: billRow.paymentMode === "upi" ? "upi" : billRow.paymentMode === "cash" ? "cash" : billRow.paymentMode,
+          referenceNumber: invRef,
+          notes: `Initial payment for invoice ${invRef}`,
+          createdAt: billRow.createdAt,
+        });
+      }
+    }
+    if (companyPaymentRows.length > 0) {
+      const cpRes = await supabase.from("company_payments").insert(companyPaymentRows.map(companyPaymentToDb));
+      if (cpRes.error) throw cpRes.error;
+    }
+
     if (billRow.companyId) {
       const companyRes = await supabase
         .from("companies")
