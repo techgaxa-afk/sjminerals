@@ -38,7 +38,7 @@ function UsersInner() {
 
   useEffect(() => { if (isAdmin) reload(); }, [isAdmin, reload]);
 
-  const onToggle = async (userId: string, role: "admin" | "staff", enabled: boolean) => {
+  const onToggle = async (userId: string, role: AdminUser["roles"][number], enabled: boolean) => {
     setBusy(true);
     try {
       await mutateRole({ data: { userId, role, enabled } });
@@ -128,16 +128,22 @@ function UsersInner() {
   );
 }
 
+const ROLE_LABELS: { role: AdminUser["roles"][number]; label: string; hint: string }[] = [
+  { role: "admin", label: "Admin", hint: "Full access incl. user management" },
+  { role: "staff", label: "Staff", hint: "Full operational write" },
+  { role: "accountant", label: "Accountant", hint: "Payments & financial write" },
+  { role: "operator", label: "Operator", hint: "Bills, Hitachi, expenses write" },
+  { role: "viewer", label: "Viewer", hint: "Read-only" },
+];
+
 function UserRow({
   u, isSelf, busy, onToggle,
 }: {
   u: AdminUser;
   isSelf: boolean;
   busy: boolean;
-  onToggle: (role: "admin" | "staff", enabled: boolean) => void;
+  onToggle: (role: AdminUser["roles"][number], enabled: boolean) => void;
 }) {
-  const hasAdmin = u.roles.includes("admin");
-  const hasStaff = u.roles.includes("staff");
   return (
     <tr className="border-t border-border">
       <td className="p-3">
@@ -147,29 +153,34 @@ function UserRow({
       </td>
       <td className="p-3">
         <div className="flex gap-1 flex-wrap">
-          {hasAdmin && <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs"><Shield className="h-3 w-3" />admin</span>}
-          {hasStaff && <span className="inline-flex items-center gap-1 rounded-full bg-secondary text-secondary-foreground px-2 py-0.5 text-xs">staff</span>}
-          {!hasAdmin && !hasStaff && <span className="text-xs text-muted-foreground">no access</span>}
+          {u.roles.length === 0 && <span className="text-xs text-muted-foreground">no access</span>}
+          {u.roles.map((r) => (
+            <span key={r} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${r === "admin" ? "bg-primary/10 text-primary" : "bg-secondary text-secondary-foreground"}`}>
+              {r === "admin" && <Shield className="h-3 w-3" />}
+              {r}
+            </span>
+          ))}
         </div>
       </td>
       <td className="p-3 text-xs text-muted-foreground hidden md:table-cell">
         {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleString() : "—"}
       </td>
       <td className="p-3">
-        <div className="flex gap-2 justify-end flex-wrap">
-          <RoleButton
-            label="Staff"
-            active={hasStaff}
-            disabled={busy}
-            onClick={() => onToggle("staff", !hasStaff)}
-          />
-          <RoleButton
-            label="Admin"
-            active={hasAdmin}
-            disabled={busy || (hasAdmin && isSelf)}
-            onClick={() => onToggle("admin", !hasAdmin)}
-            title={hasAdmin && isSelf ? "Cannot revoke your own admin role" : undefined}
-          />
+        <div className="flex gap-1.5 justify-end flex-wrap">
+          {ROLE_LABELS.map(({ role, label, hint }) => {
+            const active = u.roles.includes(role);
+            const disabledSelf = role === "admin" && active && isSelf;
+            return (
+              <RoleButton
+                key={role}
+                label={label}
+                active={active}
+                disabled={busy || disabledSelf}
+                title={disabledSelf ? "Cannot revoke your own admin role" : hint}
+                onClick={() => onToggle(role, !active)}
+              />
+            );
+          })}
         </div>
       </td>
     </tr>
@@ -190,14 +201,14 @@ function RoleButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
         active
           ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
           : "bg-primary/10 text-primary hover:bg-primary/20"
       }`}
     >
       {active ? <ShieldOff className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
-      {active ? `Revoke ${label}` : `Grant ${label}`}
+      {label}
     </button>
   );
 }

@@ -2,6 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+const ROLE_VALUES = ["admin", "staff", "accountant", "operator", "viewer"] as const;
+export type AppRoleName = typeof ROLE_VALUES[number];
+
 async function assertAdmin(userId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
@@ -21,7 +24,7 @@ export type AdminUser = {
   fullName: string | null;
   createdAt: string;
   lastSignInAt: string | null;
-  roles: ("admin" | "staff")[];
+  roles: AppRoleName[];
 };
 
 export const listAllUsers = createServerFn({ method: "GET" })
@@ -57,7 +60,9 @@ export const listAllUsers = createServerFn({ method: "GET" })
     const byId = new Map(all.map((u) => [u.id, u]));
     for (const r of roles ?? []) {
       const u = byId.get(r.user_id as string);
-      if (u && (r.role === "admin" || r.role === "staff")) u.roles.push(r.role);
+      if (u && (ROLE_VALUES as readonly string[]).includes(r.role as string)) {
+        u.roles.push(r.role as AppRoleName);
+      }
     }
 
     all.sort((a, b) => (a.email ?? "").localeCompare(b.email ?? ""));
@@ -66,7 +71,7 @@ export const listAllUsers = createServerFn({ method: "GET" })
 
 const setRoleInput = z.object({
   userId: z.string().uuid(),
-  role: z.enum(["admin", "staff"]),
+  role: z.enum(ROLE_VALUES),
   enabled: z.boolean(),
 });
 
