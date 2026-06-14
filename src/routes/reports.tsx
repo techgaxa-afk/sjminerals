@@ -15,9 +15,10 @@ type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "a
 type FilterType = "daily" | "weekly" | "monthly" | "custom";
 type Preset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth";
 
+type ReportSearch = { tab?: ReportType; from?: string; to?: string; preset?: Preset };
 export const Route = createFileRoute("/reports")({
   component: ReportsPage,
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): ReportSearch => ({
     tab: (s.tab as ReportType) || undefined,
     from: typeof s.from === "string" ? s.from : undefined,
     to: typeof s.to === "string" ? s.to : undefined,
