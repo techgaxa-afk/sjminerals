@@ -89,8 +89,55 @@ function UsersInner() {
     const q = search.toLowerCase();
     return (users ?? [])
       .filter((u) => tab === "all" || u.status === tab)
+      .filter((u) => roleFilter === "all" || u.roles.includes(roleFilter))
       .filter((u) => !q || u.email?.toLowerCase().includes(q) || u.fullName?.toLowerCase().includes(q) || u.roles.some((r) => r.includes(q)));
-  }, [users, search, tab]);
+  }, [users, search, tab, roleFilter]);
+
+  const toggleSel = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const clearSel = () => setSelected(new Set());
+
+  const bulkRun = async (fn: (id: string) => Promise<unknown>, msg: string) => {
+    setBusy(true);
+    const ids = [...selected];
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await fn(id); ok++; } catch { fail++; }
+    }
+    toast[fail ? "warning" : "success"](`${msg}: ${ok} ok${fail ? `, ${fail} failed` : ""}`);
+    clearSel();
+    await reload();
+    setBusy(false);
+  };
+
+  const exportCSV = () => {
+    const header = ["Name", "Email", "Roles", "Status", "Joined", "Last Login"];
+    const rows = filtered.map((u) => [
+      u.fullName ?? "",
+      u.email ?? "",
+      u.roles.join("|"),
+      u.status,
+      new Date(u.createdAt).toISOString(),
+      u.lastSignInAt ? new Date(u.lastSignInAt).toISOString() : "",
+    ]);
+    const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `users-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const stats = useMemo(() => {
+    const today = new Date().toDateString();
+    const list = users ?? [];
+    return {
+      total: list.length,
+      active: list.filter((u) => u.status === "active").length,
+      disabled: list.filter((u) => u.status === "disabled").length,
+      pending: list.filter((u) => u.status === "pending").length,
+      todayLogins: list.filter((u) => u.lastSignInAt && new Date(u.lastSignInAt).toDateString() === today).length,
+    };
+  }, [users]);
 
   const counts = useMemo(() => {
     const c = { all: users?.length ?? 0, active: 0, pending: 0, disabled: 0 };
