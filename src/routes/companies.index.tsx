@@ -14,7 +14,7 @@ import {
 import { Plus, Search, Pencil, Trash2, X, Building2, Truck, ChevronDown, ChevronRight, ArrowRight, Wallet } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
-export const Route = createFileRoute("/companies")({
+export const Route = createFileRoute("/companies/")({
   component: CompaniesPage,
 });
 
