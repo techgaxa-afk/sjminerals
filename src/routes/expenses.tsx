@@ -126,12 +126,53 @@ function ExpensesPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="stat-card border-success/30 bg-success/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-success"><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-xs text-success"><Banknote className="h-3.5 w-3.5" /> Available Cash</div>
+              {availableCash <= 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH</span>
+                : availableCash < 1000 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW</span> : null}
+            </div>
             <p className="text-xl font-bold text-success">₹{availableCash.toLocaleString()}</p>
           </div>
           <div className="stat-card border-primary/30 bg-primary/5">
-            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-xs text-primary"><CreditCard className="h-3.5 w-3.5" /> Available UPI</div>
+              {availableUpi <= 0 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI</span>
+                : availableUpi < 1000 ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW</span> : null}
+            </div>
             <p className="text-xl font-bold text-primary">₹{availableUpi.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Quick Expense Analytics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="stat-card">
+            <p className="text-[10px] text-muted-foreground uppercase">Today</p>
+            <p className="text-lg font-bold text-destructive">₹{analytics.today.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-[10px] text-muted-foreground uppercase">This Month</p>
+            <p className="text-lg font-bold text-destructive">₹{analytics.month.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-[10px] text-muted-foreground uppercase">Cash (All)</p>
+            <p className="text-lg font-bold text-success">₹{analytics.cash.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-[10px] text-muted-foreground uppercase">UPI (All)</p>
+            <p className="text-lg font-bold text-primary">₹{analytics.upi.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Category totals — this month */}
+        <div className="stat-card">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">Categories · This Month</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CATEGORIES.map((c) => (
+              <div key={c.value} className="flex items-center justify-between rounded-md bg-secondary/50 px-2 py-1.5 text-xs">
+                <span className="flex items-center gap-1.5 text-muted-foreground"><c.icon className="h-3.5 w-3.5" />{c.label}</span>
+                <span className="font-semibold text-foreground">₹{(analytics.byCat[c.value] || 0).toLocaleString()}</span>
+              </div>
+            ))}
           </div>
         </div>
 
