@@ -93,6 +93,28 @@ function DashboardPage() {
     };
   }, [filter, start]);
 
+  const collectionStats = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const all = getAllCompanyPayments().filter((p) => p.status !== "reversed");
+    const today = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfDay).reduce((s, p) => s + p.amount, 0);
+    const month = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfMonth).reduce((s, p) => s + p.amount, 0);
+    const companies = getCompanies();
+    const outstanding = companies.reduce((s, c) => s + Math.max(0, getCompanyOutstanding(c.id)), 0);
+    const overdue = companies.reduce((s, c) => {
+      const b = getCompanyAging(c.id);
+      return s + b.d30 + b.d60 + b.d90 + b.d90plus;
+    }, 0);
+    return { today, month, outstanding, overdue };
+  }, []);
+
+  const recentPayments = useMemo(() => {
+    const companies = getCompanies();
+    const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
+    return getRecentPayments(10).map((p) => ({ ...p, companyName: nameOf(p.companyId) }));
+  }, []);
+
   const handleExportReport = () => { exportReportPDF(filter, stats); };
 
   const COLORS = ["oklch(0.75 0.16 70)", "oklch(0.65 0.18 145)", "oklch(0.6 0.2 25)", "oklch(0.6 0.15 250)", "oklch(0.65 0.18 50)"];
