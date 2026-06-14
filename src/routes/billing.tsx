@@ -215,9 +215,9 @@ function BillingPage() {
             </div>
             {suggestions.length > 0 && !selectedCompany && (
               <div className="mt-1 rounded-md border border-border bg-card max-h-40 overflow-y-auto">
-                {suggestions.map((c) => (
-                  <button key={c.id} onClick={() => selectCompany(c)} className="w-full text-left px-3 py-2 text-sm hover:bg-secondary text-foreground">
-                    <span className="font-medium">{c.vehicleNumber}</span> — {c.name} {c.driverName && `(${c.driverName})`}
+                {suggestions.map((s) => (
+                  <button key={s.company.id + "|" + s.vehicle.id} onClick={() => selectSuggestion(s)} className="w-full text-left px-3 py-2 text-sm hover:bg-secondary text-foreground">
+                    <span className="font-medium">{s.vehicle.vehicleNumber}</span> — {s.company.name} {s.vehicle.driverName && `(${s.vehicle.driverName})`}
                   </button>
                 ))}
               </div>
