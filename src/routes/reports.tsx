@@ -3,15 +3,15 @@ import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
 import {
   getBills, getCompanies, getDateRange, getCompanyOutstanding,
-  getHitachiEntries, getHitachiFuel, getOperators,
+  getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
 } from "../lib/store";
-import { Building2, Users, Settings, Search } from "lucide-react";
+import { Building2, Users, Settings, Search, Wallet, FileDown } from "lucide-react";
 
 export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-type ReportType = "company" | "vehicle" | "hitachi" | "operator";
+type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger";
 type FilterType = "daily" | "weekly" | "monthly";
 
 function ReportsPage() {
