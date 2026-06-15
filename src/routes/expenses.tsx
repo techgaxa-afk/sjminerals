@@ -59,6 +59,10 @@ function ExpensesPage() {
     if (!amount.trim() || !(amt > 0)) { setError("Amount must be greater than zero."); return; }
     if (!date) { setError("Date is required."); return; }
     if (!paymentMode) { setError("Payment mode is required."); return; }
+    if (!isExpenseCategory(category)) {
+      setError(`Invalid category. Allowed: ${EXPENSE_CATEGORIES.join(", ")}.`);
+      return;
+    }
 
     if (editingId) updateExpense(editingId, { category, amount: amt, date, notes: notes.trim(), paymentMode });
     else saveExpense({ category, amount: amt, date, notes: notes.trim(), paymentMode });
