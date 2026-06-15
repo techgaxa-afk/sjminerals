@@ -1141,14 +1141,19 @@ export function deleteOperator(id: string): void {
 
 // ============ Expenses ============
 export function getExpenses(): Expense[] { return cache.expenses.slice(); }
+// NOTE: filters by createdAt (when the expense was logged) to match getCashSales/
+// getUpiSales semantics, which also key off createdAt. Filtering by the user-entered
+// `date` caused back-dated expenses (e.g. fuel entered today for yesterday) to drop
+// out of "Today" cash flow while same-day sales stayed in. No category filter — all
+// EXPENSE_CATEGORIES contribute.
 export function getCashExpenses(since?: Date): number {
   return cache.expenses
-    .filter((e) => e.paymentMode === "cash" && (!since || new Date(e.date) >= since))
+    .filter((e) => e.paymentMode === "cash" && (!since || new Date(e.createdAt) >= since))
     .reduce((s, e) => s + e.amount, 0);
 }
 export function getUpiExpenses(since?: Date): number {
   return cache.expenses
-    .filter((e) => e.paymentMode === "upi" && (!since || new Date(e.date) >= since))
+    .filter((e) => e.paymentMode === "upi" && (!since || new Date(e.createdAt) >= since))
     .reduce((s, e) => s + e.amount, 0);
 }
 export function getCashSales(since?: Date): number {
