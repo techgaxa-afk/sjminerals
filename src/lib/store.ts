@@ -65,7 +65,7 @@ export interface HitachiFuel {
 }
 export { EXPENSE_CATEGORIES, isExpenseCategory } from "./expense-categories";
 export type { ExpenseCategory } from "./expense-categories";
-import { isExpenseCategory as _isExpenseCategory, type ExpenseCategory } from "./expense-categories";
+import { isExpenseCategory as _isExpenseCategory, EXPENSE_CATEGORIES, type ExpenseCategory } from "./expense-categories";
 export type ExpensePaymentMode = "cash" | "upi";
 export interface Expense {
   id: string; category: ExpenseCategory; amount: number; date: string; notes: string;
