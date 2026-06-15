@@ -168,10 +168,11 @@ function ProfitabilityPage() {
     const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   };
+  const escHtml = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
   const downloadExcel = (rows: Record<string, any>[], filename: string) => {
     if (!rows.length) return;
     const headers = Object.keys(rows[0]);
-    const html = `<table border="1"><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    const html = `<table border="1"><thead><tr>${headers.map((h) => `<th>${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${headers.map((h) => `<td>${escHtml(r[h])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
     const blob = new Blob([html], { type: "application/vnd.ms-excel" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
@@ -181,7 +182,7 @@ function ProfitabilityPage() {
     if (!rows.length) return;
     const headers = Object.keys(rows[0]);
     const w = window.open("", "_blank"); if (!w) return;
-    w.document.write(`<html><head><title>${title}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px;text-align:left}th{background:#f3f4f6}</style></head><body><h2>${title}</h2><table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table><script>window.print()</script></body></html>`);
+    w.document.write(`<html><head><title>${escHtml(title)}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px;text-align:left}th{background:#f3f4f6}</style></head><body><h2>${escHtml(title)}</h2><table><thead><tr>${headers.map((h) => `<th>${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${headers.map((h) => `<td>${escHtml(r[h])}</td>`).join("")}</tr>`).join("")}</tbody></table><script>window.print()</script></body></html>`);
     w.document.close();
   };
 

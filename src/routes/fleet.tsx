@@ -60,13 +60,14 @@ function FleetPage() {
     }).join(",")).join("\n");
     download("fleet.csv", "text/csv;charset=utf-8;", csv);
   };
+  const escHtml = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
   const exportExcel = () => {
-    const html = `<table border="1"><thead><tr><th>Vehicle</th><th>Company</th><th>Trips</th><th>Revenue</th><th>Expenses</th><th>Profit</th><th>Status</th></tr></thead><tbody>${enriched.map((e) => `<tr><td>${e.v.vehicleNumber}</td><td>${e.company?.name ?? ""}</td><td>${e.trips}</td><td>${Math.round(e.revenue)}</td><td>${Math.round(e.expenses)}</td><td>${Math.round(e.profit)}</td><td>${e.v.status}</td></tr>`).join("")}</tbody></table>`;
+    const html = `<table border="1"><thead><tr><th>Vehicle</th><th>Company</th><th>Trips</th><th>Revenue</th><th>Expenses</th><th>Profit</th><th>Status</th></tr></thead><tbody>${enriched.map((e) => `<tr><td>${escHtml(e.v.vehicleNumber)}</td><td>${escHtml(e.company?.name ?? "")}</td><td>${e.trips}</td><td>${Math.round(e.revenue)}</td><td>${Math.round(e.expenses)}</td><td>${Math.round(e.profit)}</td><td>${escHtml(e.v.status)}</td></tr>`).join("")}</tbody></table>`;
     download("fleet.xls", "application/vnd.ms-excel", html);
   };
   const exportPDF = () => {
     const w = window.open("", "_blank"); if (!w) return;
-    w.document.write(`<html><head><title>Fleet</title><style>body{font-family:sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px}th{background:#f3f4f6;text-align:left}</style></head><body><h1>Fleet</h1><table><thead><tr><th>Vehicle</th><th>Company</th><th>Trips</th><th>Revenue</th><th>Expenses</th><th>Profit</th><th>Status</th></tr></thead><tbody>${enriched.map((e) => `<tr><td>${e.v.vehicleNumber}</td><td>${e.company?.name ?? ""}</td><td>${e.trips}</td><td>₹${Math.round(e.revenue).toLocaleString()}</td><td>₹${Math.round(e.expenses).toLocaleString()}</td><td>₹${Math.round(e.profit).toLocaleString()}</td><td>${e.v.status}</td></tr>`).join("")}</tbody></table><script>setTimeout(()=>window.print(),300)</script></body></html>`);
+    w.document.write(`<html><head><title>Fleet</title><style>body{font-family:sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px}th{background:#f3f4f6;text-align:left}</style></head><body><h1>Fleet</h1><table><thead><tr><th>Vehicle</th><th>Company</th><th>Trips</th><th>Revenue</th><th>Expenses</th><th>Profit</th><th>Status</th></tr></thead><tbody>${enriched.map((e) => `<tr><td>${escHtml(e.v.vehicleNumber)}</td><td>${escHtml(e.company?.name ?? "")}</td><td>${e.trips}</td><td>₹${Math.round(e.revenue).toLocaleString()}</td><td>₹${Math.round(e.expenses).toLocaleString()}</td><td>₹${Math.round(e.profit).toLocaleString()}</td><td>${escHtml(e.v.status)}</td></tr>`).join("")}</tbody></table><script>setTimeout(()=>window.print(),300)</script></body></html>`);
     w.document.close();
   };
 

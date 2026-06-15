@@ -800,6 +800,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      log_audit_event: {
+        Args: {
+          _action: string
+          _details?: Json
+          _entity_id: string
+          _entity_type: string
+        }
+        Returns: undefined
+      }
       next_receipt_number: { Args: { _year?: number }; Returns: string }
     }
     Enums: {
