@@ -987,11 +987,11 @@ export function getCompanyTotalPaid(companyId: string): number {
 export function writeAuditLog(action: string, entityType: string, entityId: string, details: Record<string, unknown>) {
   (async () => {
     try {
-      const { data: u } = await supabase.auth.getUser();
-      await supabase.from("audit_log").insert({
-        action, entity_type: entityType, entity_id: entityId,
-        user_id: u?.user?.id ?? null,
-        details: (details ?? {}) as any,
+      await supabase.rpc("log_audit_event", {
+        _action: action,
+        _entity_type: entityType,
+        _entity_id: entityId,
+        _details: (details ?? {}) as any,
       });
     } catch { /* audit failures should never break user flow */ }
   })();
