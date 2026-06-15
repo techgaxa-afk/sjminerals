@@ -63,7 +63,9 @@ export interface HitachiFuel {
   id: string; machineId: string; machineName: string; liters: number;
   hourReading: number; date: string; createdAt: string;
 }
-export type ExpenseCategory = "fuel" | "salary" | "maintenance" | "miscellaneous" | "tips" | "food";
+export { EXPENSE_CATEGORIES, isExpenseCategory } from "./expense-categories";
+export type { ExpenseCategory } from "./expense-categories";
+import { isExpenseCategory as _isExpenseCategory, EXPENSE_CATEGORIES, type ExpenseCategory } from "./expense-categories";
 export type ExpensePaymentMode = "cash" | "upi";
 export interface Expense {
   id: string; category: ExpenseCategory; amount: number; date: string; notes: string;
@@ -334,6 +336,18 @@ export async function loadAll(): Promise<void> {
     cache.hitachi_entries = (entries.data ?? []).map(mapEntry);
     cache.hitachi_fuel = (fuel.data ?? []).map(mapFuel);
     cache.expenses = (expenses.data ?? []).map(mapExpense);
+    // Migration safety: warn if DB has an expense category the UI does not know.
+    const unknown = new Set<string>();
+    for (const row of expenses.data ?? []) {
+      if (row?.category && !_isExpenseCategory(row.category)) unknown.add(row.category);
+    }
+    if (unknown.size > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[expense-categories] DB has categories not in UI: ${[...unknown].join(", ")}. ` +
+        `UI expects: ${EXPENSE_CATEGORIES.join(", ")}.`,
+      );
+    }
     cache.credit_adjustments = (adjustments.data ?? []).map(mapCreditAdjustment);
     cache.vehicle_maintenance = (vehMaint.data ?? []).map(mapVehicleMaintenance);
     cache.vehicle_documents = (vehDocs.data ?? []).map(mapVehicleDocument);
@@ -1158,12 +1172,18 @@ export function getUpiSales(since?: Date): number {
 export function getAvailableCash(): number { return getCashSales() - getCashExpenses(); }
 export function getAvailableUpi(): number { return getUpiSales() - getUpiExpenses(); }
 export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
+  if (!_isExpenseCategory(e.category)) {
+    throw new Error(`Invalid expense category "${String(e.category)}".`);
+  }
   const expense: Expense = { ...e, id: uid(), createdAt: new Date().toISOString() };
   cache.expenses.push(expense); bump();
   bg(supabase.from("expenses").insert(expenseToDb(expense)));
   return expense;
 }
 export function updateExpense(id: string, updates: Partial<Expense>): void {
+  if (updates.category !== undefined && !_isExpenseCategory(updates.category)) {
+    throw new Error(`Invalid expense category "${String(updates.category)}".`);
+  }
   cache.expenses = cache.expenses.map((e) => (e.id === id ? { ...e, ...updates } : e));
   bump();
   const merged = cache.expenses.find((e) => e.id === id);
