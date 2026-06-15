@@ -7,6 +7,7 @@ import {
   useCloudData,
   type Expense, type ExpenseCategory, type ExpensePaymentMode,
 } from "../lib/store";
+import { EXPENSE_CATEGORIES, isExpenseCategory } from "../lib/expense-categories";
 import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, UtensilsCrossed, Banknote, CreditCard } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -14,14 +15,15 @@ export const Route = createFileRoute("/expenses")({
   component: ExpensesPage,
 });
 
-const CATEGORIES: { value: ExpenseCategory; label: string; icon: typeof Fuel }[] = [
-  { value: "fuel", label: "Fuel", icon: Fuel },
-  { value: "salary", label: "Salary", icon: Users },
-  { value: "tips", label: "Tips", icon: Coins },
-  { value: "food", label: "Food", icon: UtensilsCrossed },
-  { value: "maintenance", label: "Maint.", icon: Wrench },
-  { value: "miscellaneous", label: "Other", icon: MoreHorizontal },
-];
+const CATEGORY_META: Record<ExpenseCategory, { label: string; icon: typeof Fuel }> = {
+  fuel: { label: "Fuel", icon: Fuel },
+  salary: { label: "Salary", icon: Users },
+  tips: { label: "Tips", icon: Coins },
+  food: { label: "Food", icon: UtensilsCrossed },
+  maintenance: { label: "Maint.", icon: Wrench },
+  miscellaneous: { label: "Other", icon: MoreHorizontal },
+};
+const CATEGORIES = EXPENSE_CATEGORIES.map((value) => ({ value, ...CATEGORY_META[value] }));
 
 function ExpensesPage() {
   useCloudData();
