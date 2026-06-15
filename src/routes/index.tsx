@@ -143,28 +143,6 @@ function DashboardPage() {
     };
   }, []);
 
-  // Verification log — confirms dashboard totals match the Expenses page,
-  // category-by-category. Includes ALL EXPENSE_CATEGORIES.
-  useMemo(() => {
-    const all = getExpenses();
-    const byCat: Record<string, number> = {};
-    for (const e of all) byCat[e.category] = (byCat[e.category] || 0) + e.amount;
-    const grand = all.reduce((s, e) => s + e.amount, 0);
-    // eslint-disable-next-line no-console
-    console.info("[dashboard] expense totals", {
-      fuel: byCat.fuel || 0,
-      food: byCat.food || 0,
-      salary: byCat.salary || 0,
-      tips: byCat.tips || 0,
-      maintenance: byCat.maintenance || 0,
-      miscellaneous: byCat.miscellaneous || 0,
-      grandTotal: grand,
-      cashExpAllTime: collectionStats.availableCash !== undefined
-        ? "see Available Cash card"
-        : undefined,
-    });
-  }, [collectionStats]);
-
   const recentPayments = useMemo(() => {
     const companies = getCompanies();
     const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
