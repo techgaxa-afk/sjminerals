@@ -336,6 +336,18 @@ export async function loadAll(): Promise<void> {
     cache.hitachi_entries = (entries.data ?? []).map(mapEntry);
     cache.hitachi_fuel = (fuel.data ?? []).map(mapFuel);
     cache.expenses = (expenses.data ?? []).map(mapExpense);
+    // Migration safety: warn if DB has an expense category the UI does not know.
+    const unknown = new Set<string>();
+    for (const row of expenses.data ?? []) {
+      if (row?.category && !_isExpenseCategory(row.category)) unknown.add(row.category);
+    }
+    if (unknown.size > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[expense-categories] DB has categories not in UI: ${[...unknown].join(", ")}. ` +
+        `UI expects: ${EXPENSE_CATEGORIES.join(", ")}.`,
+      );
+    }
     cache.credit_adjustments = (adjustments.data ?? []).map(mapCreditAdjustment);
     cache.vehicle_maintenance = (vehMaint.data ?? []).map(mapVehicleMaintenance);
     cache.vehicle_documents = (vehDocs.data ?? []).map(mapVehicleDocument);
