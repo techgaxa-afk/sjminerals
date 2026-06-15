@@ -1160,12 +1160,18 @@ export function getUpiSales(since?: Date): number {
 export function getAvailableCash(): number { return getCashSales() - getCashExpenses(); }
 export function getAvailableUpi(): number { return getUpiSales() - getUpiExpenses(); }
 export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
+  if (!_isExpenseCategory(e.category)) {
+    throw new Error(`Invalid expense category "${String(e.category)}".`);
+  }
   const expense: Expense = { ...e, id: uid(), createdAt: new Date().toISOString() };
   cache.expenses.push(expense); bump();
   bg(supabase.from("expenses").insert(expenseToDb(expense)));
   return expense;
 }
 export function updateExpense(id: string, updates: Partial<Expense>): void {
+  if (updates.category !== undefined && !_isExpenseCategory(updates.category)) {
+    throw new Error(`Invalid expense category "${String(updates.category)}".`);
+  }
   cache.expenses = cache.expenses.map((e) => (e.id === id ? { ...e, ...updates } : e));
   bump();
   const merged = cache.expenses.find((e) => e.id === id);
