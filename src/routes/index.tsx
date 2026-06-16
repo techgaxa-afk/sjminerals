@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses, getRecentActivity, type ActivityKind } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses, getCashCollections, getUpiCollections, getAvailableCash, getAvailableUpi, getRecentActivity, type ActivityKind } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock, Activity, RotateCcw } from "lucide-react";
@@ -100,10 +100,8 @@ function DashboardPage() {
 
   const collectionStats = useMemo(() => {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const all = getAllCompanyPayments().filter((p) => p.status !== "reversed");
-    const today = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfDay.getTime()).reduce((s, p) => s + p.amount, 0);
     const month = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfMonth.getTime()).reduce((s, p) => s + p.amount, 0);
     const companies = getCompanies();
     const outstanding = companies.reduce((s, c) => s + Math.max(0, getCompanyOutstanding(c.id)), 0);
@@ -125,23 +123,40 @@ function DashboardPage() {
       });
       return { count: list.length, cash, upi, credit };
     };
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayInv = breakdown(startOfDay);
     const monthInv = breakdown(startOfMonth);
-    const availableCash = getCashSales() - getCashExpenses();
-    const availableUpi = getUpiSales() - getUpiExpenses();
-    const cashSalesToday = getCashSales(startOfDay);
-    const upiSalesToday = getUpiSales(startOfDay);
-    const cashExpToday = getCashExpenses(startOfDay);
-    const upiExpToday = getUpiExpenses(startOfDay);
+
+    // Lifetime balances (ignore period filter)
+    const lifetimeCashBalance = getAvailableCash();
+    const lifetimeUpiBalance = getAvailableUpi();
+    const totalAvailableFunds = lifetimeCashBalance + lifetimeUpiBalance;
+
+    // Period-respecting flow numbers (use selected filter `start`)
+    const cashSalesPeriod = getCashSales(start);
+    const upiSalesPeriod = getUpiSales(start);
+    const cashCollectionsPeriod = getCashCollections(start);
+    const upiCollectionsPeriod = getUpiCollections(start);
+    const cashExpPeriod = getCashExpenses(start);
+    const upiExpPeriod = getUpiExpenses(start);
+    const netCashPeriod = cashSalesPeriod + cashCollectionsPeriod - cashExpPeriod;
+    const netUpiPeriod = upiSalesPeriod + upiCollectionsPeriod - upiExpPeriod;
+
+    const todayTotal = cashCollectionsPeriod + upiCollectionsPeriod + cashSalesPeriod + upiSalesPeriod; // for legacy
     return {
-      today, month, outstanding, overdue, creditExceeded,
+      today: todayTotal, month, outstanding, overdue, creditExceeded,
       todayInv, monthInv,
-      availableCash, availableUpi,
-      cashSalesToday, upiSalesToday, cashExpToday, upiExpToday,
-      netCashToday: cashSalesToday - cashExpToday,
-      netUpiToday: upiSalesToday - upiExpToday,
+      lifetimeCashBalance, lifetimeUpiBalance, totalAvailableFunds,
+      cashSalesPeriod, upiSalesPeriod,
+      cashCollectionsPeriod, upiCollectionsPeriod,
+      cashExpPeriod, upiExpPeriod,
+      netCashPeriod, netUpiPeriod,
+      netBusinessCollection: cashSalesPeriod + upiSalesPeriod + cashCollectionsPeriod + upiCollectionsPeriod - cashExpPeriod - upiExpPeriod,
+      salesPeriod: cashSalesPeriod + upiSalesPeriod,
+      collectionsPeriod: cashCollectionsPeriod + upiCollectionsPeriod,
+      expensesPeriod: cashExpPeriod + upiExpPeriod,
     };
-  }, []);
+  }, [start]);
 
   const recentPayments = useMemo(() => {
     const companies = getCompanies();
@@ -161,14 +176,7 @@ function DashboardPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="module-header mb-0">Dashboard</h1>
-          <div className="flex items-center gap-2">
-            <button onClick={handleExportReport} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"><FileDown className="h-3.5 w-3.5" /> Export</button>
-            <div className="flex gap-1 rounded-md bg-secondary p-1">
-              {(["daily", "weekly", "monthly"] as FilterType[]).map((f) => (
-                <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
-              ))}
-            </div>
-          </div>
+          <button onClick={handleExportReport} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"><FileDown className="h-3.5 w-3.5" /> Export</button>
         </div>
 
         {showImport && (
@@ -184,45 +192,70 @@ function DashboardPage() {
         )}
         {importMsg && <div className="rounded-md border border-success/30 bg-success/5 p-2 text-xs text-success">{importMsg}</div>}
 
-        {/* Cash & UPI Flow Today */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Lifetime Company Balances — NOT affected by Daily/Weekly/Monthly filter */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="stat-card border-success/30 bg-success/5">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-success"><Banknote className="h-4 w-4" /> Cash Flow Today</div>
-              {collectionStats.availableCash < 0 ? (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">OVERDRAWN</span>
-              ) : collectionStats.availableCash === 0 ? (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO CASH AVAILABLE</span>
-              ) : collectionStats.availableCash < 1000 ? (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW CASH BALANCE</span>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div><p className="text-[10px] text-muted-foreground">Sales</p><p className="text-sm font-bold text-success">₹{collectionStats.cashSalesToday.toLocaleString()}</p></div>
-              <div><p className="text-[10px] text-muted-foreground">Expenses</p><p className="text-sm font-bold text-destructive">₹{collectionStats.cashExpToday.toLocaleString()}</p></div>
-              <div><p className="text-[10px] text-muted-foreground">Net</p><p className={`text-sm font-bold ${collectionStats.netCashToday >= 0 ? "text-success" : "text-destructive"}`}>₹{collectionStats.netCashToday.toLocaleString()}</p></div>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2">Available Cash: <span className="font-semibold text-foreground">₹{collectionStats.availableCash.toLocaleString()}</span></p>
+            <div className="flex items-center gap-2 text-xs mb-1 text-success"><Banknote className="h-3.5 w-3.5" /> Cash Balance</div>
+            <p className={`text-2xl font-bold ${collectionStats.lifetimeCashBalance < 0 ? "text-destructive" : "text-success"}`}>₹{collectionStats.lifetimeCashBalance.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground">Lifetime cash on hand</p>
           </div>
           <div className="stat-card border-primary/30 bg-primary/5">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-primary"><CreditCard className="h-4 w-4" /> UPI Flow Today</div>
-              {collectionStats.availableUpi < 0 ? (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">OVERDRAWN</span>
-              ) : collectionStats.availableUpi === 0 ? (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">NO UPI BALANCE</span>
-              ) : collectionStats.availableUpi < 1000 ? (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">LOW UPI BALANCE</span>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div><p className="text-[10px] text-muted-foreground">Sales</p><p className="text-sm font-bold text-primary">₹{collectionStats.upiSalesToday.toLocaleString()}</p></div>
-              <div><p className="text-[10px] text-muted-foreground">Expenses</p><p className="text-sm font-bold text-destructive">₹{collectionStats.upiExpToday.toLocaleString()}</p></div>
-              <div><p className="text-[10px] text-muted-foreground">Net</p><p className={`text-sm font-bold ${collectionStats.netUpiToday >= 0 ? "text-success" : "text-destructive"}`}>₹{collectionStats.netUpiToday.toLocaleString()}</p></div>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2">Available UPI: <span className="font-semibold text-foreground">₹{collectionStats.availableUpi.toLocaleString()}</span></p>
+            <div className="flex items-center gap-2 text-xs mb-1 text-primary"><CreditCard className="h-3.5 w-3.5" /> UPI Balance</div>
+            <p className={`text-2xl font-bold ${collectionStats.lifetimeUpiBalance < 0 ? "text-destructive" : "text-primary"}`}>₹{collectionStats.lifetimeUpiBalance.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground">Lifetime UPI balance</p>
+          </div>
+          <div className="stat-card border-foreground/20 bg-foreground/5">
+            <div className="flex items-center gap-2 text-xs mb-1 text-foreground"><Wallet className="h-3.5 w-3.5" /> Total Available Funds</div>
+            <p className={`text-2xl font-bold ${collectionStats.totalAvailableFunds < 0 ? "text-destructive" : "text-foreground"}`}>₹{collectionStats.totalAvailableFunds.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground">Cash + UPI</p>
           </div>
         </div>
+
+        {/* Period filter */}
+        <div className="flex justify-end">
+          <div className="flex gap-1 rounded-md bg-secondary p-1">
+            {(["daily", "weekly", "monthly"] as FilterType[]).map((f) => (
+              <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Net Business Collection (period) */}
+        <div className="stat-card border-primary/30 bg-primary/5">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Activity className="h-4 w-4" /> {filter === "daily" ? "Today's" : filter === "weekly" ? "This Week's" : "This Month's"} Net Business Collection</div>
+            <p className={`text-2xl font-bold ${collectionStats.netBusinessCollection >= 0 ? "text-success" : "text-destructive"}`}>₹{collectionStats.netBusinessCollection.toLocaleString()}</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div><p className="text-[10px] text-muted-foreground">Sales</p><p className="text-sm font-bold text-foreground">₹{collectionStats.salesPeriod.toLocaleString()}</p></div>
+            <div><p className="text-[10px] text-muted-foreground">Collections</p><p className="text-sm font-bold text-foreground">₹{collectionStats.collectionsPeriod.toLocaleString()}</p></div>
+            <div><p className="text-[10px] text-muted-foreground">Expenses</p><p className="text-sm font-bold text-destructive">₹{collectionStats.expensesPeriod.toLocaleString()}</p></div>
+          </div>
+        </div>
+
+        {/* Cash & UPI Flow (period) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="stat-card border-success/30 bg-success/5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-success mb-2"><Banknote className="h-4 w-4" /> Cash Flow {filter === "daily" ? "Today" : filter === "weekly" ? "This Week" : "This Month"}</div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div><p className="text-[10px] text-muted-foreground">Invoices</p><p className="text-sm font-bold text-success">₹{collectionStats.cashSalesPeriod.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Collections</p><p className="text-sm font-bold text-success">₹{collectionStats.cashCollectionsPeriod.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Expenses</p><p className="text-sm font-bold text-destructive">₹{collectionStats.cashExpPeriod.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Net</p><p className={`text-sm font-bold ${collectionStats.netCashPeriod >= 0 ? "text-success" : "text-destructive"}`}>₹{collectionStats.netCashPeriod.toLocaleString()}</p></div>
+            </div>
+          </div>
+          <div className="stat-card border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-primary mb-2"><CreditCard className="h-4 w-4" /> UPI Flow {filter === "daily" ? "Today" : filter === "weekly" ? "This Week" : "This Month"}</div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div><p className="text-[10px] text-muted-foreground">Invoices</p><p className="text-sm font-bold text-primary">₹{collectionStats.upiSalesPeriod.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Collections</p><p className="text-sm font-bold text-primary">₹{collectionStats.upiCollectionsPeriod.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Expenses</p><p className="text-sm font-bold text-destructive">₹{collectionStats.upiExpPeriod.toLocaleString()}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Net</p><p className={`text-sm font-bold ${collectionStats.netUpiPeriod >= 0 ? "text-success" : "text-destructive"}`}>₹{collectionStats.netUpiPeriod.toLocaleString()}</p></div>
+            </div>
+          </div>
+        </div>
+
+
 
         {/* Period totals + Invoice breakdown */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

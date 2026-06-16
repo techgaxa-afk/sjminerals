@@ -1169,8 +1169,34 @@ export function getUpiSales(since?: Date): number {
   });
   return total;
 }
-export function getAvailableCash(): number { return getCashSales() - getCashExpenses(); }
-export function getAvailableUpi(): number { return getUpiSales() - getUpiExpenses(); }
+// Cash/UPI Collections = company-level payments received (cash or UPI) that are
+// NOT the auto-mirrored "Initial payment for invoice …" rows created at billing
+// time (those are already counted in getCashSales/getUpiSales). Excludes reversed.
+function isInitialBillPayment(p: CompanyPayment): boolean {
+  return !!p.notes && p.notes.startsWith("Initial payment for invoice");
+}
+export function getCashCollections(since?: Date): number {
+  return cache.company_payments
+    .filter((p) => p.status !== "reversed"
+      && (p.paymentMethod || "").toLowerCase() === "cash"
+      && !isInitialBillPayment(p)
+      && (!since || new Date(p.paymentDate) >= since))
+    .reduce((s, p) => s + p.amount, 0);
+}
+export function getUpiCollections(since?: Date): number {
+  return cache.company_payments
+    .filter((p) => p.status !== "reversed"
+      && (p.paymentMethod || "").toLowerCase() === "upi"
+      && !isInitialBillPayment(p)
+      && (!since || new Date(p.paymentDate) >= since))
+    .reduce((s, p) => s + p.amount, 0);
+}
+export function getAvailableCash(): number {
+  return getCashSales() + getCashCollections() - getCashExpenses();
+}
+export function getAvailableUpi(): number {
+  return getUpiSales() + getUpiCollections() - getUpiExpenses();
+}
 export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
   if (!_isExpenseCategory(e.category)) {
     throw new Error(`Invalid expense category "${String(e.category)}".`);
