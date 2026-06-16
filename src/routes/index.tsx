@@ -100,10 +100,8 @@ function DashboardPage() {
 
   const collectionStats = useMemo(() => {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const all = getAllCompanyPayments().filter((p) => p.status !== "reversed");
-    const today = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfDay.getTime()).reduce((s, p) => s + p.amount, 0);
     const month = all.filter((p) => new Date(p.paymentDate).getTime() >= startOfMonth.getTime()).reduce((s, p) => s + p.amount, 0);
     const companies = getCompanies();
     const outstanding = companies.reduce((s, c) => s + Math.max(0, getCompanyOutstanding(c.id)), 0);
@@ -125,23 +123,40 @@ function DashboardPage() {
       });
       return { count: list.length, cash, upi, credit };
     };
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayInv = breakdown(startOfDay);
     const monthInv = breakdown(startOfMonth);
-    const availableCash = getCashSales() - getCashExpenses();
-    const availableUpi = getUpiSales() - getUpiExpenses();
-    const cashSalesToday = getCashSales(startOfDay);
-    const upiSalesToday = getUpiSales(startOfDay);
-    const cashExpToday = getCashExpenses(startOfDay);
-    const upiExpToday = getUpiExpenses(startOfDay);
+
+    // Lifetime balances (ignore period filter)
+    const lifetimeCashBalance = getAvailableCash();
+    const lifetimeUpiBalance = getAvailableUpi();
+    const totalAvailableFunds = lifetimeCashBalance + lifetimeUpiBalance;
+
+    // Period-respecting flow numbers (use selected filter `start`)
+    const cashSalesPeriod = getCashSales(start);
+    const upiSalesPeriod = getUpiSales(start);
+    const cashCollectionsPeriod = getCashCollections(start);
+    const upiCollectionsPeriod = getUpiCollections(start);
+    const cashExpPeriod = getCashExpenses(start);
+    const upiExpPeriod = getUpiExpenses(start);
+    const netCashPeriod = cashSalesPeriod + cashCollectionsPeriod - cashExpPeriod;
+    const netUpiPeriod = upiSalesPeriod + upiCollectionsPeriod - upiExpPeriod;
+
+    const todayTotal = cashCollectionsPeriod + upiCollectionsPeriod + cashSalesPeriod + upiSalesPeriod; // for legacy
     return {
-      today, month, outstanding, overdue, creditExceeded,
+      today: todayTotal, month, outstanding, overdue, creditExceeded,
       todayInv, monthInv,
-      availableCash, availableUpi,
-      cashSalesToday, upiSalesToday, cashExpToday, upiExpToday,
-      netCashToday: cashSalesToday - cashExpToday,
-      netUpiToday: upiSalesToday - upiExpToday,
+      lifetimeCashBalance, lifetimeUpiBalance, totalAvailableFunds,
+      cashSalesPeriod, upiSalesPeriod,
+      cashCollectionsPeriod, upiCollectionsPeriod,
+      cashExpPeriod, upiExpPeriod,
+      netCashPeriod, netUpiPeriod,
+      netBusinessCollection: cashSalesPeriod + upiSalesPeriod + cashCollectionsPeriod + upiCollectionsPeriod - cashExpPeriod - upiExpPeriod,
+      salesPeriod: cashSalesPeriod + upiSalesPeriod,
+      collectionsPeriod: cashCollectionsPeriod + upiCollectionsPeriod,
+      expensesPeriod: cashExpPeriod + upiExpPeriod,
     };
-  }, []);
+  }, [start]);
 
   const recentPayments = useMemo(() => {
     const companies = getCompanies();
