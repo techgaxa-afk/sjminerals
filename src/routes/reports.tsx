@@ -82,7 +82,10 @@ function ReportsPage() {
   const [appliedCustom, setAppliedCustom] = useState<{ start: Date; end: Date } | null>(initCustom);
   const [dateError, setDateError] = useState("");
 
-  const { start, end } = useMemo(() => rangeFor(filter, appliedCustom), [filter, appliedCustom]);
+  const { start, end } = useMemo(
+    () => (reportType === "expenses" ? expensesRange(filter, appliedCustom) : rangeFor(filter, appliedCustom)),
+    [filter, appliedCustom, reportType],
+  );
 
   const applyPreset = (p: Preset) => {
     const r = presetRange(p);
