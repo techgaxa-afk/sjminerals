@@ -55,6 +55,16 @@ function rangeFor(filter: FilterType, custom: { start: Date; end: Date } | null)
   return { start: sod(now), end: eod(now) };
 }
 
+// Expenses tab uses calendar-period semantics (current week / current month)
+function expensesRange(filter: FilterType, custom: { start: Date; end: Date } | null): { start: Date; end: Date } {
+  const now = new Date();
+  if (filter === "custom" && custom) return custom;
+  if (filter === "daily") return { start: sod(now), end: eod(now) };
+  if (filter === "weekly") return { start: sod(startOfWeek(now, { weekStartsOn: 1 })), end: eod(endOfWeek(now, { weekStartsOn: 1 })) };
+  if (filter === "monthly") return { start: sod(startOfMonth(now)), end: eod(endOfMonth(now)) };
+  return { start: sod(now), end: eod(now) };
+}
+
 function ReportsPage() {
   const sp = Route.useSearch();
   const navigate = Route.useNavigate();
