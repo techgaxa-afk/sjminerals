@@ -4,16 +4,22 @@ import { useState, useMemo } from "react";
 import {
   getBills, getCompanies, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
-  getCompanyAging,
+  getCompanyAging, getExpenses,
+  type Expense, type ExpenseCategory, type ExpensePaymentMode,
 } from "../lib/store";
-import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon, Calendar as CalendarIcon } from "lucide-react";
+import { EXPENSE_CATEGORIES } from "../lib/expense-categories";
+import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon, Calendar as CalendarIcon, Receipt, FileSpreadsheet, Printer } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval } from "date-fns";
 
 
-type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics";
+type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics" | "expenses";
 type FilterType = "daily" | "weekly" | "monthly" | "custom";
 type Preset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth";
+
+const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
+  fuel: "Fuel", salary: "Salary", tips: "Tips", food: "Food", maintenance: "Maintenance", miscellaneous: "Other",
+};
 
 type ReportSearch = { tab?: ReportType; from?: string; to?: string; preset?: Preset };
 export const Route = createFileRoute("/reports")({
@@ -49,6 +55,16 @@ function rangeFor(filter: FilterType, custom: { start: Date; end: Date } | null)
   return { start: sod(now), end: eod(now) };
 }
 
+// Expenses tab uses calendar-period semantics (current week / current month)
+function expensesRange(filter: FilterType, custom: { start: Date; end: Date } | null): { start: Date; end: Date } {
+  const now = new Date();
+  if (filter === "custom" && custom) return custom;
+  if (filter === "daily") return { start: sod(now), end: eod(now) };
+  if (filter === "weekly") return { start: sod(startOfWeek(now, { weekStartsOn: 1 })), end: eod(endOfWeek(now, { weekStartsOn: 1 })) };
+  if (filter === "monthly") return { start: sod(startOfMonth(now)), end: eod(endOfMonth(now)) };
+  return { start: sod(now), end: eod(now) };
+}
+
 function ReportsPage() {
   const sp = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -66,7 +82,10 @@ function ReportsPage() {
   const [appliedCustom, setAppliedCustom] = useState<{ start: Date; end: Date } | null>(initCustom);
   const [dateError, setDateError] = useState("");
 
-  const { start, end } = useMemo(() => rangeFor(filter, appliedCustom), [filter, appliedCustom]);
+  const { start, end } = useMemo(
+    () => (reportType === "expenses" ? expensesRange(filter, appliedCustom) : rangeFor(filter, appliedCustom)),
+    [filter, appliedCustom, reportType],
+  );
 
   const applyPreset = (p: Preset) => {
     const r = presetRange(p);
@@ -252,6 +271,171 @@ function ReportsPage() {
     return { monthly: months };
   }, [reportType]);
 
+  // =========== Expenses report ===========
+  const [expCatFilter, setExpCatFilter] = useState<ExpenseCategory | "all">("all");
+  const [expModeFilter, setExpModeFilter] = useState<ExpensePaymentMode | "all">("all");
+
+  const expReport = useMemo(() => {
+    if (reportType !== "expenses") return null;
+    const all = getExpenses().filter((e) => {
+      const t = new Date(e.date + "T00:00:00").getTime();
+      return t >= start.getTime() && t <= end.getTime();
+    });
+    const filtered = all.filter((e) => {
+      const matchCat = expCatFilter === "all" || e.category === expCatFilter;
+      const matchMode = expModeFilter === "all" || e.paymentMode === expModeFilter;
+      const q = searchText.trim().toLowerCase();
+      const matchSearch = !q || e.notes.toLowerCase().includes(q) || e.category.includes(q);
+      return matchCat && matchMode && matchSearch;
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const total = all.reduce((s, e) => s + e.amount, 0);
+    const cash = all.filter((e) => e.paymentMode === "cash").reduce((s, e) => s + e.amount, 0);
+    const upi = all.filter((e) => e.paymentMode === "upi").reduce((s, e) => s + e.amount, 0);
+
+    const byCat: { category: ExpenseCategory; label: string; total: number; pct: number }[] = EXPENSE_CATEGORIES.map((c) => {
+      const sum = all.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0);
+      return { category: c, label: CATEGORY_LABEL[c], total: sum, pct: total > 0 ? (sum / total) * 100 : 0 };
+    }).sort((a, b) => b.total - a.total);
+
+    // Trend buckets
+    type Bucket = { label: string; cash: number; upi: number; total: number };
+    let buckets: Bucket[] = [];
+    const addToBucket = (b: Bucket, e: Expense) => {
+      b.total += e.amount;
+      if (e.paymentMode === "upi") b.upi += e.amount; else b.cash += e.amount;
+    };
+    if (filter === "monthly") {
+      const days = eachDayOfInterval({ start, end });
+      buckets = days.map((d) => ({ label: format(d, "dd MMM"), cash: 0, upi: 0, total: 0 }));
+      all.forEach((e) => {
+        const d = new Date(e.date + "T00:00:00");
+        const idx = Math.floor((sod(d).getTime() - sod(start).getTime()) / 86400000);
+        if (idx >= 0 && idx < buckets.length) addToBucket(buckets[idx], e);
+      });
+    } else if (filter === "weekly") {
+      const days = eachDayOfInterval({ start, end });
+      buckets = days.map((d) => ({ label: format(d, "EEE dd"), cash: 0, upi: 0, total: 0 }));
+      all.forEach((e) => {
+        const d = new Date(e.date + "T00:00:00");
+        const idx = Math.floor((sod(d).getTime() - sod(start).getTime()) / 86400000);
+        if (idx >= 0 && idx < buckets.length) addToBucket(buckets[idx], e);
+      });
+    } else if (filter === "daily") {
+      buckets = [{ label: format(start, "dd MMM"), cash, upi, total }];
+    } else {
+      // custom: by day if <= 60 days else by month
+      const spanDays = Math.ceil((end.getTime() - start.getTime()) / 86400000);
+      if (spanDays <= 60) {
+        const days = eachDayOfInterval({ start, end });
+        buckets = days.map((d) => ({ label: format(d, "dd MMM"), cash: 0, upi: 0, total: 0 }));
+        all.forEach((e) => {
+          const d = new Date(e.date + "T00:00:00");
+          const idx = Math.floor((sod(d).getTime() - sod(start).getTime()) / 86400000);
+          if (idx >= 0 && idx < buckets.length) addToBucket(buckets[idx], e);
+        });
+      } else {
+        const months = eachMonthOfInterval({ start, end });
+        buckets = months.map((d) => ({ label: format(d, "MMM yy"), cash: 0, upi: 0, total: 0 }));
+        all.forEach((e) => {
+          const d = new Date(e.date + "T00:00:00");
+          const i = months.findIndex((m) => m.getFullYear() === d.getFullYear() && m.getMonth() === d.getMonth());
+          if (i >= 0) addToBucket(buckets[i], e);
+        });
+      }
+    }
+
+    // Insights
+    const topCat = byCat[0];
+    const dayMap = new Map<string, number>();
+    all.forEach((e) => dayMap.set(e.date, (dayMap.get(e.date) || 0) + e.amount));
+    let topDay: { date: string; amount: number } | null = null;
+    dayMap.forEach((v, k) => { if (!topDay || v > topDay.amount) topDay = { date: k, amount: v }; });
+    const daysSpan = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1);
+    const avgPerDay = total / daysSpan;
+    const ratio = total > 0 ? `${Math.round((cash / total) * 100)}% / ${Math.round((upi / total) * 100)}%` : "—";
+
+    return {
+      all, filtered, total, cash, upi, count: all.length,
+      byCat, buckets, topCat, topDay: topDay as { date: string; amount: number } | null, avgPerDay, ratio,
+    };
+  }, [reportType, start, end, expCatFilter, expModeFilter, searchText, filter]);
+
+  const escCsv = (v: string | number | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+  const exportExpensesCSV = () => {
+    if (!expReport) return;
+    const headers = ["Date", "Category", "Notes", "Payment Mode", "Amount"];
+    const lines = [
+      `Expenses Report`, `Period: ${periodLabel}`, ``,
+      headers.join(","),
+      ...expReport.filtered.map((e) => [e.date, CATEGORY_LABEL[e.category], e.notes, e.paymentMode, e.amount].map(escCsv).join(",")),
+      "",
+      ["Total", "", "", "", expReport.filtered.reduce((s, e) => s + e.amount, 0)].map(escCsv).join(","),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `expenses-${filter}-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportExpensesExcel = () => {
+    if (!expReport) return;
+    const rows = expReport.filtered.map((e) =>
+      `<tr><td>${e.date}</td><td>${CATEGORY_LABEL[e.category]}</td><td>${(e.notes || "").replace(/</g, "&lt;")}</td><td>${e.paymentMode}</td><td>${e.amount}</td></tr>`
+    ).join("");
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/></head><body>
+      <h3>Expenses Report — ${periodLabel}</h3>
+      <table border="1"><thead><tr><th>Date</th><th>Category</th><th>Notes</th><th>Payment Mode</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
+    </body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `expenses-${filter}-${new Date().toISOString().split("T")[0]}.xls`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportExpensesPDF = () => {
+    if (!expReport) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const rows = expReport.filtered.map((e) =>
+      `<tr><td>${e.date}</td><td>${CATEGORY_LABEL[e.category]}</td><td>${(e.notes || "").replace(/</g, "&lt;")}</td><td>${e.paymentMode.toUpperCase()}</td><td style="text-align:right">₹${e.amount.toLocaleString()}</td></tr>`
+    ).join("");
+    const catRows = expReport.byCat.map((c) =>
+      `<tr><td>${c.label}</td><td style="text-align:right">₹${c.total.toLocaleString()}</td><td style="text-align:right">${c.pct.toFixed(1)}%</td></tr>`
+    ).join("");
+    w.document.write(`<!DOCTYPE html><html><head><title>Expenses Report</title>
+      <style>body{font-family:system-ui,-apple-system,sans-serif;padding:20px;color:#111}
+      h1{margin:0 0 4px;font-size:20px}h3{margin:18px 0 6px;font-size:14px}
+      .muted{color:#6b7280;font-size:12px}
+      table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+      th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left}
+      th{background:#f3f4f6}
+      .sum{display:flex;gap:12px;margin:10px 0}
+      .card{flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:10px}
+      .card .l{font-size:11px;color:#6b7280;text-transform:uppercase}
+      .card .v{font-size:16px;font-weight:bold}
+      </style></head><body>
+      <h1>Expenses Report</h1><p class="muted">Period: ${periodLabel}</p>
+      <div class="sum">
+        <div class="card"><div class="l">Total</div><div class="v">₹${expReport.total.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Cash</div><div class="v">₹${expReport.cash.toLocaleString()}</div></div>
+        <div class="card"><div class="l">UPI</div><div class="v">₹${expReport.upi.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Transactions</div><div class="v">${expReport.count}</div></div>
+      </div>
+      <h3>Category Breakdown</h3>
+      <table><thead><tr><th>Category</th><th style="text-align:right">Amount</th><th style="text-align:right">%</th></tr></thead><tbody>${catRows}</tbody></table>
+      <h3>Detail (${expReport.filtered.length})</h3>
+      <table><thead><tr><th>Date</th><th>Category</th><th>Notes</th><th>Mode</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+      <script>setTimeout(()=>window.print(),300)</script>
+      </body></html>`);
+    w.document.close();
+  };
+
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
     { id: "vehicle", label: "Vehicle", icon: Building2 },
@@ -260,6 +444,7 @@ function ReportsPage() {
     { id: "ledger", label: "Ledger", icon: Wallet },
     { id: "aging", label: "Aging", icon: AlertTriangle },
     { id: "analytics", label: "Analytics", icon: LineChartIcon },
+    { id: "expenses", label: "Expenses", icon: Receipt },
   ];
 
   return (
@@ -448,6 +633,150 @@ function ReportsPage() {
                     <span className="text-right text-sm font-bold text-primary">₹{agingTotals.total.toLocaleString()}</span>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        ) : reportType === "expenses" && expReport ? (
+          <div className="space-y-4">
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Total Expenses</p>
+                <p className="text-lg font-bold text-destructive">₹{expReport.total.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Cash Expenses</p>
+                <p className="text-lg font-bold text-success">₹{expReport.cash.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">UPI Expenses</p>
+                <p className="text-lg font-bold text-primary">₹{expReport.upi.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Transactions</p>
+                <p className="text-lg font-bold text-foreground">{expReport.count}</p>
+              </div>
+            </div>
+
+            {/* Quick insights */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Top Category</p>
+                <p className="text-sm font-bold text-foreground">{expReport.topCat ? expReport.topCat.label : "—"}</p>
+                <p className="text-xs text-muted-foreground">{expReport.topCat ? `₹${expReport.topCat.total.toLocaleString()} (${expReport.topCat.pct.toFixed(1)}%)` : ""}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Highest Day</p>
+                <p className="text-sm font-bold text-foreground">{expReport.topDay ? format(new Date(expReport.topDay.date + "T00:00:00"), "dd MMM yyyy") : "—"}</p>
+                <p className="text-xs text-muted-foreground">{expReport.topDay ? `₹${expReport.topDay.amount.toLocaleString()}` : ""}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Avg / Day</p>
+                <p className="text-sm font-bold text-foreground">₹{Math.round(expReport.avgPerDay).toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Cash vs UPI</p>
+                <p className="text-sm font-bold text-foreground">{expReport.ratio}</p>
+              </div>
+            </div>
+
+            {/* Category breakdown */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Category Breakdown</h3>
+              <div className="space-y-2">
+                {expReport.byCat.map((c) => (
+                  <div key={c.category} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-foreground font-medium">{c.label}</span>
+                      <span className="text-muted-foreground">₹{c.total.toLocaleString()} · {c.pct.toFixed(1)}%</span>
+                    </div>
+                    <div className="h-1.5 rounded bg-secondary overflow-hidden">
+                      <div className="h-full bg-primary" style={{ width: `${Math.min(100, c.pct)}%` }} />
+                    </div>
+                  </div>
+                ))}
+                {expReport.byCat.every((c) => c.total === 0) && (
+                  <p className="text-center text-xs text-muted-foreground py-4">No expenses in this period.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Trend */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Expense Trend</h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={expReport.buckets}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="cash" stackId="a" name="Cash" fill="oklch(0.65 0.18 145)" radius={[0,0,0,0]} />
+                  <Bar dataKey="upi" stackId="a" name="UPI" fill="oklch(0.65 0.18 250)" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={expReport.buckets}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Line type="monotone" dataKey="total" name="Total" stroke="oklch(0.65 0.18 50)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Detail table */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">{expReport.filtered.length} expense{expReport.filtered.length === 1 ? "" : "s"}</p>
+                <div className="flex gap-2 flex-wrap">
+                  <select value={expCatFilter} onChange={(e) => setExpCatFilter(e.target.value as ExpenseCategory | "all")} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground">
+                    <option value="all">All Categories</option>
+                    {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
+                  </select>
+                  <select value={expModeFilter} onChange={(e) => setExpModeFilter(e.target.value as ExpensePaymentMode | "all")} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground">
+                    <option value="all">All Modes</option>
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                  </select>
+                  <button onClick={exportExpensesCSV} disabled={expReport.filtered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                    <FileDown className="h-3.5 w-3.5" /> CSV
+                  </button>
+                  <button onClick={exportExpensesExcel} disabled={expReport.filtered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                  </button>
+                  <button onClick={exportExpensesPDF} disabled={expReport.filtered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                    <Printer className="h-3.5 w-3.5" /> PDF
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="min-w-[720px] space-y-2">
+                  <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
+                    <span>Date</span>
+                    <span>Category</span>
+                    <span>Notes</span>
+                    <span>Mode</span>
+                    <span className="text-right">Amount</span>
+                  </div>
+                  {expReport.filtered.map((e) => (
+                    <div key={e.id} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
+                      <span className="text-foreground">{format(new Date(e.date + "T00:00:00"), "dd MMM yyyy")}</span>
+                      <span className="text-foreground">{CATEGORY_LABEL[e.category]}</span>
+                      <span className="text-muted-foreground truncate">{e.notes || "—"}</span>
+                      <span className={`text-[10px] font-bold ${e.paymentMode === "upi" ? "text-primary" : "text-success"}`}>{e.paymentMode.toUpperCase()}</span>
+                      <span className="text-right font-medium text-destructive">₹{e.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {expReport.filtered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No expenses for this period.</p>}
+                  {expReport.filtered.length > 0 && (
+                    <div className="stat-card grid gap-2 items-center border-primary/30" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
+                      <span className="font-bold text-sm text-foreground col-span-4">Total</span>
+                      <span className="text-right text-sm font-bold text-destructive">₹{expReport.filtered.reduce((s, e) => s + e.amount, 0).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
