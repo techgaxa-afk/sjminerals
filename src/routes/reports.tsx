@@ -271,6 +271,171 @@ function ReportsPage() {
     return { monthly: months };
   }, [reportType]);
 
+  // =========== Expenses report ===========
+  const [expCatFilter, setExpCatFilter] = useState<ExpenseCategory | "all">("all");
+  const [expModeFilter, setExpModeFilter] = useState<ExpensePaymentMode | "all">("all");
+
+  const expReport = useMemo(() => {
+    if (reportType !== "expenses") return null;
+    const all = getExpenses().filter((e) => {
+      const t = new Date(e.date + "T00:00:00").getTime();
+      return t >= start.getTime() && t <= end.getTime();
+    });
+    const filtered = all.filter((e) => {
+      const matchCat = expCatFilter === "all" || e.category === expCatFilter;
+      const matchMode = expModeFilter === "all" || e.paymentMode === expModeFilter;
+      const q = searchText.trim().toLowerCase();
+      const matchSearch = !q || e.notes.toLowerCase().includes(q) || e.category.includes(q);
+      return matchCat && matchMode && matchSearch;
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const total = all.reduce((s, e) => s + e.amount, 0);
+    const cash = all.filter((e) => e.paymentMode === "cash").reduce((s, e) => s + e.amount, 0);
+    const upi = all.filter((e) => e.paymentMode === "upi").reduce((s, e) => s + e.amount, 0);
+
+    const byCat: { category: ExpenseCategory; label: string; total: number; pct: number }[] = EXPENSE_CATEGORIES.map((c) => {
+      const sum = all.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0);
+      return { category: c, label: CATEGORY_LABEL[c], total: sum, pct: total > 0 ? (sum / total) * 100 : 0 };
+    }).sort((a, b) => b.total - a.total);
+
+    // Trend buckets
+    type Bucket = { label: string; cash: number; upi: number; total: number };
+    let buckets: Bucket[] = [];
+    const addToBucket = (b: Bucket, e: Expense) => {
+      b.total += e.amount;
+      if (e.paymentMode === "upi") b.upi += e.amount; else b.cash += e.amount;
+    };
+    if (filter === "monthly") {
+      const days = eachDayOfInterval({ start, end });
+      buckets = days.map((d) => ({ label: format(d, "dd MMM"), cash: 0, upi: 0, total: 0 }));
+      all.forEach((e) => {
+        const d = new Date(e.date + "T00:00:00");
+        const idx = Math.floor((sod(d).getTime() - sod(start).getTime()) / 86400000);
+        if (idx >= 0 && idx < buckets.length) addToBucket(buckets[idx], e);
+      });
+    } else if (filter === "weekly") {
+      const days = eachDayOfInterval({ start, end });
+      buckets = days.map((d) => ({ label: format(d, "EEE dd"), cash: 0, upi: 0, total: 0 }));
+      all.forEach((e) => {
+        const d = new Date(e.date + "T00:00:00");
+        const idx = Math.floor((sod(d).getTime() - sod(start).getTime()) / 86400000);
+        if (idx >= 0 && idx < buckets.length) addToBucket(buckets[idx], e);
+      });
+    } else if (filter === "daily") {
+      buckets = [{ label: format(start, "dd MMM"), cash, upi, total }];
+    } else {
+      // custom: by day if <= 60 days else by month
+      const spanDays = Math.ceil((end.getTime() - start.getTime()) / 86400000);
+      if (spanDays <= 60) {
+        const days = eachDayOfInterval({ start, end });
+        buckets = days.map((d) => ({ label: format(d, "dd MMM"), cash: 0, upi: 0, total: 0 }));
+        all.forEach((e) => {
+          const d = new Date(e.date + "T00:00:00");
+          const idx = Math.floor((sod(d).getTime() - sod(start).getTime()) / 86400000);
+          if (idx >= 0 && idx < buckets.length) addToBucket(buckets[idx], e);
+        });
+      } else {
+        const months = eachMonthOfInterval({ start, end });
+        buckets = months.map((d) => ({ label: format(d, "MMM yy"), cash: 0, upi: 0, total: 0 }));
+        all.forEach((e) => {
+          const d = new Date(e.date + "T00:00:00");
+          const i = months.findIndex((m) => m.getFullYear() === d.getFullYear() && m.getMonth() === d.getMonth());
+          if (i >= 0) addToBucket(buckets[i], e);
+        });
+      }
+    }
+
+    // Insights
+    const topCat = byCat[0];
+    const dayMap = new Map<string, number>();
+    all.forEach((e) => dayMap.set(e.date, (dayMap.get(e.date) || 0) + e.amount));
+    let topDay: { date: string; amount: number } | null = null;
+    dayMap.forEach((v, k) => { if (!topDay || v > topDay.amount) topDay = { date: k, amount: v }; });
+    const daysSpan = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1);
+    const avgPerDay = total / daysSpan;
+    const ratio = total > 0 ? `${Math.round((cash / total) * 100)}% / ${Math.round((upi / total) * 100)}%` : "—";
+
+    return {
+      all, filtered, total, cash, upi, count: all.length,
+      byCat, buckets, topCat, topDay: topDay as { date: string; amount: number } | null, avgPerDay, ratio,
+    };
+  }, [reportType, start, end, expCatFilter, expModeFilter, searchText, filter]);
+
+  const escCsv = (v: string | number | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+  const exportExpensesCSV = () => {
+    if (!expReport) return;
+    const headers = ["Date", "Category", "Notes", "Payment Mode", "Amount"];
+    const lines = [
+      `Expenses Report`, `Period: ${periodLabel}`, ``,
+      headers.join(","),
+      ...expReport.filtered.map((e) => [e.date, CATEGORY_LABEL[e.category], e.notes, e.paymentMode, e.amount].map(escCsv).join(",")),
+      "",
+      ["Total", "", "", "", expReport.filtered.reduce((s, e) => s + e.amount, 0)].map(escCsv).join(","),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `expenses-${filter}-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportExpensesExcel = () => {
+    if (!expReport) return;
+    const rows = expReport.filtered.map((e) =>
+      `<tr><td>${e.date}</td><td>${CATEGORY_LABEL[e.category]}</td><td>${(e.notes || "").replace(/</g, "&lt;")}</td><td>${e.paymentMode}</td><td>${e.amount}</td></tr>`
+    ).join("");
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/></head><body>
+      <h3>Expenses Report — ${periodLabel}</h3>
+      <table border="1"><thead><tr><th>Date</th><th>Category</th><th>Notes</th><th>Payment Mode</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
+    </body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `expenses-${filter}-${new Date().toISOString().split("T")[0]}.xls`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportExpensesPDF = () => {
+    if (!expReport) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const rows = expReport.filtered.map((e) =>
+      `<tr><td>${e.date}</td><td>${CATEGORY_LABEL[e.category]}</td><td>${(e.notes || "").replace(/</g, "&lt;")}</td><td>${e.paymentMode.toUpperCase()}</td><td style="text-align:right">₹${e.amount.toLocaleString()}</td></tr>`
+    ).join("");
+    const catRows = expReport.byCat.map((c) =>
+      `<tr><td>${c.label}</td><td style="text-align:right">₹${c.total.toLocaleString()}</td><td style="text-align:right">${c.pct.toFixed(1)}%</td></tr>`
+    ).join("");
+    w.document.write(`<!DOCTYPE html><html><head><title>Expenses Report</title>
+      <style>body{font-family:system-ui,-apple-system,sans-serif;padding:20px;color:#111}
+      h1{margin:0 0 4px;font-size:20px}h3{margin:18px 0 6px;font-size:14px}
+      .muted{color:#6b7280;font-size:12px}
+      table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+      th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left}
+      th{background:#f3f4f6}
+      .sum{display:flex;gap:12px;margin:10px 0}
+      .card{flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:10px}
+      .card .l{font-size:11px;color:#6b7280;text-transform:uppercase}
+      .card .v{font-size:16px;font-weight:bold}
+      </style></head><body>
+      <h1>Expenses Report</h1><p class="muted">Period: ${periodLabel}</p>
+      <div class="sum">
+        <div class="card"><div class="l">Total</div><div class="v">₹${expReport.total.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Cash</div><div class="v">₹${expReport.cash.toLocaleString()}</div></div>
+        <div class="card"><div class="l">UPI</div><div class="v">₹${expReport.upi.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Transactions</div><div class="v">${expReport.count}</div></div>
+      </div>
+      <h3>Category Breakdown</h3>
+      <table><thead><tr><th>Category</th><th style="text-align:right">Amount</th><th style="text-align:right">%</th></tr></thead><tbody>${catRows}</tbody></table>
+      <h3>Detail (${expReport.filtered.length})</h3>
+      <table><thead><tr><th>Date</th><th>Category</th><th>Notes</th><th>Mode</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+      <script>setTimeout(()=>window.print(),300)</script>
+      </body></html>`);
+    w.document.close();
+  };
+
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
     { id: "vehicle", label: "Vehicle", icon: Building2 },
@@ -279,6 +444,7 @@ function ReportsPage() {
     { id: "ledger", label: "Ledger", icon: Wallet },
     { id: "aging", label: "Aging", icon: AlertTriangle },
     { id: "analytics", label: "Analytics", icon: LineChartIcon },
+    { id: "expenses", label: "Expenses", icon: Receipt },
   ];
 
   return (
