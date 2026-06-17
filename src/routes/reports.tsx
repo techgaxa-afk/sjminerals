@@ -636,6 +636,150 @@ function ReportsPage() {
               </div>
             </div>
           </div>
+        ) : reportType === "expenses" && expReport ? (
+          <div className="space-y-4">
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Total Expenses</p>
+                <p className="text-lg font-bold text-destructive">₹{expReport.total.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Cash Expenses</p>
+                <p className="text-lg font-bold text-success">₹{expReport.cash.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">UPI Expenses</p>
+                <p className="text-lg font-bold text-primary">₹{expReport.upi.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Transactions</p>
+                <p className="text-lg font-bold text-foreground">{expReport.count}</p>
+              </div>
+            </div>
+
+            {/* Quick insights */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Top Category</p>
+                <p className="text-sm font-bold text-foreground">{expReport.topCat ? expReport.topCat.label : "—"}</p>
+                <p className="text-xs text-muted-foreground">{expReport.topCat ? `₹${expReport.topCat.total.toLocaleString()} (${expReport.topCat.pct.toFixed(1)}%)` : ""}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Highest Day</p>
+                <p className="text-sm font-bold text-foreground">{expReport.topDay ? format(new Date(expReport.topDay.date + "T00:00:00"), "dd MMM yyyy") : "—"}</p>
+                <p className="text-xs text-muted-foreground">{expReport.topDay ? `₹${expReport.topDay.amount.toLocaleString()}` : ""}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Avg / Day</p>
+                <p className="text-sm font-bold text-foreground">₹{Math.round(expReport.avgPerDay).toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Cash vs UPI</p>
+                <p className="text-sm font-bold text-foreground">{expReport.ratio}</p>
+              </div>
+            </div>
+
+            {/* Category breakdown */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Category Breakdown</h3>
+              <div className="space-y-2">
+                {expReport.byCat.map((c) => (
+                  <div key={c.category} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-foreground font-medium">{c.label}</span>
+                      <span className="text-muted-foreground">₹{c.total.toLocaleString()} · {c.pct.toFixed(1)}%</span>
+                    </div>
+                    <div className="h-1.5 rounded bg-secondary overflow-hidden">
+                      <div className="h-full bg-primary" style={{ width: `${Math.min(100, c.pct)}%` }} />
+                    </div>
+                  </div>
+                ))}
+                {expReport.byCat.every((c) => c.total === 0) && (
+                  <p className="text-center text-xs text-muted-foreground py-4">No expenses in this period.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Trend */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Expense Trend</h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={expReport.buckets}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="cash" stackId="a" name="Cash" fill="oklch(0.65 0.18 145)" radius={[0,0,0,0]} />
+                  <Bar dataKey="upi" stackId="a" name="UPI" fill="oklch(0.65 0.18 250)" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={expReport.buckets}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.015 250)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "oklch(0.6 0.02 250)" }} />
+                  <Tooltip contentStyle={{ background: "oklch(0.22 0.012 250)", border: "1px solid oklch(0.3 0.015 250)", borderRadius: 6 }} />
+                  <Line type="monotone" dataKey="total" name="Total" stroke="oklch(0.65 0.18 50)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Detail table */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">{expReport.filtered.length} expense{expReport.filtered.length === 1 ? "" : "s"}</p>
+                <div className="flex gap-2 flex-wrap">
+                  <select value={expCatFilter} onChange={(e) => setExpCatFilter(e.target.value as ExpenseCategory | "all")} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground">
+                    <option value="all">All Categories</option>
+                    {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
+                  </select>
+                  <select value={expModeFilter} onChange={(e) => setExpModeFilter(e.target.value as ExpensePaymentMode | "all")} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground">
+                    <option value="all">All Modes</option>
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                  </select>
+                  <button onClick={exportExpensesCSV} disabled={expReport.filtered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                    <FileDown className="h-3.5 w-3.5" /> CSV
+                  </button>
+                  <button onClick={exportExpensesExcel} disabled={expReport.filtered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                  </button>
+                  <button onClick={exportExpensesPDF} disabled={expReport.filtered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                    <Printer className="h-3.5 w-3.5" /> PDF
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="min-w-[720px] space-y-2">
+                  <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
+                    <span>Date</span>
+                    <span>Category</span>
+                    <span>Notes</span>
+                    <span>Mode</span>
+                    <span className="text-right">Amount</span>
+                  </div>
+                  {expReport.filtered.map((e) => (
+                    <div key={e.id} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
+                      <span className="text-foreground">{format(new Date(e.date + "T00:00:00"), "dd MMM yyyy")}</span>
+                      <span className="text-foreground">{CATEGORY_LABEL[e.category]}</span>
+                      <span className="text-muted-foreground truncate">{e.notes || "—"}</span>
+                      <span className={`text-[10px] font-bold ${e.paymentMode === "upi" ? "text-primary" : "text-success"}`}>{e.paymentMode.toUpperCase()}</span>
+                      <span className="text-right font-medium text-destructive">₹{e.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {expReport.filtered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No expenses for this period.</p>}
+                  {expReport.filtered.length > 0 && (
+                    <div className="stat-card grid gap-2 items-center border-primary/30" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
+                      <span className="font-bold text-sm text-foreground col-span-4">Total</span>
+                      <span className="text-right text-sm font-bold text-destructive">₹{expReport.filtered.reduce((s, e) => s + e.amount, 0).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
