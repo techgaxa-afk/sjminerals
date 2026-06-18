@@ -450,6 +450,7 @@ export async function loadAll(): Promise<void> {
     cache.credit_adjustments = (adjustments.data ?? []).map(mapCreditAdjustment);
     cache.vehicle_maintenance = (vehMaint.data ?? []).map(mapVehicleMaintenance);
     cache.vehicle_documents = (vehDocs.data ?? []).map(mapVehicleDocument);
+    cache.hitachi_rental_payments = (rentalPayments.data ?? []).map(mapRentalPayment);
     loaded = true;
     bump();
     setupRealtime();
