@@ -663,7 +663,10 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
     createdAt: now.toISOString(),
     invoiceNumber: nextInvoiceNumber(now),
   };
-  const stampedItems = items.map((item) => ({ ...item, id: uid(), billId: billRow.id }));
+  const stampedItems = items.map((item) => {
+    const cat = item.productCategory ?? cache.products.find((p) => p.id === item.productId)?.productCategory ?? null;
+    return { ...item, productCategory: cat, id: uid(), billId: billRow.id };
+  });
   const paymentDate = now.toISOString().split("T")[0];
   const paymentRows: Payment[] = [];
 
