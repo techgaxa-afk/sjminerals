@@ -134,8 +134,10 @@ function BillsPage() {
       upiAmount: b.upiAmount ?? 0,
       passEnabled: !!b.passEnabled,
       passAmount: b.passAmount ?? DEFAULT_PASS_AMOUNT,
+      billDate: getBillRefDate(b),
     });
   };
+
 
   const editSubtotal = editForm ? editForm.items.reduce((s, i) => s + i.total, 0) : 0;
   const editTotalQty = editForm ? editForm.items.reduce((s, i) => s + i.quantity, 0) : 0;
