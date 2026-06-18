@@ -79,10 +79,18 @@ export interface HitachiEntry {
   shiftType: ShiftType;
   shift: "A" | "B";
   machineRevenue: number; operatorSalary: number; notes: string; createdAt: string;
+  // Owned-machine optional cost fields
+  maintenanceCost: number; dieselLiters: number; dieselCost: number; tips: number;
+  // Rented-machine fields
+  rentalCharge: number; dieselPaid: number; rentalPaymentMade: number;
 }
 export interface HitachiFuel {
   id: string; machineId: string; machineName: string; liters: number;
   hourReading: number; date: string; createdAt: string;
+}
+export interface HitachiRentalPayment {
+  id: string; machineId: string; machineName: string;
+  amount: number; paymentDate: string; paymentMode: string; notes: string; createdAt: string;
 }
 export { EXPENSE_CATEGORIES, isExpenseCategory, HITACHI_ALLOCATABLE_CATEGORIES, isHitachiAllocatableCategory } from "./expense-categories";
 export type { ExpenseCategory } from "./expense-categories";
