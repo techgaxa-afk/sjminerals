@@ -145,6 +145,7 @@ const cache: Cache = {
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
   credit_adjustments: [],
   vehicle_maintenance: [], vehicle_documents: [],
+  hitachi_rental_payments: [],
 };
 let version = 0;
 const listeners = new Set<() => void>();
