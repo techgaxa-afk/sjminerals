@@ -79,10 +79,18 @@ export interface HitachiEntry {
   shiftType: ShiftType;
   shift: "A" | "B";
   machineRevenue: number; operatorSalary: number; notes: string; createdAt: string;
+  // Owned-machine optional cost fields
+  maintenanceCost: number; dieselLiters: number; dieselCost: number; tips: number;
+  // Rented-machine fields
+  rentalCharge: number; dieselPaid: number; rentalPaymentMade: number;
 }
 export interface HitachiFuel {
   id: string; machineId: string; machineName: string; liters: number;
   hourReading: number; date: string; createdAt: string;
+}
+export interface HitachiRentalPayment {
+  id: string; machineId: string; machineName: string;
+  amount: number; paymentDate: string; paymentMode: string; notes: string; createdAt: string;
 }
 export { EXPENSE_CATEGORIES, isExpenseCategory, HITACHI_ALLOCATABLE_CATEGORIES, isHitachiAllocatableCategory } from "./expense-categories";
 export type { ExpenseCategory } from "./expense-categories";
@@ -129,6 +137,7 @@ type Cache = {
   credit_adjustments: CreditAdjustment[];
   vehicle_maintenance: VehicleMaintenance[];
   vehicle_documents: VehicleDocument[];
+  hitachi_rental_payments: HitachiRentalPayment[];
 };
 const cache: Cache = {
   products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
@@ -136,6 +145,7 @@ const cache: Cache = {
   hitachi_machines: [], hitachi_entries: [], hitachi_fuel: [], operators: [], expenses: [],
   credit_adjustments: [],
   vehicle_maintenance: [], vehicle_documents: [],
+  hitachi_rental_payments: [],
 };
 let version = 0;
 const listeners = new Set<() => void>();
@@ -298,6 +308,13 @@ const mapEntry = (r: any): HitachiEntry => ({
   shift: r.shift === "B" ? "B" : "A",
   machineRevenue: Number(r.machine_revenue) || 0, operatorSalary: Number(r.operator_salary) || 0,
   notes: r.notes ?? "", createdAt: r.created_at,
+  maintenanceCost: Number(r.maintenance_cost) || 0,
+  dieselLiters: Number(r.diesel_liters) || 0,
+  dieselCost: Number(r.diesel_cost) || 0,
+  tips: Number(r.tips) || 0,
+  rentalCharge: Number(r.rental_charge) || 0,
+  dieselPaid: Number(r.diesel_paid) || 0,
+  rentalPaymentMade: Number(r.rental_payment_made) || 0,
 });
 const entryToDb = (e: HitachiEntry) => ({
   id: e.id, machine_id: e.machineId, machine_name: e.machineName, date: e.date,
@@ -305,6 +322,22 @@ const entryToDb = (e: HitachiEntry) => ({
   operator_id: e.operatorId || null, operator_name: e.operatorName,
   shift_type: e.shiftType, shift: e.shift,
   machine_revenue: e.machineRevenue, operator_salary: e.operatorSalary, notes: e.notes,
+  maintenance_cost: e.maintenanceCost || 0,
+  diesel_liters: e.dieselLiters || 0,
+  diesel_cost: e.dieselCost || 0,
+  tips: e.tips || 0,
+  rental_charge: e.rentalCharge || 0,
+  diesel_paid: e.dieselPaid || 0,
+  rental_payment_made: e.rentalPaymentMade || 0,
+});
+const mapRentalPayment = (r: any): HitachiRentalPayment => ({
+  id: r.id, machineId: r.machine_id, machineName: r.machine_name ?? "",
+  amount: Number(r.amount) || 0, paymentDate: r.payment_date,
+  paymentMode: r.payment_mode ?? "cash", notes: r.notes ?? "", createdAt: r.created_at,
+});
+const rentalPaymentToDb = (p: HitachiRentalPayment) => ({
+  id: p.id, machine_id: p.machineId, machine_name: p.machineName,
+  amount: p.amount, payment_date: p.paymentDate, payment_mode: p.paymentMode || "cash", notes: p.notes || "",
 });
 const mapFuel = (r: any): HitachiFuel => ({
   id: r.id, machineId: r.machine_id, machineName: r.machine_name,
@@ -360,7 +393,7 @@ export async function loadAll(): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const [
-      products, companies, vehicles, bills, billItems, payments, companyPayments, machines, operators, entries, fuel, expenses, adjustments, vehMaint, vehDocs,
+      products, companies, vehicles, bills, billItems, payments, companyPayments, machines, operators, entries, fuel, expenses, adjustments, vehMaint, vehDocs, rentalPayments,
     ] = await Promise.all([
       supabase.from("products").select("*"),
       supabase.from("companies").select("*"),
@@ -377,6 +410,7 @@ export async function loadAll(): Promise<void> {
       supabase.from("credit_adjustments").select("*"),
       supabase.from("vehicle_maintenance").select("*"),
       supabase.from("vehicle_documents").select("*"),
+      supabase.from("hitachi_rental_payments").select("*"),
     ]);
     cache.products = (products.data ?? []).map(mapProduct);
     cache.companies = (companies.data ?? []).map(mapCompany);
@@ -416,6 +450,7 @@ export async function loadAll(): Promise<void> {
     cache.credit_adjustments = (adjustments.data ?? []).map(mapCreditAdjustment);
     cache.vehicle_maintenance = (vehMaint.data ?? []).map(mapVehicleMaintenance);
     cache.vehicle_documents = (vehDocs.data ?? []).map(mapVehicleDocument);
+    cache.hitachi_rental_payments = (rentalPayments.data ?? []).map(mapRentalPayment);
     loaded = true;
     bump();
     setupRealtime();
@@ -444,6 +479,7 @@ function setupRealtime() {
     { table: "credit_adjustments", map: mapCreditAdjustment, key: "credit_adjustments" },
     { table: "vehicle_maintenance", map: mapVehicleMaintenance, key: "vehicle_maintenance" },
     { table: "vehicle_documents", map: mapVehicleDocument, key: "vehicle_documents" },
+    { table: "hitachi_rental_payments", map: mapRentalPayment, key: "hitachi_rental_payments" },
   ];
   for (const t of tables) {
     supabase.channel(`rt-${t.table}`).on(
@@ -470,7 +506,7 @@ export function resetStore() {
   cache.products = []; cache.companies = []; cache.vehicles = []; cache.bills = []; cache.billItems = [];
   cache.payments = []; cache.company_payments = []; cache.hitachi_machines = []; cache.hitachi_entries = [];
   cache.hitachi_fuel = []; cache.operators = []; cache.expenses = []; cache.credit_adjustments = [];
-  cache.vehicle_maintenance = []; cache.vehicle_documents = [];
+  cache.vehicle_maintenance = []; cache.vehicle_documents = []; cache.hitachi_rental_payments = [];
   loaded = false; loadingPromise = null;
   bump();
 }
@@ -1206,6 +1242,101 @@ export function deleteHitachiEntry(id: string): void {
 export function getHitachiEntriesByMachine(machineId: string): HitachiEntry[] {
   return cache.hitachi_entries.filter((e) => e.machineId === machineId);
 }
+
+
+// ============ Hitachi Rental Payments + Ledger ============
+export function getHitachiRentalPayments(): HitachiRentalPayment[] {
+  return cache.hitachi_rental_payments.slice();
+}
+export function getRentalPaymentsByMachine(machineId: string): HitachiRentalPayment[] {
+  return cache.hitachi_rental_payments.filter((p) => p.machineId === machineId);
+}
+export function saveHitachiRentalPayment(
+  p: Omit<HitachiRentalPayment, "id" | "createdAt">,
+): HitachiRentalPayment {
+  const row: HitachiRentalPayment = { ...p, id: uid(), createdAt: new Date().toISOString() };
+  cache.hitachi_rental_payments.push(row); bump();
+  bg(supabase.from("hitachi_rental_payments").insert(rentalPaymentToDb(row)));
+  return row;
+}
+export function deleteHitachiRentalPayment(id: string): void {
+  cache.hitachi_rental_payments = cache.hitachi_rental_payments.filter((p) => p.id !== id);
+  bump();
+  bg(supabase.from("hitachi_rental_payments").delete().eq("id", id));
+}
+
+export interface RentalLedgerRow {
+  date: string;
+  description: string;
+  debit: number;   // owed by us to owner (rental charge)
+  credit: number;  // reduces what we owe (diesel paid, payments made)
+  balance: number;
+}
+export interface RentalLedger {
+  machineId: string;
+  machineName: string;
+  rows: RentalLedgerRow[];
+  totalRentalCharges: number;
+  totalDieselPaid: number;
+  totalPayments: number;
+  outstanding: number;
+}
+export function getMachineRentalLedger(machineId: string): RentalLedger {
+  const machine = cache.hitachi_machines.find((m) => m.id === machineId);
+  const entries = cache.hitachi_entries
+    .filter((e) => e.machineId === machineId)
+    .slice()
+    .sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt));
+  const payments = cache.hitachi_rental_payments
+    .filter((p) => p.machineId === machineId)
+    .slice()
+    .sort((a, b) => (a.paymentDate + a.createdAt).localeCompare(b.paymentDate + b.createdAt));
+
+  type Item = { date: string; sortKey: string; description: string; debit: number; credit: number };
+  const items: Item[] = [];
+  for (const e of entries) {
+    if (e.rentalCharge > 0) {
+      items.push({ date: e.date, sortKey: e.date + "1" + e.createdAt, description: `Rental Charge · ${e.totalHours} hr`, debit: e.rentalCharge, credit: 0 });
+    }
+    if (e.dieselPaid > 0) {
+      items.push({ date: e.date, sortKey: e.date + "2" + e.createdAt, description: "Diesel Paid (adjusted)", debit: 0, credit: e.dieselPaid });
+    }
+    if (e.rentalPaymentMade > 0) {
+      items.push({ date: e.date, sortKey: e.date + "3" + e.createdAt, description: "Rental Payment (from log)", debit: 0, credit: e.rentalPaymentMade });
+    }
+  }
+  for (const p of payments) {
+    items.push({
+      date: p.paymentDate,
+      sortKey: p.paymentDate + "4" + p.createdAt,
+      description: `Payment · ${p.paymentMode}${p.notes ? ` · ${p.notes}` : ""}`,
+      debit: 0, credit: p.amount,
+    });
+  }
+  items.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  let bal = 0;
+  let totalRentalCharges = 0, totalDieselPaid = 0, totalPayments = 0;
+  const rows: RentalLedgerRow[] = items.map((it) => {
+    bal += it.debit - it.credit;
+    if (it.debit > 0) totalRentalCharges += it.debit;
+    else if (it.description.startsWith("Diesel")) totalDieselPaid += it.credit;
+    else totalPayments += it.credit;
+    return { date: it.date, description: it.description, debit: it.debit, credit: it.credit, balance: bal };
+  });
+
+  return {
+    machineId,
+    machineName: machine?.name ?? "",
+    rows,
+    totalRentalCharges,
+    totalDieselPaid,
+    totalPayments,
+    outstanding: bal,
+  };
+}
+
+
 
 // ============ Hitachi Cost Analytics ============
 export interface HitachiCostRow {

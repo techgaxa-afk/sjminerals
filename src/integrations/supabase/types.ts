@@ -388,52 +388,73 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          diesel_cost: number
+          diesel_liters: number
+          diesel_paid: number
           ending_hours: number
           id: string
           machine_id: string
           machine_name: string
           machine_revenue: number
+          maintenance_cost: number
           notes: string
           operator_id: string | null
           operator_name: string
           operator_salary: number
+          rental_charge: number
+          rental_payment_made: number
           shift: string
           shift_type: string
           starting_hours: number
+          tips: number
           total_hours: number
         }
         Insert: {
           created_at?: string
           date?: string
+          diesel_cost?: number
+          diesel_liters?: number
+          diesel_paid?: number
           ending_hours?: number
           id?: string
           machine_id: string
           machine_name: string
           machine_revenue?: number
+          maintenance_cost?: number
           notes?: string
           operator_id?: string | null
           operator_name?: string
           operator_salary?: number
+          rental_charge?: number
+          rental_payment_made?: number
           shift?: string
           shift_type?: string
           starting_hours?: number
+          tips?: number
           total_hours?: number
         }
         Update: {
           created_at?: string
           date?: string
+          diesel_cost?: number
+          diesel_liters?: number
+          diesel_paid?: number
           ending_hours?: number
           id?: string
           machine_id?: string
           machine_name?: string
           machine_revenue?: number
+          maintenance_cost?: number
           notes?: string
           operator_id?: string | null
           operator_name?: string
           operator_salary?: number
+          rental_charge?: number
+          rental_payment_made?: number
           shift?: string
           shift_type?: string
           starting_hours?: number
+          tips?: number
           total_hours?: number
         }
         Relationships: [
@@ -520,6 +541,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      hitachi_rental_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          machine_id: string
+          machine_name: string
+          notes: string
+          payment_date: string
+          payment_mode: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          machine_id: string
+          machine_name?: string
+          notes?: string
+          payment_date?: string
+          payment_mode?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          machine_id?: string
+          machine_name?: string
+          notes?: string
+          payment_date?: string
+          payment_mode?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hitachi_rental_payments_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "hitachi_machines"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       operators: {
         Row: {
