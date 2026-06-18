@@ -1931,9 +1931,9 @@ export function getBackdatedBillStats(): { today: number; month: number; largest
 
 /** All bills whose bill_date is earlier than their creation day. */
 export function getBackdatedBills(): Bill[] {
-  return cache.bills.filter(
-    (b) => b.createdAt && b.billDate && b.billDate < b.createdAt.slice(0, 10),
-  );
+  return cache.bills
+    .filter((b) => b.createdAt && b.billDate && b.billDate < b.createdAt.slice(0, 10))
+    .map(assembleBill);
 }
 
 // ===== Profiles cache (created_by / updated_by display) =====
