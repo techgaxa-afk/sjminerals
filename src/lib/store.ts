@@ -2,9 +2,12 @@ import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 // ============ Types (unchanged shape) ============
+export type ProductCategory = "BOULDERS" | "K.K";
+export const PRODUCT_CATEGORIES: ProductCategory[] = ["BOULDERS", "K.K"];
 export interface Product {
   id: string; name: string; price: number; unit: string;
   tipsEnabled: boolean; tipsRate: number; createdAt: string;
+  productCategory?: ProductCategory | null;
 }
 export interface Company {
   id: string; name: string; contactNumber: string;
