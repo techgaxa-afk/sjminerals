@@ -279,7 +279,30 @@ function BillingPage() {
               </div>
             </div>
           )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 items-end">
+            <div>
+              <label className="field-label flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-primary" /> Bill Date *</label>
+              <input
+                type="date"
+                value={billDate}
+                max={today}
+                disabled={!canBackdate}
+                onChange={(e) => setBillDate(e.target.value)}
+                className="w-full sm:w-48 rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                required
+              />
+            </div>
+            {billDate !== today && (
+              <p className="text-xs text-warning">Backdated entry — recorded as {billDate}</p>
+            )}
+            {!canBackdate && (
+              <p className="text-[11px] text-muted-foreground">Only admin/staff can change Bill Date (locked to today).</p>
+            )}
+          </div>
         </div>
+
+
 
         <div>
           <label className="field-label">Add Products</label>
