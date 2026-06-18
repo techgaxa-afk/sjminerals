@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useMemo, useState } from "react";
 import {
-  getBills, getExpenses, getAllCompanyPayments, useCloudData,
+  getBills, getExpenses, getAllCompanyPayments, useCloudData, getBillRefDate,
 } from "../lib/store";
 import { Banknote, CreditCard, Download, FileText, FileSpreadsheet, Search } from "lucide-react";
 import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns";
@@ -41,12 +41,12 @@ function CashbookPage() {
     getBills().forEach((b) => {
       const ref = b.invoiceNumber || b.id.slice(-6).toUpperCase();
       if (b.splitPayment) {
-        if ((b.cashAmount ?? 0) > 0) rows.push({ id: `${b.id}-cs`, date: b.createdAt, type: "Cash Sale", reference: `${ref} · ${b.companyName}`, credit: b.cashAmount ?? 0, debit: 0, mode: "cash" });
-        if ((b.upiAmount ?? 0) > 0) rows.push({ id: `${b.id}-us`, date: b.createdAt, type: "UPI Sale", reference: `${ref} · ${b.companyName}`, credit: b.upiAmount ?? 0, debit: 0, mode: "upi" });
+        if ((b.cashAmount ?? 0) > 0) rows.push({ id: `${b.id}-cs`, date: getBillRefDate(b) + "T00:00:00", type: "Cash Sale", reference: `${ref} · ${b.companyName}`, credit: b.cashAmount ?? 0, debit: 0, mode: "cash" });
+        if ((b.upiAmount ?? 0) > 0) rows.push({ id: `${b.id}-us`, date: getBillRefDate(b) + "T00:00:00", type: "UPI Sale", reference: `${ref} · ${b.companyName}`, credit: b.upiAmount ?? 0, debit: 0, mode: "upi" });
       } else if (b.paymentMode === "cash" && (b.paidAmount ?? 0) > 0) {
-        rows.push({ id: `${b.id}-cs`, date: b.createdAt, type: "Cash Sale", reference: `${ref} · ${b.companyName}`, credit: b.paidAmount ?? 0, debit: 0, mode: "cash" });
+        rows.push({ id: `${b.id}-cs`, date: getBillRefDate(b) + "T00:00:00", type: "Cash Sale", reference: `${ref} · ${b.companyName}`, credit: b.paidAmount ?? 0, debit: 0, mode: "cash" });
       } else if (b.paymentMode === "upi" && (b.paidAmount ?? 0) > 0) {
-        rows.push({ id: `${b.id}-us`, date: b.createdAt, type: "UPI Sale", reference: `${ref} · ${b.companyName}`, credit: b.paidAmount ?? 0, debit: 0, mode: "upi" });
+        rows.push({ id: `${b.id}-us`, date: getBillRefDate(b) + "T00:00:00", type: "UPI Sale", reference: `${ref} · ${b.companyName}`, credit: b.paidAmount ?? 0, debit: 0, mode: "upi" });
       }
     });
     // Collections from company_payments (active only)
