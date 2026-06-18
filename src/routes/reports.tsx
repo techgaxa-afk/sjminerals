@@ -526,18 +526,32 @@ function ReportsPage() {
       (acc, r) => {
         acc.hours += r.hours; acc.operationalValue += r.operationalValue; acc.fuel += r.fuel;
         acc.maintenance += r.maintenance; acc.repairs += r.repairs;
-        acc.rental += r.rental; acc.salary += r.salary; acc.cost += r.total;
-        if (r.type === "owned") acc.ownedCost += r.total; else acc.rentedCost += r.total;
+        acc.rental += r.rental; acc.salary += r.salary; acc.tips += r.tips;
+        acc.rentalCharges += r.rentalCharges; acc.rentalPayments += r.rentalPayments;
+        acc.dieselPaid += r.dieselPaid;
+        acc.cost += r.total;
+        if (r.type === "owned") {
+          acc.ownedCost += r.total; acc.ownedHours += r.hours; acc.ownedCount += 1;
+        } else {
+          acc.rentedCost += r.total; acc.rentedHours += r.hours; acc.rentedCount += 1;
+          acc.outstanding += r.outstanding;
+        }
         return acc;
       },
-      { hours: 0, operationalValue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, cost: 0, ownedCost: 0, rentedCost: 0 },
+      { hours: 0, operationalValue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, tips: 0,
+        rentalCharges: 0, rentalPayments: 0, dieselPaid: 0, outstanding: 0,
+        cost: 0, ownedCost: 0, rentedCost: 0, ownedHours: 0, rentedHours: 0, ownedCount: 0, rentedCount: 0 },
     );
     const ranked = hitachiCost.filter((r) => r.hours > 0 || r.total > 0);
     const withHours = ranked.filter((r) => r.hours > 0);
     const sortBy = (fn: (r: HitachiCostRow) => number) =>
       ranked.slice().sort((a, b) => fn(b) - fn(a))[0] ?? null;
+    const rented = hitachiCost.filter((r) => r.type === "rented");
+    const sortRented = (fn: (r: HitachiCostRow) => number) =>
+      rented.slice().sort((a, b) => fn(b) - fn(a))[0] ?? null;
     return {
       ...totals,
+      machines: hitachiCost.length,
       costPerHour: totals.hours > 0 ? totals.cost / totals.hours : 0,
       operationalValuePerHour: totals.hours > 0 ? totals.operationalValue / totals.hours : 0,
       highestCost: sortBy((r) => r.total),
@@ -549,6 +563,9 @@ function ReportsPage() {
       mostUsed: sortBy((r) => r.hours),
       leastUsed: withHours.slice().sort((a, b) => a.hours - b.hours)[0] ?? null,
       topFuel: sortBy((r) => r.fuel),
+      highestOutstanding: sortRented((r) => r.outstanding),
+      mostExpensiveRental: sortRented((r) => r.rentalCharges),
+      mostUsedRental: sortRented((r) => r.hours),
     };
   }, [hitachiCost]);
 
@@ -578,17 +595,38 @@ function ReportsPage() {
       if (r.hours === 0 && r.total > 0) {
         list.push({ level: "warn", msg: `${r.machineName}: expenses recorded but 0 hours` });
       }
+      if (r.type === "rented" && r.outstanding > 50000) {
+        list.push({ level: "danger", msg: `${r.machineName}: outstanding rental ₹${r.outstanding.toLocaleString()}` });
+      }
     });
     return list;
   }, [hitachiCost]);
 
+  // Operator analytics for Hitachi tab
+  const hitachiOperators = useMemo(() => {
+    const ops = getOperators();
+    const entries = getHitachiEntries().filter((e) => new Date(e.date + "T00:00:00") >= start && new Date(e.date + "T00:00:00") <= end);
+    return ops.map((o) => {
+      const oe = entries.filter((e) => e.operatorId === o.id);
+      const normal = oe.filter((e) => e.shiftType === "normal").length;
+      const single = oe.filter((e) => e.shiftType === "single").length;
+      const hours = oe.reduce((s, e) => s + (e.totalHours || 0), 0);
+      const salary = oe.reduce((s, e) => s + (e.operatorSalary || 0), 0);
+      const tips = oe.reduce((s, e) => s + (e.tips || 0), 0);
+      const total = salary + tips;
+      return { id: o.id, name: o.name, normal, single, hours, salary, tips, total,
+        costPerHour: hours > 0 ? total / hours : null };
+    }).filter((r) => r.normal + r.single > 0);
+  }, [start, end, hitachiCost]);
+
   const hitachiCsvHeaders = [
-    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Repairs",
-    "Rental", "Salary", "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr", "Operational Value",
+    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Repairs", "Salary", "Tips",
+    "Rental Charges", "Diesel Paid", "Rental Payments", "Outstanding",
+    "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr", "Operational Value",
   ];
   const hitachiCsvRows = () => hitachiFiltered.map((r) => [
-    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.repairs,
-    r.rental, r.salary, r.total,
+    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.repairs, r.salary, r.tips,
+    r.rentalCharges, r.dieselPaid, r.rentalPayments, r.outstanding, r.total,
     r.costPerHour ? r.costPerHour.toFixed(2) : "",
     r.fuelPerHour ? r.fuelPerHour.toFixed(2) : "",
     r.maintenancePerHour ? r.maintenancePerHour.toFixed(2) : "",
