@@ -63,11 +63,21 @@ export interface CompanyPayment {
 }
 export type HitachiMachineType = "owned" | "rented";
 export interface HitachiMachine { id: string; name: string; hourlyRate: number; type?: HitachiMachineType; rentalRate?: number; createdAt: string; }
-export interface Operator { id: string; name: string; phone: string; hourlySalaryRate: number; createdAt: string; }
+export interface Operator {
+  id: string; name: string; phone: string;
+  /** @deprecated kept for backward compatibility; use normalShiftSalary/singleShiftSalary */
+  hourlySalaryRate: number;
+  normalShiftSalary: number;
+  singleShiftSalary: number;
+  createdAt: string;
+}
+export type ShiftType = "normal" | "single";
 export interface HitachiEntry {
   id: string; machineId: string; machineName: string; date: string;
   startingHours: number; endingHours: number; totalHours: number;
-  operatorId: string; operatorName: string; shift: "A" | "B";
+  operatorId: string; operatorName: string;
+  shiftType: ShiftType;
+  shift: "A" | "B";
   machineRevenue: number; operatorSalary: number; notes: string; createdAt: string;
 }
 export interface HitachiFuel {
