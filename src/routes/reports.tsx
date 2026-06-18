@@ -18,7 +18,8 @@ type FilterType = "daily" | "weekly" | "monthly" | "custom";
 type Preset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth";
 
 const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
-  fuel: "Fuel", salary: "Salary", tips: "Tips", food: "Food", maintenance: "Maintenance", miscellaneous: "Other",
+  fuel: "Fuel", salary: "Salary", tips: "Tips", food: "Food",
+  maintenance: "Maintenance", repairs: "Repairs", rental: "Rental", miscellaneous: "Other",
 };
 
 type ReportSearch = { tab?: ReportType; from?: string; to?: string; preset?: Preset };
