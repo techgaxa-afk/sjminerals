@@ -308,6 +308,13 @@ const mapEntry = (r: any): HitachiEntry => ({
   shift: r.shift === "B" ? "B" : "A",
   machineRevenue: Number(r.machine_revenue) || 0, operatorSalary: Number(r.operator_salary) || 0,
   notes: r.notes ?? "", createdAt: r.created_at,
+  maintenanceCost: Number(r.maintenance_cost) || 0,
+  dieselLiters: Number(r.diesel_liters) || 0,
+  dieselCost: Number(r.diesel_cost) || 0,
+  tips: Number(r.tips) || 0,
+  rentalCharge: Number(r.rental_charge) || 0,
+  dieselPaid: Number(r.diesel_paid) || 0,
+  rentalPaymentMade: Number(r.rental_payment_made) || 0,
 });
 const entryToDb = (e: HitachiEntry) => ({
   id: e.id, machine_id: e.machineId, machine_name: e.machineName, date: e.date,
@@ -315,6 +322,22 @@ const entryToDb = (e: HitachiEntry) => ({
   operator_id: e.operatorId || null, operator_name: e.operatorName,
   shift_type: e.shiftType, shift: e.shift,
   machine_revenue: e.machineRevenue, operator_salary: e.operatorSalary, notes: e.notes,
+  maintenance_cost: e.maintenanceCost || 0,
+  diesel_liters: e.dieselLiters || 0,
+  diesel_cost: e.dieselCost || 0,
+  tips: e.tips || 0,
+  rental_charge: e.rentalCharge || 0,
+  diesel_paid: e.dieselPaid || 0,
+  rental_payment_made: e.rentalPaymentMade || 0,
+});
+const mapRentalPayment = (r: any): HitachiRentalPayment => ({
+  id: r.id, machineId: r.machine_id, machineName: r.machine_name ?? "",
+  amount: Number(r.amount) || 0, paymentDate: r.payment_date,
+  paymentMode: r.payment_mode ?? "cash", notes: r.notes ?? "", createdAt: r.created_at,
+});
+const rentalPaymentToDb = (p: HitachiRentalPayment) => ({
+  id: p.id, machine_id: p.machineId, machine_name: p.machineName,
+  amount: p.amount, payment_date: p.paymentDate, payment_mode: p.paymentMode || "cash", notes: p.notes || "",
 });
 const mapFuel = (r: any): HitachiFuel => ({
   id: r.id, machineId: r.machine_id, machineName: r.machine_name,
