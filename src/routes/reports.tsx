@@ -939,7 +939,198 @@ function ReportsPage() {
               </div>
             </div>
           </div>
+        ) : reportType === "hitachi" ? (
+          <div className="space-y-4">
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Total Hours</p>
+                <p className="text-lg font-bold text-foreground">{hitachiSummary.hours.toFixed(1)}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Revenue</p>
+                <p className="text-lg font-bold text-primary">₹{hitachiSummary.revenue.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Total Cost</p>
+                <p className="text-lg font-bold text-destructive">₹{hitachiSummary.cost.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Profit</p>
+                <p className={`text-lg font-bold ${hitachiSummary.profit >= 0 ? "text-success" : "text-destructive"}`}>₹{hitachiSummary.profit.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Avg Revenue/Hr</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.revenuePerHour.toFixed(0)}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Avg Cost/Hr</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.costPerHour.toFixed(0)}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Avg Profit/Hr</p>
+                <p className={`text-sm font-bold ${hitachiSummary.profitPerHour >= 0 ? "text-success" : "text-destructive"}`}>₹{hitachiSummary.profitPerHour.toFixed(0)}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Machines</p>
+                <p className="text-sm font-bold text-foreground">{hitachiCost.length}</p>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <select value={hTypeFilter} onChange={(e) => setHTypeFilter(e.target.value as "all" | "owned" | "rented")} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground">
+                <option value="all">All Types</option>
+                <option value="owned">Owned</option>
+                <option value="rented">Rented</option>
+              </select>
+              <select value={hSort} onChange={(e) => setHSort(e.target.value as typeof hSort)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground">
+                <option value="profit">Sort: Profit</option>
+                <option value="revenue">Sort: Revenue</option>
+                <option value="cost">Sort: Cost</option>
+                <option value="hours">Sort: Hours</option>
+                <option value="name">Sort: Name</option>
+              </select>
+              <input value={hSearch} onChange={(e) => setHSearch(e.target.value)} placeholder="Search machine..." className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground flex-1 min-w-[140px]" />
+              <button onClick={exportHitachiCSV} disabled={hitachiFiltered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                <FileDown className="h-3.5 w-3.5" /> CSV
+              </button>
+              <button onClick={exportHitachiExcel} disabled={hitachiFiltered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+              </button>
+              <button onClick={exportHitachiPDF} disabled={hitachiFiltered.length === 0} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                <Printer className="h-3.5 w-3.5" /> PDF
+              </button>
+            </div>
+
+            {/* Machine performance table */}
+            <div className="overflow-x-auto">
+              <div className="min-w-[1200px] space-y-2">
+                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.7fr repeat(11,1fr)" }}>
+                  <span>Machine</span><span>Type</span>
+                  <span className="text-right">Hours</span>
+                  <span className="text-right">Revenue</span>
+                  <span className="text-right">Fuel</span>
+                  <span className="text-right">Maint</span>
+                  <span className="text-right">Repairs</span>
+                  <span className="text-right">Rental</span>
+                  <span className="text-right">Salary</span>
+                  <span className="text-right">Total Cost</span>
+                  <span className="text-right">Profit</span>
+                  <span className="text-right">Rev/Hr</span>
+                  <span className="text-right">Profit/Hr</span>
+                </div>
+                {hitachiFiltered.map((r) => (
+                  <div key={r.machineId} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1.5fr 0.7fr repeat(11,1fr)" }}>
+                    <span className="font-medium text-foreground truncate">{r.machineName}</span>
+                    <span className={`text-[10px] font-bold uppercase ${r.type === "owned" ? "text-primary" : "text-warning"}`}>{r.type}</span>
+                    <span className="text-right text-foreground">{r.hours.toFixed(1)}</span>
+                    <span className="text-right text-primary">₹{r.revenue.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.fuel.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.maintenance.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.repairs.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.rental.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.salary.toLocaleString()}</span>
+                    <span className="text-right text-destructive">₹{r.total.toLocaleString()}</span>
+                    <span className={`text-right font-medium ${r.profit >= 0 ? "text-success" : "text-destructive"}`}>₹{r.profit.toLocaleString()}</span>
+                    <span className="text-right text-foreground">{r.revenuePerHour !== null ? `₹${r.revenuePerHour.toFixed(0)}` : "—"}</span>
+                    <span className={`text-right ${(r.profitPerHour ?? 0) >= 0 ? "text-success" : "text-destructive"}`}>{r.profitPerHour !== null ? `₹${r.profitPerHour.toFixed(0)}` : "—"}</span>
+                  </div>
+                ))}
+                {hitachiFiltered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No machines for this period.</p>}
+              </div>
+            </div>
+
+            {/* Owned Maintenance Analytics */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Owned Machine Maintenance Analytics</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Lifetime Maintenance</p>
+                  <p className="text-sm font-bold text-foreground">₹{ownedLifetimeMaint.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">This Month</p>
+                  <p className="text-sm font-bold text-foreground">₹{monthlyMaint.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Maintenance/Hr</p>
+                  <p className="text-sm font-bold text-foreground">₹{hitachiSummary.hours > 0 ? (hitachiSummary.maintenance / hitachiSummary.hours).toFixed(0) : "0"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Fuel/Hr</p>
+                  <p className="text-sm font-bold text-foreground">₹{hitachiSummary.hours > 0 ? (hitachiSummary.fuel / hitachiSummary.hours).toFixed(0) : "0"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Total Op. Cost/Hr</p>
+                  <p className="text-sm font-bold text-foreground">₹{hitachiSummary.costPerHour.toFixed(0)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Profit/Hr</p>
+                  <p className={`text-sm font-bold ${hitachiSummary.profitPerHour >= 0 ? "text-success" : "text-destructive"}`}>₹{hitachiSummary.profitPerHour.toFixed(0)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Fuel Analytics */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Fuel Analytics</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Total Fuel Cost</p>
+                  <p className="text-sm font-bold text-foreground">₹{hitachiSummary.fuel.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Fuel/Hr</p>
+                  <p className="text-sm font-bold text-foreground">₹{hitachiSummary.hours > 0 ? (hitachiSummary.fuel / hitachiSummary.hours).toFixed(0) : "0"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Top Fuel Machine</p>
+                  <p className="text-sm font-bold text-foreground">{hitachiSummary.topFuel ? hitachiSummary.topFuel.machineName : "—"}</p>
+                  <p className="text-xs text-muted-foreground">{hitachiSummary.topFuel ? `₹${hitachiSummary.topFuel.fuel.toLocaleString()}` : ""}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Profitability Ranking */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Profitability Ranking</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                {[
+                  ["Highest Profit", hitachiSummary.highestProfit, (r: HitachiCostRow) => `₹${r.profit.toLocaleString()}`],
+                  ["Lowest Profit", hitachiSummary.lowestProfit, (r: HitachiCostRow) => `₹${r.profit.toLocaleString()}`],
+                  ["Highest Revenue", hitachiSummary.highestRevenue, (r: HitachiCostRow) => `₹${r.revenue.toLocaleString()}`],
+                  ["Highest Cost", hitachiSummary.highestCost, (r: HitachiCostRow) => `₹${r.total.toLocaleString()}`],
+                  ["Best Profit/Hr", hitachiSummary.bestPph, (r: HitachiCostRow) => `₹${(r.profitPerHour ?? 0).toFixed(0)}/hr`],
+                  ["Worst Profit/Hr", hitachiSummary.worstPph, (r: HitachiCostRow) => `₹${(r.profitPerHour ?? 0).toFixed(0)}/hr`],
+                ].map(([label, row, fmt]) => {
+                  const r = row as HitachiCostRow | null;
+                  const f = fmt as (r: HitachiCostRow) => string;
+                  return (
+                    <div key={label as string} className="rounded-md bg-secondary p-2">
+                      <p className="text-[10px] text-muted-foreground uppercase">{label as string}</p>
+                      <p className="font-bold text-foreground">{r ? r.machineName : "—"}</p>
+                      <p className="text-muted-foreground">{r ? f(r) : ""}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Alerts */}
+            {hitachiAlerts.length > 0 && (
+              <div className="stat-card border-warning/30">
+                <h3 className="text-sm font-medium text-warning mb-3 flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Alerts</h3>
+                <div className="space-y-1.5">
+                  {hitachiAlerts.map((a, i) => (
+                    <p key={i} className={`text-xs ${a.level === "danger" ? "text-destructive" : "text-warning"}`}>• {a.msg}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
+
           <div className="space-y-2">
             <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
               <span>Name</span>
