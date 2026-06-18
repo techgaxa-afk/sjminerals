@@ -946,34 +946,37 @@ function ReportsPage() {
                 <p className="text-lg font-bold text-foreground">{hitachiSummary.hours.toFixed(1)}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Revenue</p>
-                <p className="text-lg font-bold text-primary">₹{hitachiSummary.revenue.toLocaleString()}</p>
-              </div>
-              <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Total Cost</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Total Operating Cost</p>
                 <p className="text-lg font-bold text-destructive">₹{hitachiSummary.cost.toLocaleString()}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Profit</p>
-                <p className={`text-lg font-bold ${hitachiSummary.profit >= 0 ? "text-success" : "text-destructive"}`}>₹{hitachiSummary.profit.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Cost Per Hour</p>
+                <p className="text-lg font-bold text-foreground">₹{hitachiSummary.costPerHour.toFixed(0)}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Avg Revenue/Hr</p>
-                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.revenuePerHour.toFixed(0)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Fuel Cost</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.fuel.toLocaleString()}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Avg Cost/Hr</p>
-                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.costPerHour.toFixed(0)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Maintenance Cost</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.maintenance.toLocaleString()}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Avg Profit/Hr</p>
-                <p className={`text-sm font-bold ${hitachiSummary.profitPerHour >= 0 ? "text-success" : "text-destructive"}`}>₹{hitachiSummary.profitPerHour.toFixed(0)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Repairs Cost</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.repairs.toLocaleString()}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Machines</p>
-                <p className="text-sm font-bold text-foreground">{hitachiCost.length}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Rental Cost</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.rental.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Owned vs Rented Cost</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.ownedCost.toLocaleString()} <span className="text-muted-foreground">/</span> ₹{hitachiSummary.rentedCost.toLocaleString()}</p>
               </div>
             </div>
+            <p className="text-[11px] text-muted-foreground italic">
+              Operational Value (Hours × Internal Hourly Rate) is an internal benchmark only — not customer revenue. Quarry revenue comes from material sales, tracked under Bills.
+            </p>
 
             {/* Controls */}
             <div className="flex flex-wrap gap-2 items-center">
@@ -983,10 +986,10 @@ function ReportsPage() {
                 <option value="rented">Rented</option>
               </select>
               <select value={hSort} onChange={(e) => setHSort(e.target.value as typeof hSort)} className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground">
-                <option value="profit">Sort: Profit</option>
-                <option value="revenue">Sort: Revenue</option>
-                <option value="cost">Sort: Cost</option>
+                <option value="cost">Sort: Total Cost</option>
+                <option value="costPerHour">Sort: Cost/Hr</option>
                 <option value="hours">Sort: Hours</option>
+                <option value="fuel">Sort: Fuel</option>
                 <option value="name">Sort: Name</option>
               </select>
               <input value={hSearch} onChange={(e) => setHSearch(e.target.value)} placeholder="Search machine..." className="rounded-md border border-input bg-secondary px-2 py-1 text-xs text-foreground flex-1 min-w-[140px]" />
