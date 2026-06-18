@@ -178,6 +178,8 @@ function BillingPage() {
 
   const handleSave = async () => {
     if (items.length === 0) return;
+    if (billDate > today) { toast.error("Bill Date cannot be in the future"); return; }
+    if (!canBackdate && billDate !== today) { toast.error("You are not allowed to backdate bills"); return; }
     const effectiveMode: "cash" | "upi" | "credit" | "split" = splitEnabled ? "split" : paymentMode;
     const cashAmt = splitEnabled ? splitCashNum : (paymentMode === "cash" ? paid : 0);
     const upiAmt = splitEnabled ? splitUpiNum : (paymentMode === "upi" ? paid : 0);
@@ -191,11 +193,12 @@ function BillingPage() {
         tipsRate, tipsAmount: totalTips,
         splitPayment: splitEnabled, cashAmount: cashAmt, upiAmount: upiAmt,
         passEnabled, passAmount: passCharge,
+        billDate,
       });
       if (totalTips > 0) {
         saveExpense({
           category: "tips", amount: totalTips,
-          date: new Date().toISOString().split("T")[0],
+          date: billDate,
           notes: `Tips ₹${tipsRate}/unit × ${tipsBase} — ${companyName.trim() || vehicleNumber.trim() || "Walk-in"} — Bill #${bill.id}`,
           paymentMode: "cash",
           linkedBillId: bill.id, linkedCompanyId: selectedCompany?.id,
@@ -208,11 +211,13 @@ function BillingPage() {
         setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
         setSplitEnabled(false); setSplitCash(""); setSplitUpi("");
         setPassEnabled(false); setPassAmount(DEFAULT_PASS_AMOUNT);
+        setBillDate(today);
       }, 2000);
     } catch (error) {
       console.error("BILLING SAVE UI FAILED", error);
     }
   };
+
 
   return (
     <AppLayout>
