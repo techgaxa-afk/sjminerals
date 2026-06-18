@@ -483,6 +483,7 @@ export async function loadAll(): Promise<void> {
     loaded = true;
     bump();
     setupRealtime();
+    void loadAppSettings();
   })();
   return loadingPromise;
 }
