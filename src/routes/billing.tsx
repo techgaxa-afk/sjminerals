@@ -289,6 +289,9 @@ function BillingPage() {
                 type="date"
                 value={billDate}
                 max={today}
+                min={canBackdate && Number.isFinite(maxBackdateDays)
+                  ? new Date(Date.now() - maxBackdateDays * 86400000).toISOString().slice(0, 10)
+                  : (canBackdate ? undefined : today)}
                 disabled={!canBackdate}
                 onChange={(e) => setBillDate(e.target.value)}
                 className="w-full sm:w-48 rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
@@ -299,7 +302,14 @@ function BillingPage() {
               <p className="text-xs text-warning">Backdated entry — recorded as {billDate}</p>
             )}
             {!canBackdate && (
-              <p className="text-[11px] text-muted-foreground">Only admin/staff can change Bill Date (locked to today).</p>
+              <p className="text-[11px] text-muted-foreground">
+                {isOperator
+                  ? "Operators cannot backdate bills — locked to today."
+                  : "Backdated bills are currently disabled by the administrator."}
+              </p>
+            )}
+            {canBackdate && Number.isFinite(maxBackdateDays) && (
+              <p className="text-[11px] text-muted-foreground">Max backdating: {maxBackdateDays} days.</p>
             )}
           </div>
         </div>
