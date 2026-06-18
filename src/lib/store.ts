@@ -498,10 +498,10 @@ export function getProductCategorySales(start: Date, end: Date): Record<ProductC
   for (const item of cache.billItems) {
     const when = billDate.get(item.billId);
     if (!when || when < start || when > end) continue;
-    const cat = (item as any).productCategory ?? productCat.get(item.productId) ?? null;
-    if (cat !== "BOULDERS" && cat !== "K.K") continue;
-    out[cat as ProductCategory].quantity += Number(item.quantity) || 0;
-    out[cat as ProductCategory].billIds.add(item.billId);
+    const cat = normalizeProductCategory(item.productCategory) ?? productCat.get(item.productId) ?? null;
+    if (!cat) continue;
+    out[cat].quantity += Number(item.quantity) || 0;
+    out[cat].billIds.add(item.billId);
   }
   return out;
 }
