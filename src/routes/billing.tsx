@@ -180,8 +180,8 @@ function BillingPage() {
 
   const handleSave = async () => {
     if (items.length === 0) return;
-    if (billDate > today) { toast.error("Bill Date cannot be in the future"); return; }
-    if (!canBackdate && billDate !== today) { toast.error("You are not allowed to backdate bills"); return; }
+    const dateErr = validateBillDate(billDate, roleFlags);
+    if (dateErr) { toast.error(dateErr); return; }
     const effectiveMode: "cash" | "upi" | "credit" | "split" = splitEnabled ? "split" : paymentMode;
     const cashAmt = splitEnabled ? splitCashNum : (paymentMode === "cash" ? paid : 0);
     const upiAmt = splitEnabled ? splitUpiNum : (paymentMode === "upi" ? paid : 0);
