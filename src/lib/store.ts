@@ -1908,21 +1908,32 @@ export function getBillRefMs(b: Pick<Bill, "billDate" | "createdAt">): number {
   return new Date(getBillRefDate(b) + "T00:00:00").getTime();
 }
 
-/** Stats on backdated bills (billDate < creation day). */
-export function getBackdatedBillStats(): { today: number; month: number } {
+/** Stats on backdated bills (billDate < creation day) plus the largest gap in days. */
+export function getBackdatedBillStats(): { today: number; month: number; largestGap: number } {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const monthKey = today.slice(0, 7);
-  let t = 0, m = 0;
+  let t = 0, m = 0, largestGap = 0;
   for (const b of cache.bills) {
     if (!b.createdAt || !b.billDate) continue;
     const createdDay = b.createdAt.slice(0, 10);
     if (b.billDate < createdDay) {
+      const gap = Math.round(
+        (new Date(createdDay + "T00:00:00").getTime() - new Date(b.billDate + "T00:00:00").getTime()) / 86400000,
+      );
+      if (gap > largestGap) largestGap = gap;
       if (createdDay === today) t++;
       if (createdDay.startsWith(monthKey)) m++;
     }
   }
-  return { today: t, month: m };
+  return { today: t, month: m, largestGap };
+}
+
+/** All bills whose bill_date is earlier than their creation day. */
+export function getBackdatedBills(): Bill[] {
+  return cache.bills.filter(
+    (b) => b.createdAt && b.billDate && b.billDate < b.createdAt.slice(0, 10),
+  );
 }
 
 // ===== Profiles cache (created_by / updated_by display) =====
@@ -1968,15 +1979,97 @@ export async function prefetchUserNames(ids: Array<string | null | undefined>): 
   bump();
 }
 
-// ===== Settings: Allow Backdated Bills (admin toggle) =====
-const ALLOW_BACKDATED_KEY = "settings.allowBackdated";
+// ===== Settings: Allow Backdated Bills (DB-backed via app_settings) =====
+let _allowBackdated = true;
+let _allowBackdatedLoaded = false;
+
 export function getAllowBackdatedBills(): boolean {
-  if (typeof window === "undefined") return true;
-  const v = window.localStorage.getItem(ALLOW_BACKDATED_KEY);
-  return v === null ? true : v === "1";
+  if (!_allowBackdatedLoaded) { void loadAppSettings(); }
+  return _allowBackdated;
 }
-export function setAllowBackdatedBills(v: boolean): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(ALLOW_BACKDATED_KEY, v ? "1" : "0");
+
+export async function loadAppSettings(): Promise<void> {
+  try {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("allow_backdated_bills")
+      .eq("id", true)
+      .maybeSingle();
+    if (data && typeof data.allow_backdated_bills === "boolean") {
+      _allowBackdated = data.allow_backdated_bills;
+    }
+  } catch { /* noop */ }
+  _allowBackdatedLoaded = true;
   bump();
+}
+
+export async function setAllowBackdatedBills(v: boolean): Promise<void> {
+  const userRes = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from("app_settings")
+    .update({ allow_backdated_bills: v, updated_by: userRes.data.user?.id ?? null })
+    .eq("id", true);
+  if (error) { emitError(error.message); throw error; }
+  _allowBackdated = v;
+  bump();
+}
+
+/** Role-based maximum days a user may backdate a bill. */
+export interface RoleFlags { isAdmin: boolean; isStaff: boolean; isAccountant: boolean; isOperator: boolean }
+export function getMaxBackdateDays(roles: RoleFlags): number {
+  if (roles.isAdmin) return Number.POSITIVE_INFINITY;
+  if (roles.isStaff || roles.isAccountant) return 30;
+  return 0; // operator / viewer
+}
+
+/** Returns an error message if the date violates role/limit rules, else null. */
+export function validateBillDate(date: string, roles: RoleFlags): string | null {
+  const today = new Date().toISOString().slice(0, 10);
+  if (date > today) return "Bill Date cannot be in the future.";
+  if (date === today) return null;
+  if (!_allowBackdated && !roles.isAdmin) return "Backdated bills are disabled by the administrator.";
+  const maxDays = getMaxBackdateDays(roles);
+  if (maxDays === 0) return "You are not allowed to backdate bills.";
+  if (!Number.isFinite(maxDays)) return null;
+  const diff = Math.round(
+    (new Date(today + "T00:00:00").getTime() - new Date(date + "T00:00:00").getTime()) / 86400000,
+  );
+  if (diff > maxDays) {
+    const label = roles.isStaff ? "Staff" : roles.isAccountant ? "Accountant" : "Your role";
+    return `${label} users can only create bills up to ${maxDays} days in the past.`;
+  }
+  return null;
+}
+
+// ===== Bill date audit history =====
+export interface BillDateAuditEntry {
+  id: string;
+  billId: string;
+  oldBillDate: string | null;
+  newBillDate: string;
+  changedBy: string | null;
+  changedAt: string;
+}
+
+export async function fetchBillDateAudit(billId: string): Promise<BillDateAuditEntry[]> {
+  try {
+    const { data, error } = await supabase
+      .from("bill_date_audit")
+      .select("*")
+      .eq("bill_id", billId)
+      .order("changed_at", { ascending: false });
+    if (error) return [];
+    const rows: BillDateAuditEntry[] = (data ?? []).map((r) => ({
+      id: r.id,
+      billId: r.bill_id,
+      oldBillDate: r.old_bill_date,
+      newBillDate: r.new_bill_date,
+      changedBy: r.changed_by,
+      changedAt: r.changed_at,
+    }));
+    await prefetchUserNames(rows.map((r) => r.changedBy));
+    return rows;
+  } catch {
+    return [];
+  }
 }
