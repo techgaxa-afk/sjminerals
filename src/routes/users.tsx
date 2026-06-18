@@ -16,6 +16,7 @@ import {
   type AdminUser,
   type UserStatus,
 } from "@/lib/admin-users.functions";
+import { getAllowBackdatedBills, setAllowBackdatedBills, loadAppSettings } from "@/lib/store";
 import { Shield, Loader2, Search, UserCog, UserPlus, Pencil, Trash2, Ban, CheckCircle2, Mail, X, Eye, Download } from "lucide-react";
 import UserDetailsDrawer from "@/components/UserDetailsDrawer";
 
@@ -561,24 +562,29 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function AdminSettings() {
-  const [allow, setAllow] = useState<boolean>(() => {
-    try {
-      const v = typeof window !== "undefined" ? window.localStorage.getItem("settings.allowBackdated") : null;
-      return v === null ? true : v === "1";
-    } catch { return true; }
-  });
-  const toggle = (v: boolean) => {
+  const [allow, setAllow] = useState<boolean>(() => getAllowBackdatedBills());
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    loadAppSettings().then(() => { if (!cancelled) setAllow(getAllowBackdatedBills()); });
+    return () => { cancelled = true; };
+  }, []);
+  const toggle = async (v: boolean) => {
+    setSaving(true);
+    const prev = allow;
     setAllow(v);
-    try { window.localStorage.setItem("settings.allowBackdated", v ? "1" : "0"); } catch { /* noop */ }
+    try { await setAllowBackdatedBills(v); }
+    catch { setAllow(prev); }
+    finally { setSaving(false); }
   };
   return (
     <div className="rounded-md border border-border bg-card p-3 flex flex-wrap items-center justify-between gap-2">
       <div>
         <p className="text-sm font-medium">Allow Backdated Bills</p>
-        <p className="text-xs text-muted-foreground">When disabled, all users (including admin/staff) can only enter bills for today's date.</p>
+        <p className="text-xs text-muted-foreground">Stored centrally in the database. When disabled, only admins may pick a past Bill Date.</p>
       </div>
       <label className="flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" checked={allow} onChange={(e) => toggle(e.target.checked)} className="h-4 w-4 accent-primary" />
+        <input type="checkbox" checked={allow} disabled={saving} onChange={(e) => toggle(e.target.checked)} className="h-4 w-4 accent-primary" />
         <span className="text-sm">{allow ? "Enabled" : "Disabled"}</span>
       </label>
     </div>

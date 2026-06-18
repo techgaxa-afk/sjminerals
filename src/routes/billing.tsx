@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   getProducts, getCompanies, saveBill, saveExpense,
-  getVehicles, saveVehicle, getAllowBackdatedBills,
+  getVehicles, saveVehicle, getAllowBackdatedBills, getMaxBackdateDays, validateBillDate,
   type BillItem, type Company, type Vehicle,
 } from "../lib/store";
 import { useUserRoles } from "@/hooks/use-roles";
@@ -26,8 +26,10 @@ const TIPS_OPTIONS = [
 
 function BillingPage() {
   const products = getProducts();
-  const { isAdmin, isStaff } = useUserRoles();
-  const canBackdate = (isAdmin || isStaff) && getAllowBackdatedBills();
+  const { isAdmin, isStaff, isAccountant, isOperator } = useUserRoles();
+  const roleFlags = { isAdmin, isStaff, isAccountant, isOperator };
+  const maxBackdateDays = getMaxBackdateDays(roleFlags);
+  const canBackdate = maxBackdateDays > 0 && (isAdmin || getAllowBackdatedBills());
 
   const today = new Date().toISOString().slice(0, 10);
   const [billDate, setBillDate] = useState(today);
@@ -178,8 +180,8 @@ function BillingPage() {
 
   const handleSave = async () => {
     if (items.length === 0) return;
-    if (billDate > today) { toast.error("Bill Date cannot be in the future"); return; }
-    if (!canBackdate && billDate !== today) { toast.error("You are not allowed to backdate bills"); return; }
+    const dateErr = validateBillDate(billDate, roleFlags);
+    if (dateErr) { toast.error(dateErr); return; }
     const effectiveMode: "cash" | "upi" | "credit" | "split" = splitEnabled ? "split" : paymentMode;
     const cashAmt = splitEnabled ? splitCashNum : (paymentMode === "cash" ? paid : 0);
     const upiAmt = splitEnabled ? splitUpiNum : (paymentMode === "upi" ? paid : 0);
@@ -287,6 +289,9 @@ function BillingPage() {
                 type="date"
                 value={billDate}
                 max={today}
+                min={canBackdate && Number.isFinite(maxBackdateDays)
+                  ? new Date(Date.now() - maxBackdateDays * 86400000).toISOString().slice(0, 10)
+                  : (canBackdate ? undefined : today)}
                 disabled={!canBackdate}
                 onChange={(e) => setBillDate(e.target.value)}
                 className="w-full sm:w-48 rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
@@ -297,7 +302,14 @@ function BillingPage() {
               <p className="text-xs text-warning">Backdated entry — recorded as {billDate}</p>
             )}
             {!canBackdate && (
-              <p className="text-[11px] text-muted-foreground">Only admin/staff can change Bill Date (locked to today).</p>
+              <p className="text-[11px] text-muted-foreground">
+                {isOperator
+                  ? "Operators cannot backdate bills — locked to today."
+                  : "Backdated bills are currently disabled by the administrator."}
+              </p>
+            )}
+            {canBackdate && Number.isFinite(maxBackdateDays) && (
+              <p className="text-[11px] text-muted-foreground">Max backdating: {maxBackdateDays} days.</p>
             )}
           </div>
         </div>

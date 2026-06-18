@@ -5,6 +5,7 @@ import {
   getBills, updateBill, deleteBill, savePayment, getPaymentsByBill,
   getProducts, getExpensesByBill, saveExpense, deleteExpense,
   getBillRefDate, getUserNameCached, prefetchUserNames, getAllowBackdatedBills,
+  getMaxBackdateDays, validateBillDate, fetchBillDateAudit, type BillDateAuditEntry,
   type Bill, type BillItem,
 } from "../lib/store";
 import { useUserRoles } from "@/hooks/use-roles";
@@ -45,8 +46,10 @@ const DEFAULT_PASS_AMOUNT = 1600;
 
 function BillsPage() {
   const products = getProducts();
-  const { isAdmin, isStaff } = useUserRoles();
-  const canBackdate = (isAdmin || isStaff) && getAllowBackdatedBills();
+  const { isAdmin, isStaff, isAccountant, isOperator } = useUserRoles();
+  const roleFlags = { isAdmin, isStaff, isAccountant, isOperator };
+  const maxBackdateDays = getMaxBackdateDays(roleFlags);
+  const canBackdate = maxBackdateDays > 0 && (isAdmin || getAllowBackdatedBills());
   const today = new Date().toISOString().slice(0, 10);
 
   type SortKey = "billDate" | "createdAt";
@@ -73,6 +76,13 @@ function BillsPage() {
   const [payAmount, setPayAmount] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [auditRows, setAuditRows] = useState<BillDateAuditEntry[]>([]);
+  useEffect(() => {
+    if (!editBill) { setAuditRows([]); return; }
+    let cancelled = false;
+    fetchBillDateAudit(editBill.id).then((rows) => { if (!cancelled) setAuditRows(rows); });
+    return () => { cancelled = true; };
+  }, [editBill]);
 
   const refresh = () => setBills(sortBills(getBills()));
 
@@ -181,9 +191,9 @@ function BillsPage() {
 
   const saveEdit = () => {
     if (!editBill || !editForm) return;
-    if (editForm.billDate > today) { alert("Bill Date cannot be in the future"); return; }
-    if (!canBackdate && editForm.billDate !== getBillRefDate(editBill)) {
-      alert("You are not allowed to change Bill Date"); return;
+    if (editForm.billDate !== getBillRefDate(editBill)) {
+      const dateErr = validateBillDate(editForm.billDate, roleFlags);
+      if (dateErr) { alert(dateErr); return; }
     }
     const mode: "cash" | "upi" | "credit" | "split" = editForm.splitEnabled ? "split" : editForm.paymentMode;
     const paid = editPaid;
@@ -495,7 +505,34 @@ function BillsPage() {
                 {editForm.billDate !== getBillRefDate(editBill) && (
                   <p className="mt-1 text-[11px] text-warning">Audit: changing {getBillRefDate(editBill)} → {editForm.billDate}</p>
                 )}
-                {!canBackdate && <p className="mt-1 text-[11px] text-muted-foreground">Only admin/staff can change Bill Date.</p>}
+                {!canBackdate && <p className="mt-1 text-[11px] text-muted-foreground">{isOperator ? "Operators cannot change Bill Date." : "Backdating is currently disabled."}</p>}
+                {canBackdate && Number.isFinite(maxBackdateDays) && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">Max backdating: {maxBackdateDays} days.</p>
+                )}
+
+                {/* Audit history */}
+                <div className="mt-3 rounded-md border border-border bg-muted/30 p-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-1">Audit · Bill Detail</p>
+                  <div className="text-[11px] space-y-0.5 text-muted-foreground">
+                    <div>Created by <span className="text-foreground font-medium">{getUserNameCached(editBill.createdBy)}</span> on {editBill.createdAt ? format(parseISO(editBill.createdAt), "dd MMM yyyy HH:mm") : "—"}</div>
+                    {editBill.updatedBy && editBill.updatedAt && (
+                      <div>Updated by <span className="text-foreground font-medium">{getUserNameCached(editBill.updatedBy)}</span> on {format(parseISO(editBill.updatedAt), "dd MMM yyyy HH:mm")}</div>
+                    )}
+                  </div>
+                  {auditRows.length > 0 && (
+                    <>
+                      <p className="text-[11px] font-semibold text-muted-foreground mt-2 mb-1">Bill Date Change History</p>
+                      <ul className="text-[11px] space-y-0.5">
+                        {auditRows.map((r) => (
+                          <li key={r.id} className="flex justify-between gap-2">
+                            <span className="text-foreground">{r.oldBillDate ?? "—"} → <b>{r.newBillDate}</b></span>
+                            <span className="text-muted-foreground">{getUserNameCached(r.changedBy)} · {format(parseISO(r.changedAt), "dd MMM HH:mm")}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Company details */}

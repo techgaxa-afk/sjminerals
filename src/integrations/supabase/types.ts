@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          allow_backdated_bills: boolean
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          allow_backdated_bills?: boolean
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          allow_backdated_bills?: boolean
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -43,6 +64,41 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      bill_date_audit: {
+        Row: {
+          bill_id: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_bill_date: string
+          old_bill_date: string | null
+        }
+        Insert: {
+          bill_id: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_bill_date: string
+          old_bill_date?: string | null
+        }
+        Update: {
+          bill_id?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_bill_date?: string
+          old_bill_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_date_audit_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bill_items: {
         Row: {
