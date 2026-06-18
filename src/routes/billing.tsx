@@ -26,8 +26,9 @@ const TIPS_OPTIONS = [
 
 function BillingPage() {
   const products = getProducts();
-  const { hasRole } = useUserRoles();
-  const canBackdate = (hasRole("admin") || hasRole("staff")) && getAllowBackdatedBills();
+  const { isAdmin, isStaff } = useUserRoles();
+  const canBackdate = (isAdmin || isStaff) && getAllowBackdatedBills();
+
   const today = new Date().toISOString().slice(0, 10);
   const [billDate, setBillDate] = useState(today);
   const [items, setItems] = useState<BillItem[]>([]);
