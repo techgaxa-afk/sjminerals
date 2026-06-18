@@ -514,10 +514,10 @@ export function deleteProduct(id: string): void {
 // Product category sales (quantity-only). Uses the bill_item category snapshot when
 // present; otherwise falls back to the current product's category. Historical bill data
 // is never mutated — uncategorized items simply don't contribute to category totals.
-export function getProductCategorySales(start: Date, end: Date): Record<ProductCategory, { quantity: number; billIds: Set<string> }> {
-  const out: Record<ProductCategory, { quantity: number; billIds: Set<string> }> = {
-    BOULDERS: { quantity: 0, billIds: new Set() },
-    "K.K": { quantity: 0, billIds: new Set() },
+export function getProductCategorySales(start: Date, end: Date): Record<ProductCategory, { quantity: number; revenue: number; billIds: Set<string> }> {
+  const out: Record<ProductCategory, { quantity: number; revenue: number; billIds: Set<string> }> = {
+    BOULDERS: { quantity: 0, revenue: 0, billIds: new Set() },
+    "K.K": { quantity: 0, revenue: 0, billIds: new Set() },
   };
   const productCat = new Map(cache.products.map((p) => [p.id, p.productCategory ?? null] as const));
   const billDate = new Map(cache.bills.map((b) => [b.id, new Date(b.createdAt)] as const));
@@ -526,7 +526,11 @@ export function getProductCategorySales(start: Date, end: Date): Record<ProductC
     if (!when || when < start || when > end) continue;
     const cat = normalizeProductCategory(item.productCategory) ?? productCat.get(item.productId) ?? null;
     if (!cat) continue;
-    out[cat].quantity += Number(item.quantity) || 0;
+    const qty = Number(item.quantity) || 0;
+    const price = Number(item.price) || 0;
+    const lineTotal = Number(item.total);
+    out[cat].quantity += qty;
+    out[cat].revenue += Number.isFinite(lineTotal) && lineTotal > 0 ? lineTotal : qty * price;
     out[cat].billIds.add(item.billId);
   }
   return out;
