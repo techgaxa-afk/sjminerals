@@ -1501,6 +1501,178 @@ function ReportsPage() {
             )}
           </div>
         )}
+
+        {/* Machine Detail Drilldown */}
+        <Dialog open={!!drilldownId} onOpenChange={(o) => { if (!o) setDrilldownId(null); }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            {drilldown && drilldown.row && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{drilldown.row.machineName} — Machine Details</DialogTitle>
+                </DialogHeader>
+
+                {/* Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Type</p>
+                    <p className={`font-bold uppercase ${drilldown.row.type === "owned" ? "text-primary" : "text-warning"}`}>{drilldown.row.type}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Total Hours</p>
+                    <p className="font-bold text-foreground">{drilldown.row.hours.toFixed(1)}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Fuel Cost</p>
+                    <p className="font-bold text-foreground">₹{drilldown.row.fuel.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Maintenance</p>
+                    <p className="font-bold text-foreground">₹{drilldown.row.maintenance.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Operator Salary</p>
+                    <p className="font-bold text-foreground">₹{drilldown.row.salary.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Operator Tips</p>
+                    <p className="font-bold text-foreground">₹{drilldown.row.tips.toLocaleString()}</p>
+                  </div>
+                  {drilldown.row.type === "rented" && (
+                    <>
+                      <div className="rounded-md bg-secondary p-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">Rental Charges</p>
+                        <p className="font-bold text-foreground">₹{drilldown.row.rentalCharges.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-md bg-secondary p-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">Rental Payments</p>
+                        <p className="font-bold text-success">₹{drilldown.row.rentalPayments.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-md bg-secondary p-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">Outstanding</p>
+                        <p className="font-bold text-warning">₹{drilldown.row.outstanding.toLocaleString()}</p>
+                      </div>
+                    </>
+                  )}
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Total Cost</p>
+                    <p className="font-bold text-destructive">₹{drilldown.row.total.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Cost / Hr</p>
+                    <p className="font-bold text-foreground">{drilldown.row.costPerHour !== null ? `₹${drilldown.row.costPerHour.toFixed(0)}` : "—"}</p>
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-1 rounded-md bg-secondary p-1 mt-4 overflow-x-auto">
+                  {([
+                    ["hours", "Hours History"],
+                    ["fuel", "Fuel History"],
+                    ["maint", "Maintenance History"],
+                    ["operator", "Operator History"],
+                    ...(drilldown.row.type === "rented" ? [["ledger", "Rental Ledger"] as const] : []),
+                  ] as const).map(([id, label]) => (
+                    <button key={id} type="button" onClick={() => setDrilldownTab(id)}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${drilldownTab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3">
+                  {drilldownTab === "hours" && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "1fr 1fr 0.8fr 0.8fr 0.8fr 1.5fr" }}>
+                        <span>Date</span><span>Shift</span><span className="text-right">Hours</span><span className="text-right">Salary</span><span className="text-right">Tips</span><span>Notes</span>
+                      </div>
+                      {drilldown.entries.map((e) => (
+                        <div key={e.id} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "1fr 1fr 0.8fr 0.8fr 0.8fr 1.5fr" }}>
+                          <span>{e.date}</span>
+                          <span className="capitalize">{e.shiftType}</span>
+                          <span className="text-right">{(e.totalHours || 0).toFixed(1)}</span>
+                          <span className="text-right">₹{(e.operatorSalary || 0).toLocaleString()}</span>
+                          <span className="text-right">₹{(e.tips || 0).toLocaleString()}</span>
+                          <span className="truncate text-muted-foreground">{e.notes || ""}</span>
+                        </div>
+                      ))}
+                      {drilldown.entries.length === 0 && <p className="text-center text-muted-foreground py-4">No entries.</p>}
+                    </div>
+                  )}
+                  {drilldownTab === "fuel" && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "1fr 1fr 2fr" }}>
+                        <span>Date</span><span className="text-right">Amount</span><span>Notes</span>
+                      </div>
+                      {drilldown.fuelExp.map((e) => (
+                        <div key={e.id} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "1fr 1fr 2fr" }}>
+                          <span>{e.date}</span>
+                          <span className="text-right">₹{e.amount.toLocaleString()}</span>
+                          <span className="truncate text-muted-foreground">{e.notes || ""}</span>
+                        </div>
+                      ))}
+                      {drilldown.fuelExp.length === 0 && <p className="text-center text-muted-foreground py-4">No fuel records.</p>}
+                    </div>
+                  )}
+                  {drilldownTab === "maint" && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "1fr 1fr 2fr" }}>
+                        <span>Date</span><span className="text-right">Amount</span><span>Notes</span>
+                      </div>
+                      {drilldown.maintExp.map((e) => (
+                        <div key={e.id} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "1fr 1fr 2fr" }}>
+                          <span>{e.date}</span>
+                          <span className="text-right">₹{e.amount.toLocaleString()}</span>
+                          <span className="truncate text-muted-foreground">{e.notes || ""}</span>
+                        </div>
+                      ))}
+                      {drilldown.maintExp.length === 0 && <p className="text-center text-muted-foreground py-4">No maintenance records.</p>}
+                    </div>
+                  )}
+                  {drilldownTab === "operator" && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "2fr 0.8fr 0.8fr 0.8fr 0.8fr" }}>
+                        <span>Operator</span><span className="text-right">Shifts</span><span className="text-right">Hours</span><span className="text-right">Salary</span><span className="text-right">Tips</span>
+                      </div>
+                      {drilldown.operatorRows.map((o, i) => (
+                        <div key={i} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "2fr 0.8fr 0.8fr 0.8fr 0.8fr" }}>
+                          <span className="font-medium">{o.name}</span>
+                          <span className="text-right">{o.shifts}</span>
+                          <span className="text-right">{o.hours.toFixed(1)}</span>
+                          <span className="text-right">₹{o.salary.toLocaleString()}</span>
+                          <span className="text-right">₹{o.tips.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {drilldown.operatorRows.length === 0 && <p className="text-center text-muted-foreground py-4">No operator activity.</p>}
+                    </div>
+                  )}
+                  {drilldownTab === "ledger" && drilldown.ledger && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr" }}>
+                        <span>Date</span><span>Description</span><span className="text-right">Debit</span><span className="text-right">Credit</span><span className="text-right">Balance</span>
+                      </div>
+                      {drilldown.ledger.rows.map((r, i) => (
+                        <div key={i} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr" }}>
+                          <span>{r.date}</span>
+                          <span className="truncate">{r.description}</span>
+                          <span className="text-right text-destructive">{r.debit > 0 ? `₹${r.debit.toLocaleString()}` : "—"}</span>
+                          <span className="text-right text-success">{r.credit > 0 ? `₹${r.credit.toLocaleString()}` : "—"}</span>
+                          <span className={`text-right font-medium ${r.balance > 0 ? "text-warning" : "text-foreground"}`}>₹{r.balance.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {drilldown.ledger.rows.length === 0 && <p className="text-center text-muted-foreground py-4">No ledger activity.</p>}
+                      <div className="grid grid-cols-4 gap-2 mt-2 pt-2 border-t border-border text-[11px]">
+                        <div><span className="text-muted-foreground">Charges: </span><span className="font-bold">₹{drilldown.ledger.totalRentalCharges.toLocaleString()}</span></div>
+                        <div><span className="text-muted-foreground">Diesel: </span><span className="font-bold">₹{drilldown.ledger.totalDieselPaid.toLocaleString()}</span></div>
+                        <div><span className="text-muted-foreground">Payments: </span><span className="font-bold text-success">₹{drilldown.ledger.totalPayments.toLocaleString()}</span></div>
+                        <div><span className="text-muted-foreground">Outstanding: </span><span className="font-bold text-warning">₹{drilldown.ledger.outstanding.toLocaleString()}</span></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
