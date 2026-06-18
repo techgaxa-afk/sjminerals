@@ -438,6 +438,163 @@ function ReportsPage() {
     w.document.close();
   };
 
+  // ============ Hitachi Analytics ============
+  const hitachiCost: HitachiCostRow[] = useMemo(() => getHitachiCostBreakdown(start, end), [start, end]);
+  const [hSearch, setHSearch] = useState("");
+  const [hSort, setHSort] = useState<"profit" | "revenue" | "hours" | "cost" | "name">("profit");
+  const [hTypeFilter, setHTypeFilter] = useState<"all" | "owned" | "rented">("all");
+
+  const hitachiFiltered = useMemo(() => {
+    const q = hSearch.trim().toLowerCase();
+    let rows = hitachiCost.filter((r) => (hTypeFilter === "all" ? true : r.type === hTypeFilter));
+    if (q) rows = rows.filter((r) => r.machineName.toLowerCase().includes(q));
+    const cmp = (a: HitachiCostRow, b: HitachiCostRow): number => {
+      if (hSort === "name") return a.machineName.localeCompare(b.machineName);
+      if (hSort === "hours") return b.hours - a.hours;
+      if (hSort === "revenue") return b.revenue - a.revenue;
+      if (hSort === "cost") return b.total - a.total;
+      return b.profit - a.profit;
+    };
+    return rows.slice().sort(cmp);
+  }, [hitachiCost, hSearch, hSort, hTypeFilter]);
+
+  const hitachiSummary = useMemo(() => {
+    const totals = hitachiCost.reduce(
+      (acc, r) => {
+        acc.hours += r.hours; acc.revenue += r.revenue; acc.fuel += r.fuel;
+        acc.maintenance += r.maintenance; acc.repairs += r.repairs;
+        acc.rental += r.rental; acc.salary += r.salary; acc.cost += r.total;
+        return acc;
+      },
+      { hours: 0, revenue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, cost: 0 },
+    );
+    const profit = totals.revenue - totals.cost;
+    const ranked = hitachiCost.filter((r) => r.hours > 0 || r.revenue > 0 || r.total > 0);
+    const sortBy = (fn: (r: HitachiCostRow) => number, dir: 1 | -1 = -1) =>
+      ranked.slice().sort((a, b) => (fn(b) - fn(a)) * (dir === -1 ? 1 : -1))[0] ?? null;
+    return {
+      ...totals,
+      profit,
+      revenuePerHour: totals.hours > 0 ? totals.revenue / totals.hours : 0,
+      costPerHour: totals.hours > 0 ? totals.cost / totals.hours : 0,
+      profitPerHour: totals.hours > 0 ? profit / totals.hours : 0,
+      highestProfit: sortBy((r) => r.profit),
+      lowestProfit: ranked.length ? ranked.slice().sort((a, b) => a.profit - b.profit)[0] : null,
+      highestRevenue: sortBy((r) => r.revenue),
+      highestCost: sortBy((r) => r.total),
+      bestPph: ranked.filter((r) => r.profitPerHour !== null).slice().sort((a, b) => (b.profitPerHour ?? 0) - (a.profitPerHour ?? 0))[0] ?? null,
+      worstPph: ranked.filter((r) => r.profitPerHour !== null).slice().sort((a, b) => (a.profitPerHour ?? 0) - (b.profitPerHour ?? 0))[0] ?? null,
+      topFuel: sortBy((r) => r.fuel),
+    };
+  }, [hitachiCost]);
+
+  // Maintenance lifetime (all-time) for owned machines
+  const ownedLifetimeMaint = useMemo(() => {
+    const all = getHitachiCostBreakdown();
+    return all.filter((r) => r.type === "owned").reduce((s, r) => s + r.maintenance, 0);
+  }, [hitachiCost]);
+  const monthlyMaint = useMemo(() => {
+    const now = new Date();
+    const ms = sod(new Date(now.getFullYear(), now.getMonth(), 1));
+    const me = eod(now);
+    return getHitachiCostBreakdown(ms, me).reduce((s, r) => s + r.maintenance, 0);
+  }, [hitachiCost]);
+
+  const hitachiAlerts = useMemo(() => {
+    const list: { level: "warn" | "danger"; msg: string }[] = [];
+    hitachiCost.forEach((r) => {
+      if (r.hours > 0) {
+        const mPh = r.maintenance / r.hours;
+        const fPh = r.fuel / r.hours;
+        if (mPh > 500) list.push({ level: "warn", msg: `${r.machineName}: high maintenance/hr ₹${mPh.toFixed(0)}` });
+        if (fPh > 500) list.push({ level: "warn", msg: `${r.machineName}: high fuel/hr ₹${fPh.toFixed(0)}` });
+      }
+      if (r.hours === 0 && r.total > 0) {
+        list.push({ level: "warn", msg: `${r.machineName}: expenses recorded but 0 hours` });
+      }
+      if (r.profit < 0 && (r.revenue > 0 || r.total > 0)) {
+        list.push({ level: "danger", msg: `${r.machineName}: negative profit ₹${r.profit.toLocaleString()}` });
+      }
+      if (r.type === "rented" && r.total > r.revenue && r.revenue > 0) {
+        list.push({ level: "danger", msg: `${r.machineName} (rented): cost exceeds revenue` });
+      }
+    });
+    return list;
+  }, [hitachiCost]);
+
+  const hitachiCsvHeaders = [
+    "Machine", "Type", "Hours", "Revenue", "Fuel", "Maintenance", "Repairs",
+    "Rental", "Salary", "Total Cost", "Profit", "Revenue/Hr", "Cost/Hr", "Profit/Hr",
+  ];
+  const hitachiCsvRows = () => hitachiFiltered.map((r) => [
+    r.machineName, r.type, r.hours, r.revenue, r.fuel, r.maintenance, r.repairs,
+    r.rental, r.salary, r.total, r.profit,
+    r.revenuePerHour ? r.revenuePerHour.toFixed(2) : "",
+    r.costPerHour ? r.costPerHour.toFixed(2) : "",
+    r.profitPerHour ? r.profitPerHour.toFixed(2) : "",
+  ]);
+
+  const exportHitachiCSV = () => {
+    const lines = [
+      `Hitachi Analytics`, `Period: ${periodLabel}`, ``,
+      hitachiCsvHeaders.join(","),
+      ...hitachiCsvRows().map((r) => r.map(escCsv).join(",")),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `hitachi-${filter}-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  const exportHitachiExcel = () => {
+    const rows = hitachiCsvRows().map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("");
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/></head><body>
+      <h3>Hitachi Analytics — ${periodLabel}</h3>
+      <table border="1"><thead><tr>${hitachiCsvHeaders.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
+    </body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `hitachi-${filter}-${new Date().toISOString().split("T")[0]}.xls`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  const exportHitachiPDF = () => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const rows = hitachiCsvRows().map((r) => `<tr>${r.map((c, i) => `<td style="text-align:${i < 2 ? "left" : "right"}">${typeof c === "number" ? (i > 1 ? `₹${Number(c).toLocaleString()}` : c) : c}</td>`).join("")}</tr>`).join("");
+    w.document.write(`<!DOCTYPE html><html><head><title>Hitachi Analytics</title>
+      <style>body{font-family:system-ui,-apple-system,sans-serif;padding:20px;color:#111}
+      h1{margin:0 0 4px;font-size:20px}h3{margin:18px 0 6px;font-size:14px}
+      .muted{color:#6b7280;font-size:12px}
+      table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+      th,td{border:1px solid #e5e7eb;padding:5px 7px}
+      th{background:#f3f4f6;text-align:left}
+      .sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+      .card{border:1px solid #e5e7eb;border-radius:6px;padding:8px}
+      .card .l{font-size:10px;color:#6b7280;text-transform:uppercase}
+      .card .v{font-size:14px;font-weight:bold}
+      </style></head><body>
+      <h1>Hitachi Analytics</h1><p class="muted">Period: ${periodLabel}</p>
+      <div class="sum">
+        <div class="card"><div class="l">Hours</div><div class="v">${hitachiSummary.hours.toFixed(1)}</div></div>
+        <div class="card"><div class="l">Revenue</div><div class="v">₹${hitachiSummary.revenue.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Cost</div><div class="v">₹${hitachiSummary.cost.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Profit</div><div class="v">₹${hitachiSummary.profit.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Rev/Hr</div><div class="v">₹${hitachiSummary.revenuePerHour.toFixed(0)}</div></div>
+        <div class="card"><div class="l">Cost/Hr</div><div class="v">₹${hitachiSummary.costPerHour.toFixed(0)}</div></div>
+        <div class="card"><div class="l">Profit/Hr</div><div class="v">₹${hitachiSummary.profitPerHour.toFixed(0)}</div></div>
+        <div class="card"><div class="l">Fuel</div><div class="v">₹${hitachiSummary.fuel.toLocaleString()}</div></div>
+      </div>
+      <table><thead><tr>${hitachiCsvHeaders.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
+      <script>setTimeout(()=>window.print(),300)</script>
+      </body></html>`);
+    w.document.close();
+  };
+
+
+
   const reportTabs: { id: ReportType; label: string; icon: typeof Building2 }[] = [
     { id: "company", label: "Company", icon: Building2 },
     { id: "vehicle", label: "Vehicle", icon: Building2 },
