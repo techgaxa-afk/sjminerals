@@ -624,17 +624,18 @@ function ReportsPage() {
   }, [start, end, hitachiCost]);
 
   const hitachiCsvHeaders = [
-    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Repairs", "Salary", "Tips",
+    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Maint Records", "Last Maint",
+    "Repairs", "Salary", "Tips",
     "Rental Charges", "Diesel Paid", "Rental Payments", "Outstanding",
-    "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr", "Operational Value",
+    "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr",
   ];
   const hitachiCsvRows = () => hitachiFiltered.map((r) => [
-    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.repairs, r.salary, r.tips,
+    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.maintenanceRecords, r.lastMaintenanceDate ?? "",
+    r.repairs, r.salary, r.tips,
     r.rentalCharges, r.dieselPaid, r.rentalPayments, r.outstanding, r.total,
     r.costPerHour ? r.costPerHour.toFixed(2) : "",
     r.fuelPerHour ? r.fuelPerHour.toFixed(2) : "",
     r.maintenancePerHour ? r.maintenancePerHour.toFixed(2) : "",
-    r.operationalValue,
   ]);
 
   const exportHitachiCSV = () => {
