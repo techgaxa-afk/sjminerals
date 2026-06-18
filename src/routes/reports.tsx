@@ -14,7 +14,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContai
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval } from "date-fns";
 
 
-type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics" | "expenses";
+type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics" | "expenses" | "category";
 type FilterType = "daily" | "weekly" | "monthly" | "custom";
 type Preset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth";
 
