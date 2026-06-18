@@ -515,27 +515,42 @@ export type Database = {
       hitachi_machines: {
         Row: {
           created_at: string
+          engine_number: string | null
           hourly_rate: number
           id: string
           name: string
+          owner_name: string | null
+          owner_phone: string | null
+          purchase_date: string | null
+          remarks: string | null
           rental_rate: number
           type: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          engine_number?: string | null
           hourly_rate?: number
           id?: string
           name: string
+          owner_name?: string | null
+          owner_phone?: string | null
+          purchase_date?: string | null
+          remarks?: string | null
           rental_rate?: number
           type?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          engine_number?: string | null
           hourly_rate?: number
           id?: string
           name?: string
+          owner_name?: string | null
+          owner_phone?: string | null
+          purchase_date?: string | null
+          remarks?: string | null
           rental_rate?: number
           type?: string
           updated_at?: string

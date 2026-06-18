@@ -53,6 +53,12 @@ function HitachiPage() {
   const [machineName, setMachineName] = useState("");
   const [machineType, setMachineType] = useState<"owned" | "rented">("owned");
   const [machineRentalRate, setMachineRentalRate] = useState("");
+  // Optional informational fields
+  const [machinePurchaseDate, setMachinePurchaseDate] = useState("");
+  const [machineEngineNumber, setMachineEngineNumber] = useState("");
+  const [machineOwnerName, setMachineOwnerName] = useState("");
+  const [machineOwnerPhone, setMachineOwnerPhone] = useState("");
+  const [machineRemarks, setMachineRemarks] = useState("");
 
   // Fuel form
   const [showFuelForm, setShowFuelForm] = useState(false);
@@ -155,6 +161,16 @@ function HitachiPage() {
             allocateTo: "hitachi", hitachiMachineId: entryMachineId,
           });
         }
+      } else {
+        // Rented machines: diesel paid by us at the pump is still a fuel expense
+        if (Number(dieselPaid || 0) > 0) {
+          saveExpense({
+            category: "fuel", amount: Number(dieselPaid), date: entryDate,
+            notes: `Diesel (rented) · ${machine?.name || ""}${dieselLiters ? ` · ${dieselLiters}L` : ""} · adjusted from rental`,
+            paymentMode: "cash", linkedMachineId: entryMachineId,
+            allocateTo: "hitachi", hitachiMachineId: entryMachineId,
+          });
+        }
       }
     }
     setEntries(getHitachiEntries());
@@ -179,6 +195,8 @@ function HitachiPage() {
   const resetMachineForm = () => {
     setShowMachineForm(false); setEditMachineId(null);
     setMachineName(""); setMachineType("owned"); setMachineRentalRate("");
+    setMachinePurchaseDate(""); setMachineEngineNumber("");
+    setMachineOwnerName(""); setMachineOwnerPhone(""); setMachineRemarks("");
   };
 
   const handleSaveMachine = () => {
@@ -189,6 +207,11 @@ function HitachiPage() {
       hourlyRate: 0, // legacy column, unused under new rules
       type: machineType,
       rentalRate: machineType === "rented" ? Number(machineRentalRate || 0) : 0,
+      purchaseDate: machineType === "owned" ? (machinePurchaseDate || undefined) : undefined,
+      engineNumber: machineType === "owned" ? (machineEngineNumber.trim() || undefined) : undefined,
+      ownerName: machineType === "rented" ? (machineOwnerName.trim() || undefined) : undefined,
+      ownerPhone: machineType === "rented" ? (machineOwnerPhone.trim() || undefined) : undefined,
+      remarks: machineRemarks.trim() || undefined,
     };
     if (editMachineId) updateHitachiMachine(editMachineId, data);
     else saveHitachiMachine(data);
@@ -200,6 +223,11 @@ function HitachiPage() {
     setEditMachineId(m.id); setMachineName(m.name);
     setMachineType(m.type === "rented" ? "rented" : "owned");
     setMachineRentalRate(m.type === "rented" ? String(m.rentalRate ?? "") : "");
+    setMachinePurchaseDate(m.purchaseDate ?? "");
+    setMachineEngineNumber(m.engineNumber ?? "");
+    setMachineOwnerName(m.ownerName ?? "");
+    setMachineOwnerPhone(m.ownerPhone ?? "");
+    setMachineRemarks(m.remarks ?? "");
     setShowMachineForm(true);
   };
 
@@ -443,8 +471,21 @@ function HitachiPage() {
                   </div>
                 )}
                 {machineType === "owned" && (
-                  <p className="text-xs text-muted-foreground">Owned machines have no hourly rental charge.</p>
+                  <>
+                    <p className="text-xs text-muted-foreground">Owned machines have no hourly rental charge.</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><label className="field-label">Purchase Date</label><input type="date" value={machinePurchaseDate} onChange={(e) => setMachinePurchaseDate(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                      <div><label className="field-label">Engine Number</label><input value={machineEngineNumber} onChange={(e) => setMachineEngineNumber(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                    </div>
+                  </>
                 )}
+                {machineType === "rented" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className="field-label">Owner Name</label><input value={machineOwnerName} onChange={(e) => setMachineOwnerName(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                    <div><label className="field-label">Owner Phone</label><input value={machineOwnerPhone} onChange={(e) => setMachineOwnerPhone(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  </div>
+                )}
+                <div><label className="field-label">Remarks</label><input value={machineRemarks} onChange={(e) => setMachineRemarks(e.target.value)} placeholder="Optional notes" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <button onClick={handleSaveMachine} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
               </div>
             )}

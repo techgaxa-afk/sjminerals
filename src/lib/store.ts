@@ -62,7 +62,15 @@ export interface CompanyPayment {
   createdAt: string;
 }
 export type HitachiMachineType = "owned" | "rented";
-export interface HitachiMachine { id: string; name: string; hourlyRate: number; type?: HitachiMachineType; rentalRate?: number; createdAt: string; }
+export interface HitachiMachine {
+  id: string; name: string; hourlyRate: number;
+  type?: HitachiMachineType; rentalRate?: number;
+  // Optional informational fields (do not affect calculations)
+  purchaseDate?: string; engineNumber?: string;
+  ownerName?: string; ownerPhone?: string;
+  remarks?: string;
+  createdAt: string;
+}
 export interface Operator {
   id: string; name: string; phone: string;
   /** @deprecated kept for backward compatibility; use normalShiftSalary/singleShiftSalary */
@@ -275,11 +283,21 @@ const mapMachine = (r: any): HitachiMachine => ({
   id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0,
   type: r.type === "rented" ? "rented" : "owned",
   rentalRate: Number(r.rental_rate) || 0,
+  purchaseDate: r.purchase_date ?? undefined,
+  engineNumber: r.engine_number ?? undefined,
+  ownerName: r.owner_name ?? undefined,
+  ownerPhone: r.owner_phone ?? undefined,
+  remarks: r.remarks ?? undefined,
   createdAt: r.created_at,
 });
 const machineToDb = (m: HitachiMachine) => ({
   id: m.id, name: m.name, hourly_rate: m.hourlyRate,
   type: m.type ?? "owned", rental_rate: m.rentalRate ?? 0,
+  purchase_date: m.purchaseDate || null,
+  engine_number: m.engineNumber || null,
+  owner_name: m.ownerName || null,
+  owner_phone: m.ownerPhone || null,
+  remarks: m.remarks || null,
 });
 const mapOperator = (r: any): Operator => {
   const hourly = Number(r.hourly_salary_rate) || 0;
