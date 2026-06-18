@@ -145,18 +145,30 @@ function HitachiPage() {
     setShowFuelForm(false); setFuelLiters(""); setFuelHrs("");
   };
 
-  const resetOpForm = () => { setShowOperatorForm(false); setEditOpId(null); setOpName(""); setOpPhone(""); setOpSalaryRate(""); };
+  const resetOpForm = () => { setShowOperatorForm(false); setEditOpId(null); setOpName(""); setOpPhone(""); setOpNormalSalary(""); setOpSingleSalary(""); };
 
   const handleSaveOperator = () => {
     if (!opName.trim()) return;
-    if (editOpId) updateOperator(editOpId, { name: opName.trim(), phone: opPhone.trim(), hourlySalaryRate: Number(opSalaryRate || 0) });
-    else saveOperator({ name: opName.trim(), phone: opPhone.trim(), hourlySalaryRate: Number(opSalaryRate || 0) });
+    const normalSalary = Number(opNormalSalary || 0);
+    const singleSalary = Number(opSingleSalary || 0);
+    const payload = {
+      name: opName.trim(),
+      phone: opPhone.trim(),
+      hourlySalaryRate: normalSalary, // keep legacy column in sync
+      normalShiftSalary: normalSalary,
+      singleShiftSalary: singleSalary,
+    };
+    if (editOpId) updateOperator(editOpId, payload);
+    else saveOperator(payload);
     setOperators(getOperators());
     resetOpForm();
   };
 
   const startEditOp = (o: Operator) => {
-    setEditOpId(o.id); setOpName(o.name); setOpPhone(o.phone); setOpSalaryRate(String(o.hourlySalaryRate || "")); setShowOperatorForm(true);
+    setEditOpId(o.id); setOpName(o.name); setOpPhone(o.phone);
+    setOpNormalSalary(String(o.normalShiftSalary || o.hourlySalaryRate || ""));
+    setOpSingleSalary(String(o.singleShiftSalary || ""));
+    setShowOperatorForm(true);
   };
 
   const sortedEntries = [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
