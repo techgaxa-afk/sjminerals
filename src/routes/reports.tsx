@@ -524,7 +524,7 @@ function ReportsPage() {
   const hitachiSummary = useMemo(() => {
     const totals = hitachiCost.reduce(
       (acc, r) => {
-        acc.hours += r.hours; acc.operationalValue += r.operationalValue; acc.fuel += r.fuel;
+        acc.hours += r.hours; acc.fuel += r.fuel;
         acc.maintenance += r.maintenance; acc.repairs += r.repairs;
         acc.rental += r.rental; acc.salary += r.salary; acc.tips += r.tips;
         acc.rentalCharges += r.rentalCharges; acc.rentalPayments += r.rentalPayments;
@@ -538,7 +538,7 @@ function ReportsPage() {
         }
         return acc;
       },
-      { hours: 0, operationalValue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, tips: 0,
+      { hours: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, tips: 0,
         rentalCharges: 0, rentalPayments: 0, dieselPaid: 0, outstanding: 0,
         cost: 0, ownedCost: 0, rentedCost: 0, ownedHours: 0, rentedHours: 0, ownedCount: 0, rentedCount: 0 },
     );
@@ -549,11 +549,12 @@ function ReportsPage() {
     const rented = hitachiCost.filter((r) => r.type === "rented");
     const sortRented = (fn: (r: HitachiCostRow) => number) =>
       rented.slice().sort((a, b) => fn(b) - fn(a))[0] ?? null;
+    const maintRanked = hitachiCost.filter((r) => r.maintenance > 0);
+    const maintWithHours = maintRanked.filter((r) => r.hours > 0);
     return {
       ...totals,
       machines: hitachiCost.length,
       costPerHour: totals.hours > 0 ? totals.cost / totals.hours : 0,
-      operationalValuePerHour: totals.hours > 0 ? totals.operationalValue / totals.hours : 0,
       highestCost: sortBy((r) => r.total),
       highestFuel: sortBy((r) => r.fuel),
       highestMaint: sortBy((r) => r.maintenance),
@@ -566,6 +567,9 @@ function ReportsPage() {
       highestOutstanding: sortRented((r) => r.outstanding),
       mostExpensiveRental: sortRented((r) => r.rentalCharges),
       mostUsedRental: sortRented((r) => r.hours),
+      highestMaintCost: maintRanked.slice().sort((a, b) => b.maintenance - a.maintenance)[0] ?? null,
+      highestMaintPerHour: maintWithHours.slice().sort((a, b) => (b.maintenancePerHour ?? 0) - (a.maintenancePerHour ?? 0))[0] ?? null,
+      lowestMaintPerHour: maintWithHours.slice().sort((a, b) => (a.maintenancePerHour ?? 0) - (b.maintenancePerHour ?? 0))[0] ?? null,
     };
   }, [hitachiCost]);
 
