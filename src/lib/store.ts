@@ -238,9 +238,15 @@ const companyPaymentToDb = (p: CompanyPayment) => ({
   status: p.status ?? "active",
 });
 const mapMachine = (r: any): HitachiMachine => ({
-  id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0, createdAt: r.created_at,
+  id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0,
+  type: r.type === "rented" ? "rented" : "owned",
+  rentalRate: Number(r.rental_rate) || 0,
+  createdAt: r.created_at,
 });
-const machineToDb = (m: HitachiMachine) => ({ id: m.id, name: m.name, hourly_rate: m.hourlyRate });
+const machineToDb = (m: HitachiMachine) => ({
+  id: m.id, name: m.name, hourly_rate: m.hourlyRate,
+  type: m.type ?? "owned", rental_rate: m.rentalRate ?? 0,
+});
 const mapOperator = (r: any): Operator => ({
   id: r.id, name: r.name, phone: r.phone ?? "", hourlySalaryRate: Number(r.hourly_salary_rate) || 0, createdAt: r.created_at,
 });
