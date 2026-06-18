@@ -1132,8 +1132,8 @@ function ReportsPage() {
 
             {/* Machine performance table */}
             <div className="overflow-x-auto">
-              <div className="min-w-[1500px] space-y-2">
-                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(12,1fr)" }}>
+              <div className="min-w-[1400px] space-y-2">
+                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(11,1fr)" }}>
                   <span>Machine</span><span>Type</span>
                   <span className="text-right">Hours</span>
                   <span className="text-right">Fuel</span>
@@ -1146,11 +1146,16 @@ function ReportsPage() {
                   <span className="text-right">Outstanding</span>
                   <span className="text-right">Total Cost</span>
                   <span className="text-right">Cost/Hr</span>
-                  <span className="text-right">Op. Value</span>
                 </div>
                 {hitachiFiltered.map((r) => (
-                  <div key={r.machineId} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(12,1fr)" }}>
-                    <span className="font-medium text-foreground truncate">{r.machineName}</span>
+                  <button
+                    key={r.machineId}
+                    type="button"
+                    onClick={() => setDrilldownId(r.machineId)}
+                    className="stat-card grid gap-2 items-center text-xs text-left w-full hover:border-primary/50 transition-colors cursor-pointer"
+                    style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(11,1fr)" }}
+                  >
+                    <span className="font-medium text-foreground truncate underline-offset-2 hover:underline">{r.machineName}</span>
                     <span className={`text-[10px] font-bold uppercase ${r.type === "owned" ? "text-primary" : "text-warning"}`}>{r.type}</span>
                     <span className="text-right text-foreground">{r.hours.toFixed(1)}</span>
                     <span className="text-right text-foreground">₹{r.fuel.toLocaleString()}</span>
@@ -1163,12 +1168,56 @@ function ReportsPage() {
                     <span className={`text-right ${r.outstanding > 0 ? "text-warning" : "text-foreground"}`}>{r.type === "rented" ? `₹${r.outstanding.toLocaleString()}` : "—"}</span>
                     <span className="text-right text-destructive font-medium">₹{r.total.toLocaleString()}</span>
                     <span className="text-right text-foreground">{r.costPerHour !== null ? `₹${r.costPerHour.toFixed(0)}` : "—"}</span>
-                    <span className="text-right text-muted-foreground">₹{r.operationalValue.toLocaleString()}</span>
-                  </div>
+                  </button>
                 ))}
                 {hitachiFiltered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No machines for this period.</p>}
               </div>
             </div>
+
+            {/* Maintenance Analytics */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Maintenance Analytics</h3>
+              <div className="overflow-x-auto">
+                <div className="min-w-[700px] space-y-2">
+                  <div className="grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "2fr 0.6fr repeat(4,1fr)" }}>
+                    <span>Machine</span><span>Type</span>
+                    <span className="text-right">Maint Cost</span>
+                    <span className="text-right">Cost/Hr</span>
+                    <span className="text-right">Records</span>
+                    <span className="text-right">Last Date</span>
+                  </div>
+                  {hitachiFiltered.map((r) => (
+                    <div key={r.machineId} className="grid gap-2 items-center text-xs py-1 border-t border-border" style={{ gridTemplateColumns: "2fr 0.6fr repeat(4,1fr)" }}>
+                      <span className="font-medium text-foreground truncate">{r.machineName}</span>
+                      <span className={`text-[10px] font-bold uppercase ${r.type === "owned" ? "text-primary" : "text-warning"}`}>{r.type}</span>
+                      <span className="text-right text-foreground">₹{r.maintenance.toLocaleString()}</span>
+                      <span className="text-right text-foreground">{r.maintenancePerHour !== null ? `₹${r.maintenancePerHour.toFixed(0)}` : "—"}</span>
+                      <span className="text-right text-foreground">{r.maintenanceRecords}</span>
+                      <span className="text-right text-muted-foreground">{r.lastMaintenanceDate ?? "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs mt-4">
+                {[
+                  ["Highest Maint Cost", hitachiSummary.highestMaintCost, (r: HitachiCostRow) => `₹${r.maintenance.toLocaleString()}`],
+                  ["Highest Maint/Hr", hitachiSummary.highestMaintPerHour, (r: HitachiCostRow) => `₹${(r.maintenancePerHour ?? 0).toFixed(0)}/hr`],
+                  ["Lowest Maint/Hr", hitachiSummary.lowestMaintPerHour, (r: HitachiCostRow) => `₹${(r.maintenancePerHour ?? 0).toFixed(0)}/hr`],
+                ].map(([label, row, fmt]) => {
+                  const r = row as HitachiCostRow | null;
+                  const f = fmt as (r: HitachiCostRow) => string;
+                  return (
+                    <div key={label as string} className="rounded-md bg-secondary p-2">
+                      <p className="text-[10px] text-muted-foreground uppercase">{label as string}</p>
+                      <p className="font-bold text-foreground">{r ? r.machineName : "—"}</p>
+                      <p className="text-muted-foreground">{r ? f(r) : ""}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+
 
             {/* Rented Machine Analytics */}
             {hitachiSummary.rentedCount > 0 && (
