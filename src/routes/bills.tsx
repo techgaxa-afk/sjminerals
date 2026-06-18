@@ -5,6 +5,7 @@ import {
   getBills, updateBill, deleteBill, savePayment, getPaymentsByBill,
   getProducts, getExpensesByBill, saveExpense, deleteExpense,
   getBillRefDate, getUserNameCached, prefetchUserNames, getAllowBackdatedBills,
+  getMaxBackdateDays, validateBillDate, fetchBillDateAudit, type BillDateAuditEntry,
   type Bill, type BillItem,
 } from "../lib/store";
 import { useUserRoles } from "@/hooks/use-roles";
