@@ -48,6 +48,11 @@ function BillingPage() {
 
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+  const sortByName = (a: typeof products[number], b: typeof products[number]) => a.name.localeCompare(b.name);
+  const bouldersProducts = useMemo(() => filtered.filter((p) => p.productCategory === "BOULDERS").sort(sortByName), [filtered]);
+  const kkProducts = useMemo(() => filtered.filter((p) => p.productCategory === "K.K").sort(sortByName), [filtered]);
+  const otherProducts = useMemo(() => filtered.filter((p) => p.productCategory !== "BOULDERS" && p.productCategory !== "K.K").sort(sortByName), [filtered]);
+  const [othersOpen, setOthersOpen] = useState(false);
   const total = items.reduce((s, i) => s + i.total, 0);
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
   const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
