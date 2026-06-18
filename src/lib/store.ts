@@ -148,10 +148,12 @@ function uid(): string {
 const mapProduct = (r: any): Product => ({
   id: r.id, name: r.name, price: Number(r.price), unit: r.unit,
   tipsEnabled: !!r.tips_enabled, tipsRate: Number(r.tips_rate) || 0, createdAt: r.created_at,
+  productCategory: (r.product_category as ProductCategory) ?? null,
 });
 const productToDb = (p: Product) => ({
   id: p.id, name: p.name, price: p.price, unit: p.unit,
   tips_enabled: p.tipsEnabled, tips_rate: p.tipsRate,
+  product_category: p.productCategory ?? null,
 });
 const mapCompany = (r: any): Company => ({
   id: r.id, name: r.name, contactNumber: r.contact_number ?? "",
