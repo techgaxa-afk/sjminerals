@@ -75,7 +75,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 border-b border-border bg-card px-4 py-3">
         <div className="flex flex-wrap items-center gap-3 md:justify-between">
           <div className="flex min-w-0 items-center gap-2">
-          <Truck className="h-6 w-6 text-primary" />
+          <Package className="h-6 w-6 text-primary" />
             <span className="truncate text-lg font-bold tracking-tight text-foreground">SJ Minerals</span>
           </div>
           <nav className="hidden basis-full flex-wrap items-center gap-1 pt-1 md:flex xl:basis-auto xl:flex-1 xl:justify-center xl:pt-0">
