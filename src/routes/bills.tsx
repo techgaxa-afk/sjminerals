@@ -184,9 +184,9 @@ function BillsPage() {
 
   const saveEdit = () => {
     if (!editBill || !editForm) return;
-    if (editForm.billDate > today) { alert("Bill Date cannot be in the future"); return; }
-    if (!canBackdate && editForm.billDate !== getBillRefDate(editBill)) {
-      alert("You are not allowed to change Bill Date"); return;
+    if (editForm.billDate !== getBillRefDate(editBill)) {
+      const dateErr = validateBillDate(editForm.billDate, roleFlags);
+      if (dateErr) { alert(dateErr); return; }
     }
     const mode: "cash" | "upi" | "credit" | "split" = editForm.splitEnabled ? "split" : editForm.paymentMode;
     const paid = editPaid;
