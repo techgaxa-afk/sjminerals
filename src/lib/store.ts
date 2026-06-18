@@ -1895,3 +1895,88 @@ export function getVehicleStats(vehicleNumber: string): {
 }
 
 
+
+// ============ Bill date helpers (audit + reporting) ============
+
+/** Returns YYYY-MM-DD business date for a bill (billDate or fallback to createdAt). */
+export function getBillRefDate(b: Pick<Bill, "billDate" | "createdAt">): string {
+  return b.billDate || (b.createdAt ? b.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+}
+
+/** Returns ms timestamp at local-midnight for a bill's business date. */
+export function getBillRefMs(b: Pick<Bill, "billDate" | "createdAt">): number {
+  return new Date(getBillRefDate(b) + "T00:00:00").getTime();
+}
+
+/** Stats on backdated bills (billDate < creation day). */
+export function getBackdatedBillStats(): { today: number; month: number } {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const monthKey = today.slice(0, 7);
+  let t = 0, m = 0;
+  for (const b of cache.bills) {
+    if (!b.createdAt || !b.billDate) continue;
+    const createdDay = b.createdAt.slice(0, 10);
+    if (b.billDate < createdDay) {
+      if (createdDay === today) t++;
+      if (createdDay.startsWith(monthKey)) m++;
+    }
+  }
+  return { today: t, month: m };
+}
+
+// ===== Profiles cache (created_by / updated_by display) =====
+const profileNameCache = new Map<string, string>();
+const profileFetchInflight = new Map<string, Promise<string>>();
+
+export function getUserNameCached(userId?: string | null): string {
+  if (!userId) return "—";
+  return profileNameCache.get(userId) || userId.slice(0, 8);
+}
+
+export async function fetchUserName(userId: string): Promise<string> {
+  if (!userId) return "—";
+  if (profileNameCache.has(userId)) return profileNameCache.get(userId)!;
+  if (profileFetchInflight.has(userId)) return profileFetchInflight.get(userId)!;
+  const p = (async () => {
+    try {
+      const { data } = await supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+      const name = (data?.full_name as string | undefined)?.trim() || userId.slice(0, 8);
+      profileNameCache.set(userId, name);
+      return name;
+    } catch {
+      const fallback = userId.slice(0, 8);
+      profileNameCache.set(userId, fallback);
+      return fallback;
+    } finally {
+      profileFetchInflight.delete(userId);
+    }
+  })();
+  profileFetchInflight.set(userId, p);
+  return p;
+}
+
+export async function prefetchUserNames(ids: Array<string | null | undefined>): Promise<void> {
+  const unique = Array.from(new Set(ids.filter((x): x is string => !!x && !profileNameCache.has(x))));
+  if (unique.length === 0) return;
+  try {
+    const { data } = await supabase.from("profiles").select("id,full_name").in("id", unique);
+    for (const row of data ?? []) {
+      profileNameCache.set(row.id, (row.full_name as string | undefined)?.trim() || row.id.slice(0, 8));
+    }
+  } catch { /* noop */ }
+  bump();
+}
+
+// ===== Settings: Allow Backdated Bills (admin toggle) =====
+const ALLOW_BACKDATED_KEY = "settings.allowBackdated";
+export function getAllowBackdatedBills(): boolean {
+  if (typeof window === "undefined") return true;
+  const v = window.localStorage.getItem(ALLOW_BACKDATED_KEY);
+  return v === null ? true : v === "1";
+}
+export function setAllowBackdatedBills(v: boolean): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ALLOW_BACKDATED_KEY, v ? "1" : "0");
+  bump();
+}
