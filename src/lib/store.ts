@@ -1239,6 +1239,10 @@ export function deleteHitachiEntry(id: string): void {
   cache.hitachi_entries = cache.hitachi_entries.filter((e) => e.id !== id); bump();
   bg(supabase.from("hitachi_entries").delete().eq("id", id));
 }
+export function getHitachiEntriesByMachine(machineId: string): HitachiEntry[] {
+  return cache.hitachi_entries.filter((e) => e.machineId === machineId);
+}
+
 
 // ============ Hitachi Rental Payments + Ledger ============
 export function getHitachiRentalPayments(): HitachiRentalPayment[] {
