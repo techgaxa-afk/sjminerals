@@ -506,6 +506,8 @@ function ReportsPage() {
   const [hSearch, setHSearch] = useState("");
   const [hSort, setHSort] = useState<"cost" | "costPerHour" | "hours" | "fuel" | "name">("cost");
   const [hTypeFilter, setHTypeFilter] = useState<"all" | "owned" | "rented">("all");
+  const [drilldownId, setDrilldownId] = useState<string | null>(null);
+  const [drilldownTab, setDrilldownTab] = useState<"hours" | "fuel" | "maint" | "operator" | "ledger">("hours");
 
   const hitachiFiltered = useMemo(() => {
     const q = hSearch.trim().toLowerCase();
