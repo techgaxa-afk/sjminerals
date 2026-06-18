@@ -471,8 +471,21 @@ function HitachiPage() {
                   </div>
                 )}
                 {machineType === "owned" && (
-                  <p className="text-xs text-muted-foreground">Owned machines have no hourly rental charge.</p>
+                  <>
+                    <p className="text-xs text-muted-foreground">Owned machines have no hourly rental charge.</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><label className="field-label">Purchase Date</label><input type="date" value={machinePurchaseDate} onChange={(e) => setMachinePurchaseDate(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                      <div><label className="field-label">Engine Number</label><input value={machineEngineNumber} onChange={(e) => setMachineEngineNumber(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                    </div>
+                  </>
                 )}
+                {machineType === "rented" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className="field-label">Owner Name</label><input value={machineOwnerName} onChange={(e) => setMachineOwnerName(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                    <div><label className="field-label">Owner Phone</label><input value={machineOwnerPhone} onChange={(e) => setMachineOwnerPhone(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  </div>
+                )}
+                <div><label className="field-label">Remarks</label><input value={machineRemarks} onChange={(e) => setMachineRemarks(e.target.value)} placeholder="Optional notes" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <button onClick={handleSaveMachine} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
               </div>
             )}
