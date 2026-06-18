@@ -9,10 +9,25 @@ export const EXPENSE_CATEGORIES = [
   "tips",
   "food",
   "maintenance",
+  "repairs",
+  "rental",
   "miscellaneous",
 ] as const;
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+// Categories that may be allocated to a specific Hitachi machine (cost center).
+export const HITACHI_ALLOCATABLE_CATEGORIES: readonly ExpenseCategory[] = [
+  "fuel",
+  "maintenance",
+  "salary",
+  "repairs",
+  "rental",
+];
+
+export function isHitachiAllocatableCategory(c: ExpenseCategory): boolean {
+  return HITACHI_ALLOCATABLE_CATEGORIES.includes(c);
+}
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(EXPENSE_CATEGORIES);
 
