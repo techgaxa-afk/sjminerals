@@ -219,7 +219,10 @@ function DashboardPage() {
             {(["daily", "weekly", "monthly"] as FilterType[]).map((f) => (
               <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
             ))}
+          </div>
         </div>
+
+
 
         {/* Product Category Sales (quantity only) */}
         <div className="stat-card">
