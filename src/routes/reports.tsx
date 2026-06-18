@@ -1215,7 +1215,7 @@ function ReportsPage() {
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground">Quantity is based on billed bill_items. Uncategorized products are not included in category totals; assign categories on the Products page to back-fill historical bills.</p>
+            <p className="text-[11px] text-muted-foreground">Quantity is based only on billed quantities. Assigning a category to an existing product can include its linked historical bill quantities without changing bill rows.</p>
           </div>
         ) : (
 
