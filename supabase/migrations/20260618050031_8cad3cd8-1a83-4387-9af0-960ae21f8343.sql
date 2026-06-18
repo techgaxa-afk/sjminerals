@@ -1,0 +1,2 @@
+ALTER TABLE public.expenses DROP CONSTRAINT expenses_category_check;
+ALTER TABLE public.expenses ADD CONSTRAINT expenses_category_check CHECK (category = ANY (ARRAY['fuel'::text, 'salary'::text, 'tips'::text, 'food'::text, 'maintenance'::text, 'repairs'::text, 'rental'::text, 'pass_purchase'::text, 'miscellaneous'::text]));
