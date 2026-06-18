@@ -4,11 +4,12 @@ import { useState, useMemo } from "react";
 import {
   getExpenses, saveExpense, updateExpense, deleteExpense,
   getCashSales, getUpiSales, getCashExpenses, getUpiExpenses,
+  getHitachiMachines,
   useCloudData,
-  type Expense, type ExpenseCategory, type ExpensePaymentMode,
+  type Expense, type ExpenseCategory, type ExpensePaymentMode, type ExpenseAllocateTo,
 } from "../lib/store";
-import { EXPENSE_CATEGORIES, isExpenseCategory } from "../lib/expense-categories";
-import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, UtensilsCrossed, Banknote, CreditCard } from "lucide-react";
+import { EXPENSE_CATEGORIES, isExpenseCategory, HITACHI_ALLOCATABLE_CATEGORIES } from "../lib/expense-categories";
+import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, UtensilsCrossed, Banknote, CreditCard, Hammer, Truck } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/expenses")({
@@ -21,6 +22,8 @@ const CATEGORY_META: Record<ExpenseCategory, { label: string; icon: typeof Fuel 
   tips: { label: "Tips", icon: Coins },
   food: { label: "Food", icon: UtensilsCrossed },
   maintenance: { label: "Maint.", icon: Wrench },
+  repairs: { label: "Repairs", icon: Hammer },
+  rental: { label: "Rental", icon: Truck },
   miscellaneous: { label: "Other", icon: MoreHorizontal },
 };
 const CATEGORIES = EXPENSE_CATEGORIES.map((value) => ({ value, ...CATEGORY_META[value] }));
@@ -28,16 +31,20 @@ const CATEGORIES = EXPENSE_CATEGORIES.map((value) => ({ value, ...CATEGORY_META[
 function ExpensesPage() {
   useCloudData();
   const [expenses, setExpenses] = useState<Expense[]>(getExpenses);
+  const machines = getHitachiMachines();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<ExpenseCategory | "all">("all");
   const [filterMode, setFilterMode] = useState<ExpensePaymentMode | "all">("all");
+  const [filterMachine, setFilterMachine] = useState<string>("all"); // "all" | "general" | machineId
   const [category, setCategory] = useState<ExpenseCategory>("fuel");
   const [paymentMode, setPaymentMode] = useState<ExpensePaymentMode>("cash");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [notes, setNotes] = useState("");
+  const [allocateTo, setAllocateTo] = useState<ExpenseAllocateTo>("general");
+  const [hitachiMachineId, setHitachiMachineId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const sorted = [...expenses].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -45,13 +52,22 @@ function ExpensesPage() {
     const matchSearch = e.notes.toLowerCase().includes(search.toLowerCase()) || e.category.includes(search.toLowerCase());
     const matchCat = filterCat === "all" || e.category === filterCat;
     const matchMode = filterMode === "all" || e.paymentMode === filterMode;
-    return matchSearch && matchCat && matchMode;
+    const matchMachine = filterMachine === "all"
+      || (filterMachine === "general" && (e.allocateTo ?? "general") === "general")
+      || e.hitachiMachineId === filterMachine;
+    return matchSearch && matchCat && matchMode && matchMachine;
   });
 
   const resetForm = () => {
     setShowForm(false); setEditingId(null);
     setAmount(""); setNotes(""); setCategory("fuel"); setPaymentMode("cash"); setError(null);
+    setAllocateTo("general"); setHitachiMachineId("");
   };
+
+  // When allocating to a machine, restrict the category to allocatable ones.
+  const visibleCategories = allocateTo === "hitachi"
+    ? CATEGORIES.filter((c) => HITACHI_ALLOCATABLE_CATEGORIES.includes(c.value))
+    : CATEGORIES;
 
   const handleSave = () => {
     setError(null);
@@ -63,17 +79,35 @@ function ExpensesPage() {
       setError(`Invalid category. Allowed: ${EXPENSE_CATEGORIES.join(", ")}.`);
       return;
     }
+    if (allocateTo === "hitachi") {
+      if (!hitachiMachineId) { setError("Select a Hitachi machine."); return; }
+      if (!HITACHI_ALLOCATABLE_CATEGORIES.includes(category)) {
+        setError(`Category "${category}" cannot be allocated to a Hitachi machine.`); return;
+      }
+    }
 
-    if (editingId) updateExpense(editingId, { category, amount: amt, date, notes: notes.trim(), paymentMode });
-    else saveExpense({ category, amount: amt, date, notes: notes.trim(), paymentMode });
-    setExpenses(getExpenses());
-    resetForm();
+    const payload = {
+      category, amount: amt, date, notes: notes.trim(), paymentMode,
+      allocateTo,
+      hitachiMachineId: allocateTo === "hitachi" ? hitachiMachineId : undefined,
+    };
+    try {
+      if (editingId) updateExpense(editingId, payload);
+      else saveExpense(payload);
+      setExpenses(getExpenses());
+      resetForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    }
   };
+
 
 
   const startEdit = (e: Expense) => {
     setEditingId(e.id); setCategory(e.category); setAmount(String(e.amount));
     setDate(e.date); setNotes(e.notes); setPaymentMode(e.paymentMode || "cash");
+    setAllocateTo(e.allocateTo ?? "general");
+    setHitachiMachineId(e.hitachiMachineId ?? "");
     setError(null); setShowForm(true);
   };
 
@@ -200,9 +234,22 @@ function ExpensesPage() {
           <div className="stat-card space-y-3">
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editingId ? "Edit" : "New"} Expense</h3><button onClick={resetForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
             <div>
-              <label className="field-label">Category</label>
+              <label className="field-label">Allocate To</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => { setAllocateTo("general"); setHitachiMachineId(""); }} className={`rounded-md border p-2 text-xs font-medium transition-colors ${allocateTo === "general" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>General Expense</button>
+                <button onClick={() => setAllocateTo("hitachi")} disabled={machines.length === 0} className={`rounded-md border p-2 text-xs font-medium transition-colors disabled:opacity-50 ${allocateTo === "hitachi" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>Hitachi Machine</button>
+              </div>
+              {allocateTo === "hitachi" && (
+                <select value={hitachiMachineId} onChange={(e) => setHitachiMachineId(e.target.value)} className="mt-2 w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">Select machine...</option>
+                  {machines.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.type === "rented" ? "Rented" : "Owned"})</option>)}
+                </select>
+              )}
+            </div>
+            <div>
+              <label className="field-label">Category{allocateTo === "hitachi" && <span className="text-muted-foreground"> (allocatable only)</span>}</label>
               <div className="grid grid-cols-3 gap-2">
-                {CATEGORIES.map((c) => (
+                {visibleCategories.map((c) => (
                   <button key={c.value} onClick={() => setCategory(c.value)} className={`flex flex-col items-center gap-1 rounded-md border p-2 text-xs font-medium transition-colors ${category === c.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
                     <c.icon className="h-4 w-4" />{c.label}
                   </button>
@@ -264,6 +311,11 @@ function ExpensesPage() {
             <option value="all">All Modes</option>
             <option value="cash">Cash</option>
             <option value="upi">UPI</option>
+          </select>
+          <select value={filterMachine} onChange={(e) => setFilterMachine(e.target.value)} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+            <option value="all">All Allocations</option>
+            <option value="general">General Only</option>
+            {machines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
 

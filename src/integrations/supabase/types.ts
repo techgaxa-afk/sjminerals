@@ -299,10 +299,12 @@ export type Database = {
       }
       expenses: {
         Row: {
+          allocate_to: string
           amount: number
           category: string
           created_at: string
           date: string
+          hitachi_machine_id: string | null
           id: string
           linked_bill_id: string | null
           linked_company_id: string | null
@@ -312,10 +314,12 @@ export type Database = {
           payment_mode: string
         }
         Insert: {
+          allocate_to?: string
           amount?: number
           category: string
           created_at?: string
           date?: string
+          hitachi_machine_id?: string | null
           id?: string
           linked_bill_id?: string | null
           linked_company_id?: string | null
@@ -325,10 +329,12 @@ export type Database = {
           payment_mode?: string
         }
         Update: {
+          allocate_to?: string
           amount?: number
           category?: string
           created_at?: string
           date?: string
+          hitachi_machine_id?: string | null
           id?: string
           linked_bill_id?: string | null
           linked_company_id?: string | null
@@ -338,6 +344,13 @@ export type Database = {
           payment_mode?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "expenses_hitachi_machine_id_fkey"
+            columns: ["hitachi_machine_id"]
+            isOneToOne: false
+            referencedRelation: "hitachi_machines"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "expenses_linked_bill_id_fkey"
             columns: ["linked_bill_id"]
@@ -478,6 +491,8 @@ export type Database = {
           hourly_rate: number
           id: string
           name: string
+          rental_rate: number
+          type: string
           updated_at: string
         }
         Insert: {
@@ -485,6 +500,8 @@ export type Database = {
           hourly_rate?: number
           id?: string
           name: string
+          rental_rate?: number
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -492,6 +509,8 @@ export type Database = {
           hourly_rate?: number
           id?: string
           name?: string
+          rental_rate?: number
+          type?: string
           updated_at?: string
         }
         Relationships: []

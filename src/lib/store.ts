@@ -51,7 +51,8 @@ export interface CompanyPayment {
   reversedAt?: string;
   createdAt: string;
 }
-export interface HitachiMachine { id: string; name: string; hourlyRate: number; createdAt: string; }
+export type HitachiMachineType = "owned" | "rented";
+export interface HitachiMachine { id: string; name: string; hourlyRate: number; type?: HitachiMachineType; rentalRate?: number; createdAt: string; }
 export interface Operator { id: string; name: string; phone: string; hourlySalaryRate: number; createdAt: string; }
 export interface HitachiEntry {
   id: string; machineId: string; machineName: string; date: string;
@@ -63,14 +64,17 @@ export interface HitachiFuel {
   id: string; machineId: string; machineName: string; liters: number;
   hourReading: number; date: string; createdAt: string;
 }
-export { EXPENSE_CATEGORIES, isExpenseCategory } from "./expense-categories";
+export { EXPENSE_CATEGORIES, isExpenseCategory, HITACHI_ALLOCATABLE_CATEGORIES, isHitachiAllocatableCategory } from "./expense-categories";
 export type { ExpenseCategory } from "./expense-categories";
-import { isExpenseCategory as _isExpenseCategory, EXPENSE_CATEGORIES, type ExpenseCategory } from "./expense-categories";
+import { isExpenseCategory as _isExpenseCategory, isHitachiAllocatableCategory as _isHitachiAllocatable, EXPENSE_CATEGORIES, type ExpenseCategory } from "./expense-categories";
 export type ExpensePaymentMode = "cash" | "upi";
+export type ExpenseAllocateTo = "general" | "hitachi";
 export interface Expense {
   id: string; category: ExpenseCategory; amount: number; date: string; notes: string;
   paymentMode: ExpensePaymentMode;
   linkedBillId?: string; linkedCompanyId?: string; linkedOperatorId?: string; linkedMachineId?: string;
+  allocateTo?: ExpenseAllocateTo;
+  hitachiMachineId?: string;
   createdAt: string;
 }
 export interface JCBLog {
@@ -234,9 +238,15 @@ const companyPaymentToDb = (p: CompanyPayment) => ({
   status: p.status ?? "active",
 });
 const mapMachine = (r: any): HitachiMachine => ({
-  id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0, createdAt: r.created_at,
+  id: r.id, name: r.name, hourlyRate: Number(r.hourly_rate) || 0,
+  type: r.type === "rented" ? "rented" : "owned",
+  rentalRate: Number(r.rental_rate) || 0,
+  createdAt: r.created_at,
 });
-const machineToDb = (m: HitachiMachine) => ({ id: m.id, name: m.name, hourly_rate: m.hourlyRate });
+const machineToDb = (m: HitachiMachine) => ({
+  id: m.id, name: m.name, hourly_rate: m.hourlyRate,
+  type: m.type ?? "owned", rental_rate: m.rentalRate ?? 0,
+});
 const mapOperator = (r: any): Operator => ({
   id: r.id, name: r.name, phone: r.phone ?? "", hourlySalaryRate: Number(r.hourly_salary_rate) || 0, createdAt: r.created_at,
 });
@@ -270,6 +280,8 @@ const mapExpense = (r: any): Expense => ({
   paymentMode: (r.payment_mode === "upi" ? "upi" : "cash"),
   linkedBillId: r.linked_bill_id ?? undefined, linkedCompanyId: r.linked_company_id ?? undefined,
   linkedOperatorId: r.linked_operator_id ?? undefined, linkedMachineId: r.linked_machine_id ?? undefined,
+  allocateTo: r.allocate_to === "hitachi" ? "hitachi" : "general",
+  hitachiMachineId: r.hitachi_machine_id ?? undefined,
   createdAt: r.created_at,
 });
 const expenseToDb = (e: Expense) => ({
@@ -277,6 +289,8 @@ const expenseToDb = (e: Expense) => ({
   payment_mode: e.paymentMode || "cash",
   linked_bill_id: e.linkedBillId || null, linked_company_id: e.linkedCompanyId || null,
   linked_operator_id: e.linkedOperatorId || null, linked_machine_id: e.linkedMachineId || null,
+  allocate_to: e.allocateTo ?? "general",
+  hitachi_machine_id: e.hitachiMachineId || null,
 });
 const mapVehicleMaintenance = (r: any): VehicleMaintenance => ({
   id: r.id, vehicleId: r.vehicle_id,
@@ -1111,6 +1125,56 @@ export function getHitachiEntriesByMachine(machineId: string): HitachiEntry[] {
   return cache.hitachi_entries.filter((e) => e.machineId === machineId);
 }
 
+// ============ Hitachi Cost Analytics ============
+export interface HitachiCostRow {
+  machineId: string;
+  machineName: string;
+  type: HitachiMachineType;
+  hours: number;
+  fuel: number;
+  maintenance: number;
+  salary: number;
+  repairs: number;
+  rental: number;
+  total: number;
+  costPerHour: number | null;
+}
+function inRange(dateStr: string, start?: Date, end?: Date): boolean {
+  if (!start && !end) return true;
+  const t = new Date(dateStr + (dateStr.length === 10 ? "T00:00:00" : "")).getTime();
+  if (start && t < start.getTime()) return false;
+  if (end && t > end.getTime()) return false;
+  return true;
+}
+export function getHitachiCostBreakdown(start?: Date, end?: Date): HitachiCostRow[] {
+  const machines = cache.hitachi_machines;
+  const entries = cache.hitachi_entries.filter((e) => inRange(e.date, start, end));
+  const expenses = cache.expenses.filter((e) => e.allocateTo === "hitachi" && e.hitachiMachineId && inRange(e.date, start, end));
+  return machines.map((m) => {
+    const mEntries = entries.filter((e) => e.machineId === m.id);
+    const mExp = expenses.filter((e) => e.hitachiMachineId === m.id);
+    const hours = mEntries.reduce((s, e) => s + (e.totalHours || 0), 0);
+    const sumCat = (cat: ExpenseCategory) => mExp.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
+    const fuel = sumCat("fuel");
+    const maintenance = sumCat("maintenance");
+    const salary = sumCat("salary");
+    const repairs = sumCat("repairs");
+    let rental = sumCat("rental");
+    const type: HitachiMachineType = m.type === "rented" ? "rented" : "owned";
+    if (type === "rented" && rental === 0 && (m.rentalRate ?? 0) > 0) {
+      rental = (m.rentalRate ?? 0) * hours;
+    }
+    const total = type === "owned"
+      ? fuel + maintenance + salary + repairs
+      : rental + fuel + salary + repairs;
+    return {
+      machineId: m.id, machineName: m.name, type,
+      hours, fuel, maintenance, salary, repairs, rental, total,
+      costPerHour: hours > 0 ? total / hours : null,
+    };
+  });
+}
+
 // ============ Hitachi Fuel ============
 export function getHitachiFuel(): HitachiFuel[] { return cache.hitachi_fuel.slice(); }
 export function saveHitachiFuel(f: Omit<HitachiFuel, "id" | "createdAt">): HitachiFuel {
@@ -1197,11 +1261,20 @@ export function getAvailableCash(): number {
 export function getAvailableUpi(): number {
   return getUpiSales() + getUpiCollections() - getUpiExpenses();
 }
+function validateHitachiAllocation(e: { category: ExpenseCategory; allocateTo?: ExpenseAllocateTo; hitachiMachineId?: string }) {
+  if (e.allocateTo === "hitachi") {
+    if (!e.hitachiMachineId) throw new Error("Select a Hitachi machine to allocate this expense to.");
+    if (!_isHitachiAllocatable(e.category)) {
+      throw new Error(`Category "${e.category}" cannot be allocated to a Hitachi machine.`);
+    }
+  }
+}
 export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
   if (!_isExpenseCategory(e.category)) {
     throw new Error(`Invalid expense category "${String(e.category)}".`);
   }
-  const expense: Expense = { ...e, id: uid(), createdAt: new Date().toISOString() };
+  validateHitachiAllocation(e);
+  const expense: Expense = { ...e, allocateTo: e.allocateTo ?? "general", id: uid(), createdAt: new Date().toISOString() };
   cache.expenses.push(expense); bump();
   bg(supabase.from("expenses").insert(expenseToDb(expense)));
   return expense;
@@ -1209,6 +1282,11 @@ export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
 export function updateExpense(id: string, updates: Partial<Expense>): void {
   if (updates.category !== undefined && !_isExpenseCategory(updates.category)) {
     throw new Error(`Invalid expense category "${String(updates.category)}".`);
+  }
+  const existing = cache.expenses.find((e) => e.id === id);
+  if (existing) {
+    const merged = { ...existing, ...updates };
+    validateHitachiAllocation(merged);
   }
   cache.expenses = cache.expenses.map((e) => (e.id === id ? { ...e, ...updates } : e));
   bump();
