@@ -1239,9 +1239,100 @@ export function deleteHitachiEntry(id: string): void {
   cache.hitachi_entries = cache.hitachi_entries.filter((e) => e.id !== id); bump();
   bg(supabase.from("hitachi_entries").delete().eq("id", id));
 }
-export function getHitachiEntriesByMachine(machineId: string): HitachiEntry[] {
-  return cache.hitachi_entries.filter((e) => e.machineId === machineId);
+
+// ============ Hitachi Rental Payments + Ledger ============
+export function getHitachiRentalPayments(): HitachiRentalPayment[] {
+  return cache.hitachi_rental_payments.slice();
 }
+export function getRentalPaymentsByMachine(machineId: string): HitachiRentalPayment[] {
+  return cache.hitachi_rental_payments.filter((p) => p.machineId === machineId);
+}
+export function saveHitachiRentalPayment(
+  p: Omit<HitachiRentalPayment, "id" | "createdAt">,
+): HitachiRentalPayment {
+  const row: HitachiRentalPayment = { ...p, id: uid(), createdAt: new Date().toISOString() };
+  cache.hitachi_rental_payments.push(row); bump();
+  bg(supabase.from("hitachi_rental_payments").insert(rentalPaymentToDb(row)));
+  return row;
+}
+export function deleteHitachiRentalPayment(id: string): void {
+  cache.hitachi_rental_payments = cache.hitachi_rental_payments.filter((p) => p.id !== id);
+  bump();
+  bg(supabase.from("hitachi_rental_payments").delete().eq("id", id));
+}
+
+export interface RentalLedgerRow {
+  date: string;
+  description: string;
+  debit: number;   // owed by us to owner (rental charge)
+  credit: number;  // reduces what we owe (diesel paid, payments made)
+  balance: number;
+}
+export interface RentalLedger {
+  machineId: string;
+  machineName: string;
+  rows: RentalLedgerRow[];
+  totalRentalCharges: number;
+  totalDieselPaid: number;
+  totalPayments: number;
+  outstanding: number;
+}
+export function getMachineRentalLedger(machineId: string): RentalLedger {
+  const machine = cache.hitachi_machines.find((m) => m.id === machineId);
+  const entries = cache.hitachi_entries
+    .filter((e) => e.machineId === machineId)
+    .slice()
+    .sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt));
+  const payments = cache.hitachi_rental_payments
+    .filter((p) => p.machineId === machineId)
+    .slice()
+    .sort((a, b) => (a.paymentDate + a.createdAt).localeCompare(b.paymentDate + b.createdAt));
+
+  type Item = { date: string; sortKey: string; description: string; debit: number; credit: number };
+  const items: Item[] = [];
+  for (const e of entries) {
+    if (e.rentalCharge > 0) {
+      items.push({ date: e.date, sortKey: e.date + "1" + e.createdAt, description: `Rental Charge · ${e.totalHours} hr`, debit: e.rentalCharge, credit: 0 });
+    }
+    if (e.dieselPaid > 0) {
+      items.push({ date: e.date, sortKey: e.date + "2" + e.createdAt, description: "Diesel Paid (adjusted)", debit: 0, credit: e.dieselPaid });
+    }
+    if (e.rentalPaymentMade > 0) {
+      items.push({ date: e.date, sortKey: e.date + "3" + e.createdAt, description: "Rental Payment (from log)", debit: 0, credit: e.rentalPaymentMade });
+    }
+  }
+  for (const p of payments) {
+    items.push({
+      date: p.paymentDate,
+      sortKey: p.paymentDate + "4" + p.createdAt,
+      description: `Payment · ${p.paymentMode}${p.notes ? ` · ${p.notes}` : ""}`,
+      debit: 0, credit: p.amount,
+    });
+  }
+  items.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  let bal = 0;
+  let totalRentalCharges = 0, totalDieselPaid = 0, totalPayments = 0;
+  const rows: RentalLedgerRow[] = items.map((it) => {
+    bal += it.debit - it.credit;
+    if (it.debit > 0) totalRentalCharges += it.debit;
+    else if (it.description.startsWith("Diesel")) totalDieselPaid += it.credit;
+    else totalPayments += it.credit;
+    return { date: it.date, description: it.description, debit: it.debit, credit: it.credit, balance: bal };
+  });
+
+  return {
+    machineId,
+    machineName: machine?.name ?? "",
+    rows,
+    totalRentalCharges,
+    totalDieselPaid,
+    totalPayments,
+    outstanding: bal,
+  };
+}
+
+
 
 // ============ Hitachi Cost Analytics ============
 export interface HitachiCostRow {
