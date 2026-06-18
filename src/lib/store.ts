@@ -271,15 +271,30 @@ const machineToDb = (m: HitachiMachine) => ({
   id: m.id, name: m.name, hourly_rate: m.hourlyRate,
   type: m.type ?? "owned", rental_rate: m.rentalRate ?? 0,
 });
-const mapOperator = (r: any): Operator => ({
-  id: r.id, name: r.name, phone: r.phone ?? "", hourlySalaryRate: Number(r.hourly_salary_rate) || 0, createdAt: r.created_at,
+const mapOperator = (r: any): Operator => {
+  const hourly = Number(r.hourly_salary_rate) || 0;
+  const normal = r.normal_shift_salary != null ? Number(r.normal_shift_salary) || 0 : hourly;
+  const single = Number(r.single_shift_salary) || 0;
+  return {
+    id: r.id, name: r.name, phone: r.phone ?? "",
+    hourlySalaryRate: hourly,
+    normalShiftSalary: normal,
+    singleShiftSalary: single,
+    createdAt: r.created_at,
+  };
+};
+const operatorToDb = (o: Operator) => ({
+  id: o.id, name: o.name, phone: o.phone,
+  hourly_salary_rate: o.hourlySalaryRate || o.normalShiftSalary || 0,
+  normal_shift_salary: o.normalShiftSalary || 0,
+  single_shift_salary: o.singleShiftSalary || 0,
 });
-const operatorToDb = (o: Operator) => ({ id: o.id, name: o.name, phone: o.phone, hourly_salary_rate: o.hourlySalaryRate });
 const mapEntry = (r: any): HitachiEntry => ({
   id: r.id, machineId: r.machine_id, machineName: r.machine_name, date: r.date,
   startingHours: Number(r.starting_hours) || 0, endingHours: Number(r.ending_hours) || 0,
   totalHours: Number(r.total_hours) || 0,
   operatorId: r.operator_id ?? "", operatorName: r.operator_name ?? "",
+  shiftType: r.shift_type === "single" ? "single" : "normal",
   shift: r.shift === "B" ? "B" : "A",
   machineRevenue: Number(r.machine_revenue) || 0, operatorSalary: Number(r.operator_salary) || 0,
   notes: r.notes ?? "", createdAt: r.created_at,
@@ -288,7 +303,8 @@ const entryToDb = (e: HitachiEntry) => ({
   id: e.id, machine_id: e.machineId, machine_name: e.machineName, date: e.date,
   starting_hours: e.startingHours, ending_hours: e.endingHours, total_hours: e.totalHours,
   operator_id: e.operatorId || null, operator_name: e.operatorName,
-  shift: e.shift, machine_revenue: e.machineRevenue, operator_salary: e.operatorSalary, notes: e.notes,
+  shift_type: e.shiftType, shift: e.shift,
+  machine_revenue: e.machineRevenue, operator_salary: e.operatorSalary, notes: e.notes,
 });
 const mapFuel = (r: any): HitachiFuel => ({
   id: r.id, machineId: r.machine_id, machineName: r.machine_name,
