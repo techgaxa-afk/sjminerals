@@ -81,7 +81,8 @@ function HitachiPage() {
       machineId: entryMachineId, machineName: machine?.name || "", date: entryDate,
       startingHours: Number(startHrs), endingHours: Number(endHrs), totalHours,
       operatorId: entryOperatorId, operatorName: operator?.name || "",
-      shift: entryShift, machineRevenue, operatorSalary, notes: entryNotes.trim(),
+      shiftType: entryShiftType, shift: entryShiftType === "normal" ? entryShift : "A",
+      machineRevenue, operatorSalary, notes: entryNotes.trim(),
     };
     if (editEntryId) {
       updateHitachiEntry(editEntryId, data);
