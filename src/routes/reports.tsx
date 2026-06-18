@@ -1127,41 +1127,101 @@ function ReportsPage() {
 
             {/* Machine performance table */}
             <div className="overflow-x-auto">
-              <div className="min-w-[1200px] space-y-2">
-                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.7fr repeat(11,1fr)" }}>
+              <div className="min-w-[1500px] space-y-2">
+                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(12,1fr)" }}>
                   <span>Machine</span><span>Type</span>
                   <span className="text-right">Hours</span>
                   <span className="text-right">Fuel</span>
                   <span className="text-right">Maint</span>
-                  <span className="text-right">Repairs</span>
                   <span className="text-right">Salary</span>
-                  <span className="text-right">Rental</span>
+                  <span className="text-right">Tips</span>
+                  <span className="text-right">Rental Chg</span>
+                  <span className="text-right">Diesel Paid</span>
+                  <span className="text-right">Rent Pay</span>
+                  <span className="text-right">Outstanding</span>
                   <span className="text-right">Total Cost</span>
                   <span className="text-right">Cost/Hr</span>
-                  <span className="text-right">Fuel/Hr</span>
-                  <span className="text-right">Maint/Hr</span>
                   <span className="text-right">Op. Value</span>
                 </div>
                 {hitachiFiltered.map((r) => (
-                  <div key={r.machineId} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1.5fr 0.7fr repeat(11,1fr)" }}>
+                  <div key={r.machineId} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(12,1fr)" }}>
                     <span className="font-medium text-foreground truncate">{r.machineName}</span>
                     <span className={`text-[10px] font-bold uppercase ${r.type === "owned" ? "text-primary" : "text-warning"}`}>{r.type}</span>
                     <span className="text-right text-foreground">{r.hours.toFixed(1)}</span>
                     <span className="text-right text-foreground">₹{r.fuel.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{r.maintenance.toLocaleString()}</span>
-                    <span className="text-right text-foreground">₹{r.repairs.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{r.salary.toLocaleString()}</span>
-                    <span className="text-right text-foreground">₹{r.rental.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.tips.toLocaleString()}</span>
+                    <span className="text-right text-foreground">{r.type === "rented" ? `₹${r.rentalCharges.toLocaleString()}` : "—"}</span>
+                    <span className="text-right text-foreground">{r.type === "rented" ? `₹${r.dieselPaid.toLocaleString()}` : "—"}</span>
+                    <span className="text-right text-success">{r.type === "rented" ? `₹${r.rentalPayments.toLocaleString()}` : "—"}</span>
+                    <span className={`text-right ${r.outstanding > 0 ? "text-warning" : "text-foreground"}`}>{r.type === "rented" ? `₹${r.outstanding.toLocaleString()}` : "—"}</span>
                     <span className="text-right text-destructive font-medium">₹{r.total.toLocaleString()}</span>
                     <span className="text-right text-foreground">{r.costPerHour !== null ? `₹${r.costPerHour.toFixed(0)}` : "—"}</span>
-                    <span className="text-right text-foreground">{r.fuelPerHour !== null ? `₹${r.fuelPerHour.toFixed(0)}` : "—"}</span>
-                    <span className="text-right text-foreground">{r.maintenancePerHour !== null ? `₹${r.maintenancePerHour.toFixed(0)}` : "—"}</span>
                     <span className="text-right text-muted-foreground">₹{r.operationalValue.toLocaleString()}</span>
                   </div>
                 ))}
                 {hitachiFiltered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No machines for this period.</p>}
               </div>
             </div>
+
+            {/* Rented Machine Analytics */}
+            {hitachiSummary.rentedCount > 0 && (
+              <div className="stat-card">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Rented Machine Highlights</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  {[
+                    ["Highest Outstanding", hitachiSummary.highestOutstanding, (r: HitachiCostRow) => `₹${r.outstanding.toLocaleString()}`],
+                    ["Most Expensive Rental", hitachiSummary.mostExpensiveRental, (r: HitachiCostRow) => `₹${r.rentalCharges.toLocaleString()}`],
+                    ["Most Used Rental", hitachiSummary.mostUsedRental, (r: HitachiCostRow) => `${r.hours.toFixed(1)} hrs`],
+                  ].map(([label, row, fmt]) => {
+                    const r = row as HitachiCostRow | null;
+                    const f = fmt as (r: HitachiCostRow) => string;
+                    return (
+                      <div key={label as string} className="rounded-md bg-secondary p-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">{label as string}</p>
+                        <p className="font-bold text-foreground">{r ? r.machineName : "—"}</p>
+                        <p className="text-muted-foreground">{r ? f(r) : ""}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Operator Report */}
+            {hitachiOperators.length > 0 && (
+              <div className="stat-card">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Operator Report</h3>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[800px] space-y-2">
+                    <div className="grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "2fr repeat(7,1fr)" }}>
+                      <span>Operator</span>
+                      <span className="text-right">Normal</span>
+                      <span className="text-right">Single</span>
+                      <span className="text-right">Hours</span>
+                      <span className="text-right">Salary</span>
+                      <span className="text-right">Tips</span>
+                      <span className="text-right">Total</span>
+                      <span className="text-right">Cost/Hr</span>
+                    </div>
+                    {hitachiOperators.map((o) => (
+                      <div key={o.id} className="grid gap-2 items-center text-xs py-1 border-t border-border" style={{ gridTemplateColumns: "2fr repeat(7,1fr)" }}>
+                        <span className="font-medium text-foreground truncate">{o.name}</span>
+                        <span className="text-right text-foreground">{o.normal}</span>
+                        <span className="text-right text-foreground">{o.single}</span>
+                        <span className="text-right text-foreground">{o.hours.toFixed(1)}</span>
+                        <span className="text-right text-foreground">₹{o.salary.toLocaleString()}</span>
+                        <span className="text-right text-foreground">₹{o.tips.toLocaleString()}</span>
+                        <span className="text-right text-destructive font-medium">₹{o.total.toLocaleString()}</span>
+                        <span className="text-right text-foreground">{o.costPerHour !== null ? `₹${o.costPerHour.toFixed(0)}` : "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
 
             {/* Owned Maintenance Analytics */}
             <div className="stat-card">
