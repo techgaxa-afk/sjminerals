@@ -610,6 +610,37 @@ function ReportsPage() {
     return list;
   }, [hitachiCost]);
 
+  // Machine drilldown data
+  const drilldown = useMemo(() => {
+    if (!drilldownId) return null;
+    const machine = getHitachiMachines().find((m) => m.id === drilldownId) ?? null;
+    const row = hitachiCost.find((r) => r.machineId === drilldownId) ?? null;
+    const entries = getHitachiEntriesByMachine(drilldownId)
+      .filter((e) => new Date(e.date + "T00:00:00") >= start && new Date(e.date + "T00:00:00") <= end)
+      .slice().sort((a, b) => b.date.localeCompare(a.date));
+    const mExpenses = getExpenses().filter((e) =>
+      e.allocateTo === "hitachi" && e.hitachiMachineId === drilldownId &&
+      new Date(e.date + "T00:00:00") >= start && new Date(e.date + "T00:00:00") <= end,
+    );
+    const fuelExp = mExpenses.filter((e) => e.category === "fuel").sort((a, b) => b.date.localeCompare(a.date));
+    const maintExp = mExpenses.filter((e) => e.category === "maintenance").sort((a, b) => b.date.localeCompare(a.date));
+    const ops = getOperators();
+    const opMap = new Map<string, { name: string; shifts: number; hours: number; salary: number; tips: number }>();
+    for (const e of entries) {
+      const op = ops.find((o) => o.id === e.operatorId);
+      const name = op?.name ?? "—";
+      const cur = opMap.get(e.operatorId) ?? { name, shifts: 0, hours: 0, salary: 0, tips: 0 };
+      cur.shifts += 1;
+      cur.hours += e.totalHours || 0;
+      cur.salary += e.operatorSalary || 0;
+      cur.tips += e.tips || 0;
+      opMap.set(e.operatorId, cur);
+    }
+    const operatorRows = Array.from(opMap.values());
+    const ledger = machine?.type === "rented" ? getMachineRentalLedger(drilldownId) : null;
+    return { machine, row, entries, fuelExp, maintExp, operatorRows, ledger };
+  }, [drilldownId, hitachiCost, start, end]);
+
   // Operator analytics for Hitachi tab
   const hitachiOperators = useMemo(() => {
     const ops = getOperators();
