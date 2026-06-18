@@ -272,26 +272,23 @@ function BillingPage() {
           <label className="field-label">Add Products</label>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring mb-2" />
           <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4">
-            {filtered.map((p) => {
-              const selected = items.some((i) => i.productId === p.id);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => addItem(p.id)}
-                  className={`stat-card text-left transition-all min-h-[88px] flex flex-col justify-center p-4 active:scale-[0.98] ${
-                    selected
-                      ? "border-2 border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
-                      : "border-2 border-transparent hover:border-primary/50"
-                  }`}
-                >
-                  <p className="font-semibold text-base text-foreground leading-tight">{p.name}</p>
-                  <p className="text-sm font-medium text-primary mt-1">₹{p.price}<span className="text-xs text-muted-foreground font-normal">/{p.unit}</span></p>
-                </button>
-              );
-            })}
-            {filtered.length === 0 && <p className="col-span-full text-sm text-muted-foreground text-center py-4">No products found.</p>}
-          </div>
-
+          <ProductGrid title="BOULDERS" products={bouldersProducts} items={items} onAdd={addItem} />
+          <ProductGrid title="K.K" products={kkProducts} items={items} onAdd={addItem} />
+          {otherProducts.length > 0 && (
+            <div className="mt-3 border border-border rounded-md overflow-hidden">
+              <button type="button" onClick={() => setOthersOpen((o) => !o)} className="w-full flex items-center gap-2 px-3 py-2 bg-secondary/60 hover:bg-secondary text-sm font-semibold text-foreground">
+                {othersOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <span>Others</span>
+                <span className="ml-auto text-xs text-muted-foreground">{otherProducts.length}</span>
+              </button>
+              {othersOpen && (
+                <div className="p-3">
+                  <ProductGrid products={otherProducts} items={items} onAdd={addItem} />
+                </div>
+              )}
+            </div>
+          )}
+          {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No products found.</p>}
         </div>
 
         {items.length > 0 && (
