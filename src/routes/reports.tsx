@@ -112,7 +112,7 @@ function ReportsPage() {
   }, [start, end]);
 
   // keep URL in sync when switching report type so dashboard back/forward works
-  useMemo(() => { navigate({ search: (prev) => ({ ...prev, tab: reportType }), replace: true }); }, [reportType]); // eslint-disable-line
+  useMemo(() => { navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, tab: reportType }), replace: true }); }, [reportType]); // eslint-disable-line
 
 
   const allBillsInRange = useMemo(() => getBills().filter((b) => (new Date(b.createdAt) >= start && new Date(b.createdAt) <= end)), [start, end]);
