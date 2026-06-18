@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.bills_set_audit_fields() FROM PUBLIC, anon, authenticated;
