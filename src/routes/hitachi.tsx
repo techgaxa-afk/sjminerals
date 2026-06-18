@@ -230,7 +230,7 @@ function HitachiPage() {
                       <p className="font-bold text-sm text-success">₹{machineRevenue.toLocaleString()}</p>
                     </div>
                     <div className="rounded-md bg-warning/10 border border-warning/20 p-2 text-center">
-                      <p className="text-xs text-muted-foreground">Operator Salary</p>
+                      <p className="text-xs text-muted-foreground">Operator Cost ({entryShiftType === "single" ? "Single Shift" : "Normal Shift"})</p>
                       <p className="font-bold text-sm text-warning">₹{operatorSalary.toLocaleString()}</p>
                     </div>
                   </div>
@@ -239,16 +239,24 @@ function HitachiPage() {
                   <div><label className="field-label">Operator</label>
                     <select value={entryOperatorId} onChange={(e) => setEntryOperatorId(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                       <option value="">Select...</option>
-                      {operators.map((o) => <option key={o.id} value={o.id}>{o.name} (₹{o.hourlySalaryRate}/hr)</option>)}
+                      {operators.map((o) => <option key={o.id} value={o.id}>{o.name} (N:₹{o.normalShiftSalary || o.hourlySalaryRate} / S:₹{o.singleShiftSalary})</option>)}
                     </select>
                   </div>
-                  <div><label className="field-label">Shift</label>
+                  <div><label className="field-label">Shift Type</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setEntryShiftType("normal")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShiftType === "normal" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Normal Shift</button>
+                      <button onClick={() => setEntryShiftType("single")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShiftType === "single" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Single Shift</button>
+                    </div>
+                  </div>
+                </div>
+                {entryShiftType === "normal" && (
+                  <div><label className="field-label">Shift *</label>
                     <div className="flex gap-2">
                       <button onClick={() => setEntryShift("A")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShift === "A" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Shift A</button>
                       <button onClick={() => setEntryShift("B")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShift === "B" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Shift B</button>
                     </div>
                   </div>
-                </div>
+                )}
                 <div><label className="field-label">Notes</label><input value={entryNotes} onChange={(e) => setEntryNotes(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <div className="flex gap-2">
                   <button onClick={handleSaveEntry} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
