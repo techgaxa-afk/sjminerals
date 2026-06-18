@@ -312,6 +312,11 @@ function ExpensesPage() {
             <option value="cash">Cash</option>
             <option value="upi">UPI</option>
           </select>
+          <select value={filterMachine} onChange={(e) => setFilterMachine(e.target.value)} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+            <option value="all">All Allocations</option>
+            <option value="general">General Only</option>
+            {machines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
         </div>
 
         <div className="space-y-2">
