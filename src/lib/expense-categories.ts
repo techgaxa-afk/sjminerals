@@ -6,11 +6,12 @@
 export const EXPENSE_CATEGORIES = [
   "fuel",
   "salary",
-  "tips",
   "food",
   "maintenance",
   "repairs",
   "rental",
+  "pass_purchase",
+  "tips",
   "miscellaneous",
 ] as const;
 
