@@ -60,8 +60,8 @@ function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground">
-          No account? <Link to="/signup" className="text-primary font-medium hover:underline">Create one</Link>
+        <p className="text-center text-xs text-muted-foreground">
+          Access is invite-only. Contact your administrator to request an account.
         </p>
       </div>
     </div>
