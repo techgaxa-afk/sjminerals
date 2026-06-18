@@ -526,18 +526,32 @@ function ReportsPage() {
       (acc, r) => {
         acc.hours += r.hours; acc.operationalValue += r.operationalValue; acc.fuel += r.fuel;
         acc.maintenance += r.maintenance; acc.repairs += r.repairs;
-        acc.rental += r.rental; acc.salary += r.salary; acc.cost += r.total;
-        if (r.type === "owned") acc.ownedCost += r.total; else acc.rentedCost += r.total;
+        acc.rental += r.rental; acc.salary += r.salary; acc.tips += r.tips;
+        acc.rentalCharges += r.rentalCharges; acc.rentalPayments += r.rentalPayments;
+        acc.dieselPaid += r.dieselPaid;
+        acc.cost += r.total;
+        if (r.type === "owned") {
+          acc.ownedCost += r.total; acc.ownedHours += r.hours; acc.ownedCount += 1;
+        } else {
+          acc.rentedCost += r.total; acc.rentedHours += r.hours; acc.rentedCount += 1;
+          acc.outstanding += r.outstanding;
+        }
         return acc;
       },
-      { hours: 0, operationalValue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, cost: 0, ownedCost: 0, rentedCost: 0 },
+      { hours: 0, operationalValue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, tips: 0,
+        rentalCharges: 0, rentalPayments: 0, dieselPaid: 0, outstanding: 0,
+        cost: 0, ownedCost: 0, rentedCost: 0, ownedHours: 0, rentedHours: 0, ownedCount: 0, rentedCount: 0 },
     );
     const ranked = hitachiCost.filter((r) => r.hours > 0 || r.total > 0);
     const withHours = ranked.filter((r) => r.hours > 0);
     const sortBy = (fn: (r: HitachiCostRow) => number) =>
       ranked.slice().sort((a, b) => fn(b) - fn(a))[0] ?? null;
+    const rented = hitachiCost.filter((r) => r.type === "rented");
+    const sortRented = (fn: (r: HitachiCostRow) => number) =>
+      rented.slice().sort((a, b) => fn(b) - fn(a))[0] ?? null;
     return {
       ...totals,
+      machines: hitachiCost.length,
       costPerHour: totals.hours > 0 ? totals.cost / totals.hours : 0,
       operationalValuePerHour: totals.hours > 0 ? totals.operationalValue / totals.hours : 0,
       highestCost: sortBy((r) => r.total),
@@ -549,6 +563,9 @@ function ReportsPage() {
       mostUsed: sortBy((r) => r.hours),
       leastUsed: withHours.slice().sort((a, b) => a.hours - b.hours)[0] ?? null,
       topFuel: sortBy((r) => r.fuel),
+      highestOutstanding: sortRented((r) => r.outstanding),
+      mostExpensiveRental: sortRented((r) => r.rentalCharges),
+      mostUsedRental: sortRented((r) => r.hours),
     };
   }, [hitachiCost]);
 
@@ -578,17 +595,38 @@ function ReportsPage() {
       if (r.hours === 0 && r.total > 0) {
         list.push({ level: "warn", msg: `${r.machineName}: expenses recorded but 0 hours` });
       }
+      if (r.type === "rented" && r.outstanding > 50000) {
+        list.push({ level: "danger", msg: `${r.machineName}: outstanding rental ₹${r.outstanding.toLocaleString()}` });
+      }
     });
     return list;
   }, [hitachiCost]);
 
+  // Operator analytics for Hitachi tab
+  const hitachiOperators = useMemo(() => {
+    const ops = getOperators();
+    const entries = getHitachiEntries().filter((e) => new Date(e.date + "T00:00:00") >= start && new Date(e.date + "T00:00:00") <= end);
+    return ops.map((o) => {
+      const oe = entries.filter((e) => e.operatorId === o.id);
+      const normal = oe.filter((e) => e.shiftType === "normal").length;
+      const single = oe.filter((e) => e.shiftType === "single").length;
+      const hours = oe.reduce((s, e) => s + (e.totalHours || 0), 0);
+      const salary = oe.reduce((s, e) => s + (e.operatorSalary || 0), 0);
+      const tips = oe.reduce((s, e) => s + (e.tips || 0), 0);
+      const total = salary + tips;
+      return { id: o.id, name: o.name, normal, single, hours, salary, tips, total,
+        costPerHour: hours > 0 ? total / hours : null };
+    }).filter((r) => r.normal + r.single > 0);
+  }, [start, end, hitachiCost]);
+
   const hitachiCsvHeaders = [
-    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Repairs",
-    "Rental", "Salary", "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr", "Operational Value",
+    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Repairs", "Salary", "Tips",
+    "Rental Charges", "Diesel Paid", "Rental Payments", "Outstanding",
+    "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr", "Operational Value",
   ];
   const hitachiCsvRows = () => hitachiFiltered.map((r) => [
-    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.repairs,
-    r.rental, r.salary, r.total,
+    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.repairs, r.salary, r.tips,
+    r.rentalCharges, r.dieselPaid, r.rentalPayments, r.outstanding, r.total,
     r.costPerHour ? r.costPerHour.toFixed(2) : "",
     r.fuelPerHour ? r.fuelPerHour.toFixed(2) : "",
     r.maintenancePerHour ? r.maintenancePerHour.toFixed(2) : "",
@@ -1006,15 +1044,21 @@ function ReportsPage() {
             {/* Summary cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Machines</p>
+                <p className="text-lg font-bold text-foreground">{hitachiSummary.machines}</p>
+                <p className="text-[10px] text-muted-foreground">Owned {hitachiSummary.ownedCount} · Rented {hitachiSummary.rentedCount}</p>
+              </div>
+              <div className="stat-card">
                 <p className="text-[10px] text-muted-foreground uppercase">Total Hours</p>
                 <p className="text-lg font-bold text-foreground">{hitachiSummary.hours.toFixed(1)}</p>
+                <p className="text-[10px] text-muted-foreground">Owned {hitachiSummary.ownedHours.toFixed(1)} · Rented {hitachiSummary.rentedHours.toFixed(1)}</p>
               </div>
               <div className="stat-card">
                 <p className="text-[10px] text-muted-foreground uppercase">Total Operating Cost</p>
                 <p className="text-lg font-bold text-destructive">₹{hitachiSummary.cost.toLocaleString()}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Cost Per Hour</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Avg Cost/Hr</p>
                 <p className="text-lg font-bold text-foreground">₹{hitachiSummary.costPerHour.toFixed(0)}</p>
               </div>
               <div className="stat-card">
@@ -1026,21 +1070,34 @@ function ReportsPage() {
                 <p className="text-sm font-bold text-foreground">₹{hitachiSummary.maintenance.toLocaleString()}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Repairs Cost</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Operator Salary</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.salary.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Operator Tips</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.tips.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Rental Charges</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.rentalCharges.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Rental Payments</p>
+                <p className="text-sm font-bold text-success">₹{hitachiSummary.rentalPayments.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Outstanding Rental</p>
+                <p className="text-sm font-bold text-warning">₹{hitachiSummary.outstanding.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Repairs</p>
                 <p className="text-sm font-bold text-foreground">₹{hitachiSummary.repairs.toLocaleString()}</p>
-              </div>
-              <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Rental Cost</p>
-                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.rental.toLocaleString()}</p>
-              </div>
-              <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Owned vs Rented Cost</p>
-                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.ownedCost.toLocaleString()} <span className="text-muted-foreground">/</span> ₹{hitachiSummary.rentedCost.toLocaleString()}</p>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground italic">
-              Operational Value (Hours × Internal Hourly Rate) is an internal benchmark only — not customer revenue. Quarry revenue comes from material sales, tracked under Bills.
+              Hitachi is a production cost center — figures shown are cost and efficiency only. Quarry revenue comes from material sales (Bills).
             </p>
+
 
             {/* Controls */}
             <div className="flex flex-wrap gap-2 items-center">
@@ -1070,41 +1127,101 @@ function ReportsPage() {
 
             {/* Machine performance table */}
             <div className="overflow-x-auto">
-              <div className="min-w-[1200px] space-y-2">
-                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.7fr repeat(11,1fr)" }}>
+              <div className="min-w-[1500px] space-y-2">
+                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(12,1fr)" }}>
                   <span>Machine</span><span>Type</span>
                   <span className="text-right">Hours</span>
                   <span className="text-right">Fuel</span>
                   <span className="text-right">Maint</span>
-                  <span className="text-right">Repairs</span>
                   <span className="text-right">Salary</span>
-                  <span className="text-right">Rental</span>
+                  <span className="text-right">Tips</span>
+                  <span className="text-right">Rental Chg</span>
+                  <span className="text-right">Diesel Paid</span>
+                  <span className="text-right">Rent Pay</span>
+                  <span className="text-right">Outstanding</span>
                   <span className="text-right">Total Cost</span>
                   <span className="text-right">Cost/Hr</span>
-                  <span className="text-right">Fuel/Hr</span>
-                  <span className="text-right">Maint/Hr</span>
                   <span className="text-right">Op. Value</span>
                 </div>
                 {hitachiFiltered.map((r) => (
-                  <div key={r.machineId} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1.5fr 0.7fr repeat(11,1fr)" }}>
+                  <div key={r.machineId} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(12,1fr)" }}>
                     <span className="font-medium text-foreground truncate">{r.machineName}</span>
                     <span className={`text-[10px] font-bold uppercase ${r.type === "owned" ? "text-primary" : "text-warning"}`}>{r.type}</span>
                     <span className="text-right text-foreground">{r.hours.toFixed(1)}</span>
                     <span className="text-right text-foreground">₹{r.fuel.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{r.maintenance.toLocaleString()}</span>
-                    <span className="text-right text-foreground">₹{r.repairs.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{r.salary.toLocaleString()}</span>
-                    <span className="text-right text-foreground">₹{r.rental.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{r.tips.toLocaleString()}</span>
+                    <span className="text-right text-foreground">{r.type === "rented" ? `₹${r.rentalCharges.toLocaleString()}` : "—"}</span>
+                    <span className="text-right text-foreground">{r.type === "rented" ? `₹${r.dieselPaid.toLocaleString()}` : "—"}</span>
+                    <span className="text-right text-success">{r.type === "rented" ? `₹${r.rentalPayments.toLocaleString()}` : "—"}</span>
+                    <span className={`text-right ${r.outstanding > 0 ? "text-warning" : "text-foreground"}`}>{r.type === "rented" ? `₹${r.outstanding.toLocaleString()}` : "—"}</span>
                     <span className="text-right text-destructive font-medium">₹{r.total.toLocaleString()}</span>
                     <span className="text-right text-foreground">{r.costPerHour !== null ? `₹${r.costPerHour.toFixed(0)}` : "—"}</span>
-                    <span className="text-right text-foreground">{r.fuelPerHour !== null ? `₹${r.fuelPerHour.toFixed(0)}` : "—"}</span>
-                    <span className="text-right text-foreground">{r.maintenancePerHour !== null ? `₹${r.maintenancePerHour.toFixed(0)}` : "—"}</span>
                     <span className="text-right text-muted-foreground">₹{r.operationalValue.toLocaleString()}</span>
                   </div>
                 ))}
                 {hitachiFiltered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No machines for this period.</p>}
               </div>
             </div>
+
+            {/* Rented Machine Analytics */}
+            {hitachiSummary.rentedCount > 0 && (
+              <div className="stat-card">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Rented Machine Highlights</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  {[
+                    ["Highest Outstanding", hitachiSummary.highestOutstanding, (r: HitachiCostRow) => `₹${r.outstanding.toLocaleString()}`],
+                    ["Most Expensive Rental", hitachiSummary.mostExpensiveRental, (r: HitachiCostRow) => `₹${r.rentalCharges.toLocaleString()}`],
+                    ["Most Used Rental", hitachiSummary.mostUsedRental, (r: HitachiCostRow) => `${r.hours.toFixed(1)} hrs`],
+                  ].map(([label, row, fmt]) => {
+                    const r = row as HitachiCostRow | null;
+                    const f = fmt as (r: HitachiCostRow) => string;
+                    return (
+                      <div key={label as string} className="rounded-md bg-secondary p-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">{label as string}</p>
+                        <p className="font-bold text-foreground">{r ? r.machineName : "—"}</p>
+                        <p className="text-muted-foreground">{r ? f(r) : ""}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Operator Report */}
+            {hitachiOperators.length > 0 && (
+              <div className="stat-card">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Operator Report</h3>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[800px] space-y-2">
+                    <div className="grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "2fr repeat(7,1fr)" }}>
+                      <span>Operator</span>
+                      <span className="text-right">Normal</span>
+                      <span className="text-right">Single</span>
+                      <span className="text-right">Hours</span>
+                      <span className="text-right">Salary</span>
+                      <span className="text-right">Tips</span>
+                      <span className="text-right">Total</span>
+                      <span className="text-right">Cost/Hr</span>
+                    </div>
+                    {hitachiOperators.map((o) => (
+                      <div key={o.id} className="grid gap-2 items-center text-xs py-1 border-t border-border" style={{ gridTemplateColumns: "2fr repeat(7,1fr)" }}>
+                        <span className="font-medium text-foreground truncate">{o.name}</span>
+                        <span className="text-right text-foreground">{o.normal}</span>
+                        <span className="text-right text-foreground">{o.single}</span>
+                        <span className="text-right text-foreground">{o.hours.toFixed(1)}</span>
+                        <span className="text-right text-foreground">₹{o.salary.toLocaleString()}</span>
+                        <span className="text-right text-foreground">₹{o.tips.toLocaleString()}</span>
+                        <span className="text-right text-destructive font-medium">₹{o.total.toLocaleString()}</span>
+                        <span className="text-right text-foreground">{o.costPerHour !== null ? `₹${o.costPerHour.toFixed(0)}` : "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
 
             {/* Owned Maintenance Analytics */}
             <div className="stat-card">
