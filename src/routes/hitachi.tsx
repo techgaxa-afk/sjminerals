@@ -42,6 +42,8 @@ function HitachiPage() {
   const [editMachineId, setEditMachineId] = useState<string | null>(null);
   const [machineName, setMachineName] = useState("");
   const [machineRate, setMachineRate] = useState("");
+  const [machineType, setMachineType] = useState<"owned" | "rented">("owned");
+  const [machineRentalRate, setMachineRentalRate] = useState("");
 
   // Fuel form
   const [showFuelForm, setShowFuelForm] = useState(false);
