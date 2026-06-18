@@ -107,18 +107,27 @@ function HitachiPage() {
     setShowEntryForm(true);
   };
 
-  const resetMachineForm = () => { setShowMachineForm(false); setEditMachineId(null); setMachineName(""); setMachineRate(""); };
+  const resetMachineForm = () => { setShowMachineForm(false); setEditMachineId(null); setMachineName(""); setMachineRate(""); setMachineType("owned"); setMachineRentalRate(""); };
 
   const handleSaveMachine = () => {
     if (!machineName.trim()) return;
-    if (editMachineId) updateHitachiMachine(editMachineId, { name: machineName.trim(), hourlyRate: Number(machineRate || 0) });
-    else saveHitachiMachine({ name: machineName.trim(), hourlyRate: Number(machineRate || 0) });
+    const data = {
+      name: machineName.trim(),
+      hourlyRate: Number(machineRate || 0),
+      type: machineType,
+      rentalRate: Number(machineRentalRate || 0),
+    };
+    if (editMachineId) updateHitachiMachine(editMachineId, data);
+    else saveHitachiMachine(data);
     setMachines(getHitachiMachines());
     resetMachineForm();
   };
 
   const startEditMachine = (m: HitachiMachine) => {
-    setEditMachineId(m.id); setMachineName(m.name); setMachineRate(String(m.hourlyRate)); setShowMachineForm(true);
+    setEditMachineId(m.id); setMachineName(m.name); setMachineRate(String(m.hourlyRate));
+    setMachineType(m.type === "rented" ? "rented" : "owned");
+    setMachineRentalRate(String(m.rentalRate ?? ""));
+    setShowMachineForm(true);
   };
 
   const handleSaveFuel = () => {
