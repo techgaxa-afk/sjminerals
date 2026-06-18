@@ -420,3 +420,35 @@ function BillingPage() {
     </AppLayout>
   );
 }
+
+type ProductLite = ReturnType<typeof getProducts>[number];
+function ProductGrid({ title, products, items, onAdd }: { title?: string; products: ProductLite[]; items: BillItem[]; onAdd: (id: string) => void }) {
+  return (
+    <div className="space-y-2">
+      {title && (
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">{title}</div>
+      )}
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
+        {products.map((p) => {
+          const selected = items.some((i) => i.productId === p.id);
+          return (
+            <button
+              key={p.id}
+              onClick={() => onAdd(p.id)}
+              className={`stat-card text-left transition-all min-h-[88px] flex flex-col justify-center p-4 active:scale-[0.98] ${
+                selected
+                  ? "border-2 border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                  : "border-2 border-transparent hover:border-primary/50"
+              }`}
+            >
+              <p className="font-semibold text-base text-foreground leading-tight">{p.name}</p>
+              <p className="text-sm font-medium text-primary mt-1">₹{p.price}<span className="text-xs text-muted-foreground font-normal">/{p.unit}</span></p>
+            </button>
+          );
+        })}
+        {products.length === 0 && <p className="col-span-full text-xs text-muted-foreground text-center py-2">None</p>}
+      </div>
+    </div>
+  );
+}
+
