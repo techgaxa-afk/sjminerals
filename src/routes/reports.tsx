@@ -441,7 +441,7 @@ function ReportsPage() {
   // ============ Hitachi Analytics ============
   const hitachiCost: HitachiCostRow[] = useMemo(() => getHitachiCostBreakdown(start, end), [start, end]);
   const [hSearch, setHSearch] = useState("");
-  const [hSort, setHSort] = useState<"profit" | "revenue" | "hours" | "cost" | "name">("profit");
+  const [hSort, setHSort] = useState<"cost" | "costPerHour" | "hours" | "fuel" | "name">("cost");
   const [hTypeFilter, setHTypeFilter] = useState<"all" | "owned" | "rented">("all");
 
   const hitachiFiltered = useMemo(() => {
@@ -451,9 +451,9 @@ function ReportsPage() {
     const cmp = (a: HitachiCostRow, b: HitachiCostRow): number => {
       if (hSort === "name") return a.machineName.localeCompare(b.machineName);
       if (hSort === "hours") return b.hours - a.hours;
-      if (hSort === "revenue") return b.revenue - a.revenue;
-      if (hSort === "cost") return b.total - a.total;
-      return b.profit - a.profit;
+      if (hSort === "fuel") return b.fuel - a.fuel;
+      if (hSort === "costPerHour") return (b.costPerHour ?? 0) - (a.costPerHour ?? 0);
+      return b.total - a.total;
     };
     return rows.slice().sort(cmp);
   }, [hitachiCost, hSearch, hSort, hTypeFilter]);
@@ -461,29 +461,30 @@ function ReportsPage() {
   const hitachiSummary = useMemo(() => {
     const totals = hitachiCost.reduce(
       (acc, r) => {
-        acc.hours += r.hours; acc.revenue += r.revenue; acc.fuel += r.fuel;
+        acc.hours += r.hours; acc.operationalValue += r.operationalValue; acc.fuel += r.fuel;
         acc.maintenance += r.maintenance; acc.repairs += r.repairs;
         acc.rental += r.rental; acc.salary += r.salary; acc.cost += r.total;
+        if (r.type === "owned") acc.ownedCost += r.total; else acc.rentedCost += r.total;
         return acc;
       },
-      { hours: 0, revenue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, cost: 0 },
+      { hours: 0, operationalValue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, cost: 0, ownedCost: 0, rentedCost: 0 },
     );
-    const profit = totals.revenue - totals.cost;
-    const ranked = hitachiCost.filter((r) => r.hours > 0 || r.revenue > 0 || r.total > 0);
-    const sortBy = (fn: (r: HitachiCostRow) => number, dir: 1 | -1 = -1) =>
-      ranked.slice().sort((a, b) => (fn(b) - fn(a)) * (dir === -1 ? 1 : -1))[0] ?? null;
+    const ranked = hitachiCost.filter((r) => r.hours > 0 || r.total > 0);
+    const withHours = ranked.filter((r) => r.hours > 0);
+    const sortBy = (fn: (r: HitachiCostRow) => number) =>
+      ranked.slice().sort((a, b) => fn(b) - fn(a))[0] ?? null;
     return {
       ...totals,
-      profit,
-      revenuePerHour: totals.hours > 0 ? totals.revenue / totals.hours : 0,
       costPerHour: totals.hours > 0 ? totals.cost / totals.hours : 0,
-      profitPerHour: totals.hours > 0 ? profit / totals.hours : 0,
-      highestProfit: sortBy((r) => r.profit),
-      lowestProfit: ranked.length ? ranked.slice().sort((a, b) => a.profit - b.profit)[0] : null,
-      highestRevenue: sortBy((r) => r.revenue),
+      operationalValuePerHour: totals.hours > 0 ? totals.operationalValue / totals.hours : 0,
       highestCost: sortBy((r) => r.total),
-      bestPph: ranked.filter((r) => r.profitPerHour !== null).slice().sort((a, b) => (b.profitPerHour ?? 0) - (a.profitPerHour ?? 0))[0] ?? null,
-      worstPph: ranked.filter((r) => r.profitPerHour !== null).slice().sort((a, b) => (a.profitPerHour ?? 0) - (b.profitPerHour ?? 0))[0] ?? null,
+      highestFuel: sortBy((r) => r.fuel),
+      highestMaint: sortBy((r) => r.maintenance),
+      highestRepairs: sortBy((r) => r.repairs),
+      highestCph: withHours.slice().sort((a, b) => (b.costPerHour ?? 0) - (a.costPerHour ?? 0))[0] ?? null,
+      lowestCph: withHours.slice().sort((a, b) => (a.costPerHour ?? 0) - (b.costPerHour ?? 0))[0] ?? null,
+      mostUsed: sortBy((r) => r.hours),
+      leastUsed: withHours.slice().sort((a, b) => a.hours - b.hours)[0] ?? null,
       topFuel: sortBy((r) => r.fuel),
     };
   }, [hitachiCost]);
@@ -506,32 +507,29 @@ function ReportsPage() {
       if (r.hours > 0) {
         const mPh = r.maintenance / r.hours;
         const fPh = r.fuel / r.hours;
+        const rPh = r.repairs / r.hours;
         if (mPh > 500) list.push({ level: "warn", msg: `${r.machineName}: high maintenance/hr ₹${mPh.toFixed(0)}` });
         if (fPh > 500) list.push({ level: "warn", msg: `${r.machineName}: high fuel/hr ₹${fPh.toFixed(0)}` });
+        if (rPh > 300) list.push({ level: "warn", msg: `${r.machineName}: high repairs/hr ₹${rPh.toFixed(0)}` });
       }
       if (r.hours === 0 && r.total > 0) {
         list.push({ level: "warn", msg: `${r.machineName}: expenses recorded but 0 hours` });
-      }
-      if (r.profit < 0 && (r.revenue > 0 || r.total > 0)) {
-        list.push({ level: "danger", msg: `${r.machineName}: negative profit ₹${r.profit.toLocaleString()}` });
-      }
-      if (r.type === "rented" && r.total > r.revenue && r.revenue > 0) {
-        list.push({ level: "danger", msg: `${r.machineName} (rented): cost exceeds revenue` });
       }
     });
     return list;
   }, [hitachiCost]);
 
   const hitachiCsvHeaders = [
-    "Machine", "Type", "Hours", "Revenue", "Fuel", "Maintenance", "Repairs",
-    "Rental", "Salary", "Total Cost", "Profit", "Revenue/Hr", "Cost/Hr", "Profit/Hr",
+    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Repairs",
+    "Rental", "Salary", "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr", "Operational Value",
   ];
   const hitachiCsvRows = () => hitachiFiltered.map((r) => [
-    r.machineName, r.type, r.hours, r.revenue, r.fuel, r.maintenance, r.repairs,
-    r.rental, r.salary, r.total, r.profit,
-    r.revenuePerHour ? r.revenuePerHour.toFixed(2) : "",
+    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.repairs,
+    r.rental, r.salary, r.total,
     r.costPerHour ? r.costPerHour.toFixed(2) : "",
-    r.profitPerHour ? r.profitPerHour.toFixed(2) : "",
+    r.fuelPerHour ? r.fuelPerHour.toFixed(2) : "",
+    r.maintenancePerHour ? r.maintenancePerHour.toFixed(2) : "",
+    r.operationalValue,
   ]);
 
   const exportHitachiCSV = () => {
