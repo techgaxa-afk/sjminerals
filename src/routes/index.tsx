@@ -197,12 +197,14 @@ function DashboardPage() {
         {/* Backdated Bills card */}
         {(() => {
           const bd = getBackdatedBillStats();
-          if (bd.today === 0 && bd.month === 0) return null;
+          if (bd.today === 0 && bd.month === 0 && bd.largestGap === 0) return null;
           return (
             <a href="/bills?backdated=1" className="block rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs hover:bg-warning/10">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="font-semibold text-warning">Backdated Bills</span>
-                <span className="text-foreground">Today: <b>{bd.today}</b> · This Month: <b>{bd.month}</b></span>
+                <span className="text-foreground">
+                  Today: <b>{bd.today}</b> · This Month: <b>{bd.month}</b> · Largest Gap: <b>{bd.largestGap}d</b>
+                </span>
               </div>
             </a>
           );
