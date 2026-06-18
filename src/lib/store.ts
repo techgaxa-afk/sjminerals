@@ -236,6 +236,10 @@ const mapBill = (r: any): Omit<Bill, "items"> => ({
   splitPayment: !!r.split_payment, cashAmount: Number(r.cash_amount) || 0, upiAmount: Number(r.upi_amount) || 0,
   passEnabled: !!r.pass_enabled, passAmount: Number(r.pass_amount) || 0,
   createdAt: r.created_at,
+  billDate: r.bill_date ?? (r.created_at ? String(r.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10)),
+  createdBy: r.created_by ?? null,
+  updatedBy: r.updated_by ?? null,
+  updatedAt: r.updated_at ?? null,
 });
 const billToDb = (b: Omit<Bill, "items">) => ({
   id: b.id, invoice_number: b.invoiceNumber || null,
@@ -246,7 +250,9 @@ const billToDb = (b: Omit<Bill, "items">) => ({
   tips_rate: b.tipsRate, tips_amount: b.tipsAmount,
   split_payment: !!b.splitPayment, cash_amount: b.cashAmount ?? 0, upi_amount: b.upiAmount ?? 0,
   pass_enabled: !!b.passEnabled, pass_amount: b.passAmount ?? 0,
+  bill_date: b.billDate || new Date().toISOString().slice(0, 10),
 });
+
 const mapBillItem = (r: any) => ({
   id: r.id, billId: r.bill_id, productId: r.product_id ?? "", productName: r.product_name,
   price: Number(r.price) || 0, quantity: Number(r.quantity) || 0, total: Number(r.total) || 0,
