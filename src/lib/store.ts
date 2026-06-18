@@ -137,6 +137,7 @@ type Cache = {
   credit_adjustments: CreditAdjustment[];
   vehicle_maintenance: VehicleMaintenance[];
   vehicle_documents: VehicleDocument[];
+  hitachi_rental_payments: HitachiRentalPayment[];
 };
 const cache: Cache = {
   products: [], companies: [], vehicles: [], bills: [], billItems: [], payments: [],
