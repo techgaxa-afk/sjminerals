@@ -5,8 +5,10 @@ import {
   getBills, getCompanies, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
   getCompanyAging, getExpenses, getHitachiCostBreakdown, getProductCategorySales,
+  getHitachiMachines, getHitachiEntriesByMachine, getMachineRentalLedger,
   type Expense, type ExpenseCategory, type ExpensePaymentMode, type HitachiCostRow,
 } from "../lib/store";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { EXPENSE_CATEGORIES } from "../lib/expense-categories";
 
 import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon, Calendar as CalendarIcon, Receipt, FileSpreadsheet, Printer, Package } from "lucide-react";
