@@ -1191,6 +1191,32 @@ function ReportsPage() {
               </div>
             )}
           </div>
+        ) : reportType === "category" ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-end gap-2">
+              <button onClick={exportCategoryCSV} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><FileDown className="h-3.5 w-3.5" /> CSV</button>
+              <button onClick={exportCategoryExcel} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><FileSpreadsheet className="h-3.5 w-3.5" /> Excel</button>
+              <button onClick={exportCategoryPDF} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><Printer className="h-3.5 w-3.5" /> PDF</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(["BOULDERS", "K.K"] as const).map((cat) => (
+                <div key={cat} className="stat-card">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-2"><Package className="h-4 w-4 text-primary" /> {cat}</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Quantity Sold</p>
+                      <p className="text-2xl font-bold text-foreground">{categoryReport[cat].quantity.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Number of Bills</p>
+                      <p className="text-2xl font-bold text-foreground">{categoryReport[cat].bills}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">Quantity is based on billed bill_items. Uncategorized products are not included in category totals; assign categories on the Products page to back-fill historical bills.</p>
+          </div>
         ) : (
 
           <div className="space-y-2">
