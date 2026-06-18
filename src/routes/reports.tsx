@@ -574,16 +574,16 @@ function ReportsPage() {
       .card .l{font-size:10px;color:#6b7280;text-transform:uppercase}
       .card .v{font-size:14px;font-weight:bold}
       </style></head><body>
-      <h1>Hitachi Analytics</h1><p class="muted">Period: ${periodLabel}</p>
+      <h1>Hitachi Analytics</h1><p class="muted">Period: ${periodLabel} · Cost & efficiency only — no revenue/profit</p>
       <div class="sum">
         <div class="card"><div class="l">Hours</div><div class="v">${hitachiSummary.hours.toFixed(1)}</div></div>
-        <div class="card"><div class="l">Revenue</div><div class="v">₹${hitachiSummary.revenue.toLocaleString()}</div></div>
-        <div class="card"><div class="l">Cost</div><div class="v">₹${hitachiSummary.cost.toLocaleString()}</div></div>
-        <div class="card"><div class="l">Profit</div><div class="v">₹${hitachiSummary.profit.toLocaleString()}</div></div>
-        <div class="card"><div class="l">Rev/Hr</div><div class="v">₹${hitachiSummary.revenuePerHour.toFixed(0)}</div></div>
+        <div class="card"><div class="l">Total Cost</div><div class="v">₹${hitachiSummary.cost.toLocaleString()}</div></div>
         <div class="card"><div class="l">Cost/Hr</div><div class="v">₹${hitachiSummary.costPerHour.toFixed(0)}</div></div>
-        <div class="card"><div class="l">Profit/Hr</div><div class="v">₹${hitachiSummary.profitPerHour.toFixed(0)}</div></div>
         <div class="card"><div class="l">Fuel</div><div class="v">₹${hitachiSummary.fuel.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Maintenance</div><div class="v">₹${hitachiSummary.maintenance.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Repairs</div><div class="v">₹${hitachiSummary.repairs.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Rental</div><div class="v">₹${hitachiSummary.rental.toLocaleString()}</div></div>
+        <div class="card"><div class="l">Owned vs Rented</div><div class="v">₹${hitachiSummary.ownedCost.toLocaleString()} / ₹${hitachiSummary.rentedCost.toLocaleString()}</div></div>
       </div>
       <table><thead><tr>${hitachiCsvHeaders.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
       <script>setTimeout(()=>window.print(),300)</script>
