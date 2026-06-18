@@ -24,6 +24,7 @@ import { Route as BillsRouteImport } from './routes/bills'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CompaniesIndexRouteImport } from './routes/companies.index'
+import { Route as ReportsBackdatedRouteImport } from './routes/reports.backdated'
 import { Route as CompaniesIdRouteImport } from './routes/companies.$id'
 
 const UsersRoute = UsersRouteImport.update({
@@ -101,6 +102,11 @@ const CompaniesIndexRoute = CompaniesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CompaniesRoute,
 } as any)
+const ReportsBackdatedRoute = ReportsBackdatedRouteImport.update({
+  id: '/backdated',
+  path: '/backdated',
+  getParentRoute: () => ReportsRoute,
+} as any)
 const CompaniesIdRoute = CompaniesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -118,11 +124,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profitability': typeof ProfitabilityRoute
-  '/reports': typeof ReportsRoute
+  '/reports': typeof ReportsRouteWithChildren
   '/signup': typeof SignupRoute
   '/trust': typeof TrustRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
+  '/reports/backdated': typeof ReportsBackdatedRoute
   '/companies/': typeof CompaniesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -135,11 +142,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profitability': typeof ProfitabilityRoute
-  '/reports': typeof ReportsRoute
+  '/reports': typeof ReportsRouteWithChildren
   '/signup': typeof SignupRoute
   '/trust': typeof TrustRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
+  '/reports/backdated': typeof ReportsBackdatedRoute
   '/companies': typeof CompaniesIndexRoute
 }
 export interface FileRoutesById {
@@ -154,11 +162,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profitability': typeof ProfitabilityRoute
-  '/reports': typeof ReportsRoute
+  '/reports': typeof ReportsRouteWithChildren
   '/signup': typeof SignupRoute
   '/trust': typeof TrustRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
+  '/reports/backdated': typeof ReportsBackdatedRoute
   '/companies/': typeof CompaniesIndexRoute
 }
 export interface FileRouteTypes {
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/trust'
     | '/users'
     | '/companies/$id'
+    | '/reports/backdated'
     | '/companies/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/trust'
     | '/users'
     | '/companies/$id'
+    | '/reports/backdated'
     | '/companies'
   id:
     | '__root__'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '/trust'
     | '/users'
     | '/companies/$id'
+    | '/reports/backdated'
     | '/companies/'
   fileRoutesById: FileRoutesById
 }
@@ -228,7 +240,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProductsRoute: typeof ProductsRoute
   ProfitabilityRoute: typeof ProfitabilityRoute
-  ReportsRoute: typeof ReportsRoute
+  ReportsRoute: typeof ReportsRouteWithChildren
   SignupRoute: typeof SignupRoute
   TrustRoute: typeof TrustRoute
   UsersRoute: typeof UsersRoute
@@ -341,6 +353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompaniesIndexRouteImport
       parentRoute: typeof CompaniesRoute
     }
+    '/reports/backdated': {
+      id: '/reports/backdated'
+      path: '/backdated'
+      fullPath: '/reports/backdated'
+      preLoaderRoute: typeof ReportsBackdatedRouteImport
+      parentRoute: typeof ReportsRoute
+    }
     '/companies/$id': {
       id: '/companies/$id'
       path: '/$id'
@@ -365,6 +384,17 @@ const CompaniesRouteWithChildren = CompaniesRoute._addFileChildren(
   CompaniesRouteChildren,
 )
 
+interface ReportsRouteChildren {
+  ReportsBackdatedRoute: typeof ReportsBackdatedRoute
+}
+
+const ReportsRouteChildren: ReportsRouteChildren = {
+  ReportsBackdatedRoute: ReportsBackdatedRoute,
+}
+
+const ReportsRouteWithChildren =
+  ReportsRoute._addFileChildren(ReportsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillingRoute: BillingRoute,
@@ -376,7 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProductsRoute: ProductsRoute,
   ProfitabilityRoute: ProfitabilityRoute,
-  ReportsRoute: ReportsRoute,
+  ReportsRoute: ReportsRouteWithChildren,
   SignupRoute: SignupRoute,
   TrustRoute: TrustRoute,
   UsersRoute: UsersRoute,
