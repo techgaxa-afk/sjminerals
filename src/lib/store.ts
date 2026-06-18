@@ -842,7 +842,10 @@ export function updateBill(id: string, updates: Partial<Bill>): void {
   cache.bills = cache.bills.map((b) => (b.id === id ? { ...b, ...rest } : b));
   if (items) {
     cache.billItems = cache.billItems.filter((i) => i.billId !== id);
-    const stamped = items.map((i) => ({ ...i, id: uid(), billId: id }));
+    const stamped = items.map((i) => {
+      const cat = i.productCategory ?? cache.products.find((p) => p.id === i.productId)?.productCategory ?? null;
+      return { ...i, productCategory: cat, id: uid(), billId: id };
+    });
     cache.billItems.push(...stamped);
     bg((async () => {
       const del = await supabase.from("bill_items").delete().eq("bill_id", id);
