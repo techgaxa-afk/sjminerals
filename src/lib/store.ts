@@ -73,7 +73,7 @@ export interface Expense {
   id: string; category: ExpenseCategory; amount: number; date: string; notes: string;
   paymentMode: ExpensePaymentMode;
   linkedBillId?: string; linkedCompanyId?: string; linkedOperatorId?: string; linkedMachineId?: string;
-  allocateTo: ExpenseAllocateTo;
+  allocateTo?: ExpenseAllocateTo;
   hitachiMachineId?: string;
   createdAt: string;
 }
