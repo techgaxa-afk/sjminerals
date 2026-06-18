@@ -481,8 +481,26 @@ function BillsPage() {
               <button onClick={() => { setEditBill(null); setEditForm(null); }} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-4 space-y-4">
+              {/* Bill Date */}
+              <div>
+                <label className="field-label flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-primary" /> Bill Date *</label>
+                <input
+                  type="date"
+                  value={editForm.billDate}
+                  max={today}
+                  disabled={!canBackdate}
+                  onChange={(e) => setEditForm({ ...editForm, billDate: e.target.value })}
+                  className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                />
+                {editForm.billDate !== getBillRefDate(editBill) && (
+                  <p className="mt-1 text-[11px] text-warning">Audit: changing {getBillRefDate(editBill)} → {editForm.billDate}</p>
+                )}
+                {!canBackdate && <p className="mt-1 text-[11px] text-muted-foreground">Only admin/staff can change Bill Date.</p>}
+              </div>
+
               {/* Company details */}
               <div className="space-y-2">
+
                 <label className="field-label">Company Details</label>
                 <div className="grid grid-cols-2 gap-2">
                   <input value={editForm.companyName} onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })} placeholder="Company" className="rounded border border-input bg-secondary px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
