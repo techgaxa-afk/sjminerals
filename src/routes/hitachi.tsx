@@ -404,7 +404,7 @@ function HitachiPage() {
                 <div key={o.id} className="stat-card flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground">{o.name}</p>
-                    <p className="text-xs text-muted-foreground">{o.phone || "No phone"} · ₹{o.hourlySalaryRate}/hr · {shifts.length} shifts</p>
+                    <p className="text-xs text-muted-foreground">{o.phone || "No phone"} · Normal ₹{o.normalShiftSalary || o.hourlySalaryRate} / Single ₹{o.singleShiftSalary} · {shifts.length} shifts</p>
                     {totalSalary > 0 && <p className="text-xs text-warning">Total Salary: ₹{totalSalary.toLocaleString()}</p>}
                   </div>
                   <div className="flex gap-1">
