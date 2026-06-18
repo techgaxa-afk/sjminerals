@@ -19,7 +19,7 @@ function DashboardPage() {
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const showImport = hasLocalDataToImport() && !hasImportedLocal();
-  const { start } = getDateRange(filter);
+  const { start, end } = getDateRange(filter);
 
   const handleImport = async () => {
     if (!confirm("Push existing data from this device to the cloud? This runs only once.")) return;
