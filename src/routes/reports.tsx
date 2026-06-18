@@ -4,10 +4,11 @@ import { useState, useMemo } from "react";
 import {
   getBills, getCompanies, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
-  getCompanyAging, getExpenses,
-  type Expense, type ExpenseCategory, type ExpensePaymentMode,
+  getCompanyAging, getExpenses, getHitachiCostBreakdown,
+  type Expense, type ExpenseCategory, type ExpensePaymentMode, type HitachiCostRow,
 } from "../lib/store";
 import { EXPENSE_CATEGORIES } from "../lib/expense-categories";
+
 import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon, Calendar as CalendarIcon, Receipt, FileSpreadsheet, Printer } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval } from "date-fns";
