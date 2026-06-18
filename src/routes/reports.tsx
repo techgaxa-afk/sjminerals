@@ -1213,24 +1213,48 @@ function ReportsPage() {
               <button onClick={exportCategoryExcel} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><FileSpreadsheet className="h-3.5 w-3.5" /> Excel</button>
               <button onClick={exportCategoryPDF} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><Printer className="h-3.5 w-3.5" /> PDF</button>
             </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Total Boulder Qty</p>
+                <p className="text-xl font-bold text-foreground">{fmtQty(categoryReport.BOULDERS.quantity)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase mt-2">Boulder Revenue</p>
+                <p className="text-xl font-bold text-primary">{fmtMoney(categoryReport.BOULDERS.revenue)}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Total K.K Qty</p>
+                <p className="text-xl font-bold text-foreground">{fmtQty(categoryReport["K.K"].quantity)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase mt-2">K.K Revenue</p>
+                <p className="text-xl font-bold text-primary">{fmtMoney(categoryReport["K.K"].revenue)}</p>
+              </div>
+              <div className="stat-card border-primary/30">
+                <p className="text-[10px] text-muted-foreground uppercase">Grand Total Qty</p>
+                <p className="text-xl font-bold text-foreground">{fmtQty(categoryTotals.quantity)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase mt-2">Grand Total Revenue</p>
+                <p className="text-xl font-bold text-primary">{fmtMoney(categoryTotals.revenue)}</p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {(["BOULDERS", "K.K"] as const).map((cat) => (
                 <div key={cat} className="stat-card">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-2"><Package className="h-4 w-4 text-primary" /> {cat}</div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase">Quantity Sold</p>
-                      <p className="text-2xl font-bold text-foreground">{categoryReport[cat].quantity.toLocaleString()}</p>
+                      <p className="text-xl font-bold text-foreground">{fmtQty(categoryReport[cat].quantity)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Number of Bills</p>
-                      <p className="text-2xl font-bold text-foreground">{categoryReport[cat].bills}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Revenue</p>
+                      <p className="text-xl font-bold text-primary">{fmtMoney(categoryReport[cat].revenue)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Bills</p>
+                      <p className="text-xl font-bold text-foreground">{categoryReport[cat].bills}</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground">Quantity is based only on billed quantities. Assigning a category to an existing product can include its linked historical bill quantities without changing bill rows.</p>
+            <p className="text-[11px] text-muted-foreground">Revenue is computed from billed quantity × unit price recorded on each invoice. Historical bill data is never modified.</p>
           </div>
         ) : (
 
