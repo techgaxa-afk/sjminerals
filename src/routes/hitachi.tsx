@@ -53,6 +53,12 @@ function HitachiPage() {
   const [machineName, setMachineName] = useState("");
   const [machineType, setMachineType] = useState<"owned" | "rented">("owned");
   const [machineRentalRate, setMachineRentalRate] = useState("");
+  // Optional informational fields
+  const [machinePurchaseDate, setMachinePurchaseDate] = useState("");
+  const [machineEngineNumber, setMachineEngineNumber] = useState("");
+  const [machineOwnerName, setMachineOwnerName] = useState("");
+  const [machineOwnerPhone, setMachineOwnerPhone] = useState("");
+  const [machineRemarks, setMachineRemarks] = useState("");
 
   // Fuel form
   const [showFuelForm, setShowFuelForm] = useState(false);
