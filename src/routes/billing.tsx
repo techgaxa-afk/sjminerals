@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   getProducts, getCompanies, saveBill, saveExpense,
-  getVehicles, saveVehicle, getAllowBackdatedBills,
+  getVehicles, saveVehicle, getAllowBackdatedBills, getMaxBackdateDays, validateBillDate,
   type BillItem, type Company, type Vehicle,
 } from "../lib/store";
 import { useUserRoles } from "@/hooks/use-roles";
