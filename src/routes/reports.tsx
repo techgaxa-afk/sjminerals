@@ -603,6 +603,7 @@ function ReportsPage() {
     { id: "aging", label: "Aging", icon: AlertTriangle },
     { id: "analytics", label: "Analytics", icon: LineChartIcon },
     { id: "expenses", label: "Expenses", icon: Receipt },
+    { id: "category", label: "Product Category", icon: Package },
   ];
 
   return (
