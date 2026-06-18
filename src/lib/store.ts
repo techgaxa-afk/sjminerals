@@ -1367,8 +1367,17 @@ export interface HitachiCostRow {
   fuel: number;
   maintenance: number;
   salary: number;
+  tips: number;
   repairs: number;
   rental: number;
+  /** Rental charges from in-range entries (rented machines). Same as `rental` for rented. */
+  rentalCharges: number;
+  /** Sum of diesel_paid from in-range entries (rented machines). */
+  dieselPaid: number;
+  /** Rental payments in range: in-log payments + standalone rental payments. */
+  rentalPayments: number;
+  /** Lifetime outstanding ledger balance for rented machines (charges - diesel - payments). */
+  outstanding: number;
   total: number;
   costPerHour: number | null;
   fuelPerHour: number | null;
@@ -1387,28 +1396,53 @@ export function getHitachiCostBreakdown(start?: Date, end?: Date): HitachiCostRo
   const machines = cache.hitachi_machines;
   const entries = cache.hitachi_entries.filter((e) => inRange(e.date, start, end));
   const expenses = cache.expenses.filter((e) => e.allocateTo === "hitachi" && e.hitachiMachineId && inRange(e.date, start, end));
+  const rentalPaysInRange = cache.hitachi_rental_payments.filter((p) => inRange(p.paymentDate, start, end));
   return machines.map((m) => {
     const mEntries = entries.filter((e) => e.machineId === m.id);
     const mExp = expenses.filter((e) => e.hitachiMachineId === m.id);
     const hours = mEntries.reduce((s, e) => s + (e.totalHours || 0), 0);
     const operationalValue = mEntries.reduce((s, e) => s + (e.machineRevenue || 0), 0);
     const entrySalary = mEntries.reduce((s, e) => s + (e.operatorSalary || 0), 0);
+    const tips = mEntries.reduce((s, e) => s + (e.tips || 0), 0);
+    const rentalChargesFromEntries = mEntries.reduce((s, e) => s + (e.rentalCharge || 0), 0);
+    const dieselPaid = mEntries.reduce((s, e) => s + (e.dieselPaid || 0), 0);
+    const inLogPayments = mEntries.reduce((s, e) => s + (e.rentalPaymentMade || 0), 0);
+    const standalonePayments = rentalPaysInRange
+      .filter((p) => p.machineId === m.id)
+      .reduce((s, p) => s + (p.amount || 0), 0);
+    const rentalPayments = inLogPayments + standalonePayments;
     const sumCat = (cat: ExpenseCategory) => mExp.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
     const fuel = sumCat("fuel");
     const maintenance = sumCat("maintenance");
     const salary = sumCat("salary") + entrySalary;
     const repairs = sumCat("repairs");
-    let rental = sumCat("rental");
     const type: HitachiMachineType = m.type === "rented" ? "rented" : "owned";
-    if (type === "rented" && rental === 0 && (m.rentalRate ?? 0) > 0) {
-      rental = (m.rentalRate ?? 0) * hours;
+    let rentalCharges = type === "rented" ? rentalChargesFromEntries + sumCat("rental") : sumCat("rental");
+    if (type === "rented" && rentalCharges === 0 && (m.rentalRate ?? 0) > 0) {
+      rentalCharges = (m.rentalRate ?? 0) * hours;
     }
+    const rental = rentalCharges;
+    // Unified spec formula: Fuel + Maint + Salary + Tips + RentalCharges - RentalPayments (+ repairs)
     const total = type === "owned"
-      ? fuel + maintenance + salary + repairs
-      : rental + fuel + salary + repairs;
+      ? fuel + maintenance + salary + tips + repairs
+      : fuel + maintenance + salary + tips + repairs + rentalCharges - rentalPayments;
+
+    // Lifetime outstanding for rented machines
+    let outstanding = 0;
+    if (type === "rented") {
+      const allEntries = cache.hitachi_entries.filter((e) => e.machineId === m.id);
+      const allPayments = cache.hitachi_rental_payments.filter((p) => p.machineId === m.id);
+      const charges = allEntries.reduce((s, e) => s + (e.rentalCharge || 0), 0);
+      const diesel = allEntries.reduce((s, e) => s + (e.dieselPaid || 0), 0);
+      const pays = allEntries.reduce((s, e) => s + (e.rentalPaymentMade || 0), 0)
+        + allPayments.reduce((s, p) => s + (p.amount || 0), 0);
+      outstanding = charges - diesel - pays;
+    }
+
     return {
       machineId: m.id, machineName: m.name, type,
-      hours, operationalValue, fuel, maintenance, salary, repairs, rental, total,
+      hours, operationalValue, fuel, maintenance, salary, tips, repairs, rental,
+      rentalCharges, dieselPaid, rentalPayments, outstanding, total,
       costPerHour: hours > 0 ? total / hours : null,
       fuelPerHour: hours > 0 ? fuel / hours : null,
       maintenancePerHour: hours > 0 ? maintenance / hours : null,
