@@ -60,19 +60,31 @@ function BackdatedReportPage() {
 
   useEffect(() => { void prefetchUserNames(rows.map((r) => r.createdBy)); }, [rows]);
 
+  // Neutralize CSV formula injection: prefix risky leading chars with a single quote, then quote the cell.
+  const safeCSV = (v: unknown) => {
+    const s = String(v ?? "");
+    const out = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    return `"${out.replaceAll('"', '""')}"`;
+  };
+  const safeTSV = (v: unknown) => {
+    const s = String(v ?? "");
+    const out = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    return out.replaceAll("\t", " ").replaceAll("\n", " ");
+  };
+
   const exportCSV = () => {
     const header = ["Invoice No","Bill Date","Created On","Days Difference","Created By","Customer","Amount"];
-    const lines = [header.join(",")];
+    const lines = [header.map(safeCSV).join(",")];
     for (const r of rows) {
       lines.push([
         r.invoiceNo,
         r.billDate,
         r.createdAt ? format(parseISO(r.createdAt), "yyyy-MM-dd HH:mm") : "",
         r.days,
-        getUserNameCached(r.createdBy).replace(/,/g, " "),
-        r.customer.replace(/,/g, " "),
+        getUserNameCached(r.createdBy),
+        r.customer,
         r.amount,
-      ].join(","));
+      ].map(safeCSV).join(","));
     }
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -84,7 +96,7 @@ function BackdatedReportPage() {
   const exportExcel = () => {
     // Excel-friendly TSV (.xls opens fine in Excel)
     const header = ["Invoice No","Bill Date","Created On","Days Difference","Created By","Customer","Amount"];
-    const lines = [header.join("\t")];
+    const lines = [header.map(safeTSV).join("\t")];
     for (const r of rows) {
       lines.push([
         r.invoiceNo, r.billDate,
@@ -92,7 +104,7 @@ function BackdatedReportPage() {
         String(r.days),
         getUserNameCached(r.createdBy),
         r.customer, String(r.amount),
-      ].join("\t"));
+      ].map(safeTSV).join("\t"));
     }
     const blob = new Blob([lines.join("\n")], { type: "application/vnd.ms-excel" });
     const url = URL.createObjectURL(blob);

@@ -111,6 +111,13 @@ function UsersInner() {
   };
 
   const exportCSV = () => {
+    // Neutralize CSV formula injection: prefix risky leading chars with a single quote
+    const safeCell = (v: unknown) => {
+      const s = String(v ?? "");
+      const needsEscape = /^[=+\-@\t\r]/.test(s);
+      const out = needsEscape ? `'${s}` : s;
+      return `"${out.replaceAll('"', '""')}"`;
+    };
     const header = ["Name", "Email", "Roles", "Status", "Joined", "Last Login"];
     const rows = filtered.map((u) => [
       u.fullName ?? "",
@@ -120,7 +127,7 @@ function UsersInner() {
       new Date(u.createdAt).toISOString(),
       u.lastSignInAt ? new Date(u.lastSignInAt).toISOString() : "",
     ]);
-    const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const csv = [header, ...rows].map((r) => r.map(safeCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
