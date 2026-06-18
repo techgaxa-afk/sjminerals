@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 // ============ Types (unchanged shape) ============
 export type ProductCategory = "BOULDERS" | "K.K";
 export const PRODUCT_CATEGORIES: ProductCategory[] = ["BOULDERS", "K.K"];
+export function isProductCategory(value: unknown): value is ProductCategory {
+  return PRODUCT_CATEGORIES.includes(value as ProductCategory);
+}
+function normalizeProductCategory(value: unknown): ProductCategory | null {
+  return isProductCategory(value) ? value : null;
+}
 export interface Product {
   id: string; name: string; price: number; unit: string;
   tipsEnabled: boolean; tipsRate: number; createdAt: string;
@@ -148,12 +154,12 @@ function uid(): string {
 const mapProduct = (r: any): Product => ({
   id: r.id, name: r.name, price: Number(r.price), unit: r.unit,
   tipsEnabled: !!r.tips_enabled, tipsRate: Number(r.tips_rate) || 0, createdAt: r.created_at,
-  productCategory: (r.product_category as ProductCategory) ?? null,
+  productCategory: normalizeProductCategory(r.product_category),
 });
 const productToDb = (p: Product) => ({
   id: p.id, name: p.name, price: p.price, unit: p.unit,
   tips_enabled: p.tipsEnabled, tips_rate: p.tipsRate,
-  product_category: p.productCategory ?? null,
+  product_category: normalizeProductCategory(p.productCategory),
 });
 const mapCompany = (r: any): Company => ({
   id: r.id, name: r.name, contactNumber: r.contact_number ?? "",
@@ -212,12 +218,12 @@ const mapBillItem = (r: any) => ({
   id: r.id, billId: r.bill_id, productId: r.product_id ?? "", productName: r.product_name,
   price: Number(r.price) || 0, quantity: Number(r.quantity) || 0, total: Number(r.total) || 0,
   tipsRate: Number(r.tips_rate) || 0, tipsAmount: Number(r.tips_amount) || 0,
-  productCategory: (r.product_category as ProductCategory) ?? null,
+  productCategory: normalizeProductCategory(r.product_category),
 });
 const billItemToDb = (i: BillItem & { id: string; billId: string }) => ({
   id: i.id, bill_id: i.billId, product_id: i.productId || null, product_name: i.productName,
   price: i.price, quantity: i.quantity, total: i.total, tips_rate: i.tipsRate, tips_amount: i.tipsAmount,
-  product_category: i.productCategory ?? null,
+  product_category: normalizeProductCategory(i.productCategory),
 });
 const mapPayment = (r: any): Payment => ({
   id: r.id, billId: r.bill_id, companyId: r.company_id, amount: Number(r.amount) || 0,
