@@ -393,7 +393,7 @@ export async function loadAll(): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const [
-      products, companies, vehicles, bills, billItems, payments, companyPayments, machines, operators, entries, fuel, expenses, adjustments, vehMaint, vehDocs,
+      products, companies, vehicles, bills, billItems, payments, companyPayments, machines, operators, entries, fuel, expenses, adjustments, vehMaint, vehDocs, rentalPayments,
     ] = await Promise.all([
       supabase.from("products").select("*"),
       supabase.from("companies").select("*"),
@@ -410,6 +410,7 @@ export async function loadAll(): Promise<void> {
       supabase.from("credit_adjustments").select("*"),
       supabase.from("vehicle_maintenance").select("*"),
       supabase.from("vehicle_documents").select("*"),
+      supabase.from("hitachi_rental_payments").select("*"),
     ]);
     cache.products = (products.data ?? []).map(mapProduct);
     cache.companies = (companies.data ?? []).map(mapCompany);
