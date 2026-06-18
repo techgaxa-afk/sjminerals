@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -60,8 +60,8 @@ function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground">
-          No account? <Link to="/signup" className="text-primary font-medium hover:underline">Create one</Link>
+        <p className="text-center text-xs text-muted-foreground">
+          Access is invite-only. Contact your administrator to request an account.
         </p>
       </div>
     </div>
