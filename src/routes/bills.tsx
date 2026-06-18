@@ -505,7 +505,34 @@ function BillsPage() {
                 {editForm.billDate !== getBillRefDate(editBill) && (
                   <p className="mt-1 text-[11px] text-warning">Audit: changing {getBillRefDate(editBill)} → {editForm.billDate}</p>
                 )}
-                {!canBackdate && <p className="mt-1 text-[11px] text-muted-foreground">Only admin/staff can change Bill Date.</p>}
+                {!canBackdate && <p className="mt-1 text-[11px] text-muted-foreground">{isOperator ? "Operators cannot change Bill Date." : "Backdating is currently disabled."}</p>}
+                {canBackdate && Number.isFinite(maxBackdateDays) && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">Max backdating: {maxBackdateDays} days.</p>
+                )}
+
+                {/* Audit history */}
+                <div className="mt-3 rounded-md border border-border bg-muted/30 p-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-1">Audit · Bill Detail</p>
+                  <div className="text-[11px] space-y-0.5 text-muted-foreground">
+                    <div>Created by <span className="text-foreground font-medium">{getUserNameCached(editBill.createdBy)}</span> on {editBill.createdAt ? format(parseISO(editBill.createdAt), "dd MMM yyyy HH:mm") : "—"}</div>
+                    {editBill.updatedBy && editBill.updatedAt && (
+                      <div>Updated by <span className="text-foreground font-medium">{getUserNameCached(editBill.updatedBy)}</span> on {format(parseISO(editBill.updatedAt), "dd MMM yyyy HH:mm")}</div>
+                    )}
+                  </div>
+                  {auditRows.length > 0 && (
+                    <>
+                      <p className="text-[11px] font-semibold text-muted-foreground mt-2 mb-1">Bill Date Change History</p>
+                      <ul className="text-[11px] space-y-0.5">
+                        {auditRows.map((r) => (
+                          <li key={r.id} className="flex justify-between gap-2">
+                            <span className="text-foreground">{r.oldBillDate ?? "—"} → <b>{r.newBillDate}</b></span>
+                            <span className="text-muted-foreground">{getUserNameCached(r.changedBy)} · {format(parseISO(r.changedAt), "dd MMM HH:mm")}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Company details */}
