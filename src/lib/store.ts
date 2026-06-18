@@ -64,9 +64,9 @@ export interface HitachiFuel {
   id: string; machineId: string; machineName: string; liters: number;
   hourReading: number; date: string; createdAt: string;
 }
-export { EXPENSE_CATEGORIES, isExpenseCategory } from "./expense-categories";
+export { EXPENSE_CATEGORIES, isExpenseCategory, HITACHI_ALLOCATABLE_CATEGORIES, isHitachiAllocatableCategory } from "./expense-categories";
 export type { ExpenseCategory } from "./expense-categories";
-import { isExpenseCategory as _isExpenseCategory, EXPENSE_CATEGORIES, type ExpenseCategory } from "./expense-categories";
+import { isExpenseCategory as _isExpenseCategory, isHitachiAllocatableCategory as _isHitachiAllocatable, EXPENSE_CATEGORIES, type ExpenseCategory } from "./expense-categories";
 export type ExpensePaymentMode = "cash" | "upi";
 export type ExpenseAllocateTo = "general" | "hitachi";
 export interface Expense {
