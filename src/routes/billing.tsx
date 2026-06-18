@@ -271,9 +271,10 @@ function BillingPage() {
         <div>
           <label className="field-label">Add Products</label>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring mb-2" />
-          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4">
-          <ProductGrid title="BOULDERS" products={bouldersProducts} items={items} onAdd={addItem} />
-          <ProductGrid title="K.K" products={kkProducts} items={items} onAdd={addItem} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ProductGrid title="BOULDERS" products={bouldersProducts} items={items} onAdd={addItem} />
+            <ProductGrid title="K.K" products={kkProducts} items={items} onAdd={addItem} />
+          </div>
           {otherProducts.length > 0 && (
             <div className="mt-3 border border-border rounded-md overflow-hidden">
               <button type="button" onClick={() => setOthersOpen((o) => !o)} className="w-full flex items-center gap-2 px-3 py-2 bg-secondary/60 hover:bg-secondary text-sm font-semibold text-foreground">
