@@ -234,9 +234,22 @@ function ExpensesPage() {
           <div className="stat-card space-y-3">
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editingId ? "Edit" : "New"} Expense</h3><button onClick={resetForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
             <div>
-              <label className="field-label">Category</label>
+              <label className="field-label">Allocate To</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => { setAllocateTo("general"); setHitachiMachineId(""); }} className={`rounded-md border p-2 text-xs font-medium transition-colors ${allocateTo === "general" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>General Expense</button>
+                <button onClick={() => setAllocateTo("hitachi")} disabled={machines.length === 0} className={`rounded-md border p-2 text-xs font-medium transition-colors disabled:opacity-50 ${allocateTo === "hitachi" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>Hitachi Machine</button>
+              </div>
+              {allocateTo === "hitachi" && (
+                <select value={hitachiMachineId} onChange={(e) => setHitachiMachineId(e.target.value)} className="mt-2 w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">Select machine...</option>
+                  {machines.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.type === "rented" ? "Rented" : "Owned"})</option>)}
+                </select>
+              )}
+            </div>
+            <div>
+              <label className="field-label">Category{allocateTo === "hitachi" && <span className="text-muted-foreground"> (allocatable only)</span>}</label>
               <div className="grid grid-cols-3 gap-2">
-                {CATEGORIES.map((c) => (
+                {visibleCategories.map((c) => (
                   <button key={c.value} onClick={() => setCategory(c.value)} className={`flex flex-col items-center gap-1 rounded-md border p-2 text-xs font-medium transition-colors ${category === c.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
                     <c.icon className="h-4 w-4" />{c.label}
                   </button>
