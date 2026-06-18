@@ -9,7 +9,7 @@ import {
   type Expense, type ExpenseCategory, type ExpensePaymentMode, type ExpenseAllocateTo,
 } from "../lib/store";
 import { EXPENSE_CATEGORIES, isExpenseCategory, HITACHI_ALLOCATABLE_CATEGORIES } from "../lib/expense-categories";
-import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, UtensilsCrossed, Banknote, CreditCard, Hammer, Truck } from "lucide-react";
+import { Plus, Search, Fuel, Users, Wrench, MoreHorizontal, Coins, Pencil, Trash2, X, UtensilsCrossed, Banknote, CreditCard, Hammer, Truck, Ticket } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/expenses")({
@@ -19,11 +19,12 @@ export const Route = createFileRoute("/expenses")({
 const CATEGORY_META: Record<ExpenseCategory, { label: string; icon: typeof Fuel }> = {
   fuel: { label: "Fuel", icon: Fuel },
   salary: { label: "Salary", icon: Users },
-  tips: { label: "Tips", icon: Coins },
   food: { label: "Food", icon: UtensilsCrossed },
   maintenance: { label: "Maint.", icon: Wrench },
   repairs: { label: "Repairs", icon: Hammer },
   rental: { label: "Rental", icon: Truck },
+  pass_purchase: { label: "Pass", icon: Ticket },
+  tips: { label: "Tips", icon: Coins },
   miscellaneous: { label: "Other", icon: MoreHorizontal },
 };
 const CATEGORIES = EXPENSE_CATEGORIES.map((value) => ({ value, ...CATEGORY_META[value] }));
