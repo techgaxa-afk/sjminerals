@@ -103,10 +103,12 @@ export type Database = {
       }
       bills: {
         Row: {
+          bill_date: string
           cash_amount: number
           company_id: string
           company_name: string
           created_at: string
+          created_by: string | null
           driver_name: string
           id: string
           invoice_number: string | null
@@ -120,15 +122,18 @@ export type Database = {
           tips_rate: number
           total_amount: number
           updated_at: string
+          updated_by: string | null
           upi_amount: number
           vehicle_capacity: number
           vehicle_number: string
         }
         Insert: {
+          bill_date?: string
           cash_amount?: number
           company_id: string
           company_name: string
           created_at?: string
+          created_by?: string | null
           driver_name?: string
           id?: string
           invoice_number?: string | null
@@ -142,15 +147,18 @@ export type Database = {
           tips_rate?: number
           total_amount?: number
           updated_at?: string
+          updated_by?: string | null
           upi_amount?: number
           vehicle_capacity?: number
           vehicle_number: string
         }
         Update: {
+          bill_date?: string
           cash_amount?: number
           company_id?: string
           company_name?: string
           created_at?: string
+          created_by?: string | null
           driver_name?: string
           id?: string
           invoice_number?: string | null
@@ -164,6 +172,7 @@ export type Database = {
           tips_rate?: number
           total_amount?: number
           updated_at?: string
+          updated_by?: string | null
           upi_amount?: number
           vehicle_capacity?: number
           vehicle_number?: string
