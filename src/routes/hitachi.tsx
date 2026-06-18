@@ -161,6 +161,16 @@ function HitachiPage() {
             allocateTo: "hitachi", hitachiMachineId: entryMachineId,
           });
         }
+      } else {
+        // Rented machines: diesel paid by us at the pump is still a fuel expense
+        if (Number(dieselPaid || 0) > 0) {
+          saveExpense({
+            category: "fuel", amount: Number(dieselPaid), date: entryDate,
+            notes: `Diesel (rented) · ${machine?.name || ""}${dieselLiters ? ` · ${dieselLiters}L` : ""} · adjusted from rental`,
+            paymentMode: "cash", linkedMachineId: entryMachineId,
+            allocateTo: "hitachi", hitachiMachineId: entryMachineId,
+          });
+        }
       }
     }
     setEntries(getHitachiEntries());
