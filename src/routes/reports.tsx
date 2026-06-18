@@ -127,16 +127,26 @@ function ReportsPage() {
   const categoryReport = useMemo(() => {
     const sales = getProductCategorySales(start, end);
     return {
-      BOULDERS: { quantity: sales.BOULDERS.quantity, bills: sales.BOULDERS.billIds.size },
-      "K.K": { quantity: sales["K.K"].quantity, bills: sales["K.K"].billIds.size },
+      BOULDERS: { quantity: sales.BOULDERS.quantity, revenue: sales.BOULDERS.revenue, bills: sales.BOULDERS.billIds.size },
+      "K.K": { quantity: sales["K.K"].quantity, revenue: sales["K.K"].revenue, bills: sales["K.K"].billIds.size },
     };
   }, [start, end]);
 
+  const categoryTotals = useMemo(() => ({
+    quantity: categoryReport.BOULDERS.quantity + categoryReport["K.K"].quantity,
+    revenue: categoryReport.BOULDERS.revenue + categoryReport["K.K"].revenue,
+    bills: categoryReport.BOULDERS.bills + categoryReport["K.K"].bills,
+  }), [categoryReport]);
+
+  const fmtQty = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const fmtMoney = (n: number) => `₹${Math.round(n).toLocaleString()}`;
+
   const exportCategoryCSV = () => {
     const rows = [
-      ["Category", "Quantity Sold", "Number of Bills"],
-      ["BOULDERS", String(categoryReport.BOULDERS.quantity), String(categoryReport.BOULDERS.bills)],
-      ["K.K", String(categoryReport["K.K"].quantity), String(categoryReport["K.K"].bills)],
+      ["Category", "Quantity Sold", "Revenue", "Number of Bills"],
+      ["BOULDERS", String(categoryReport.BOULDERS.quantity), String(Math.round(categoryReport.BOULDERS.revenue)), String(categoryReport.BOULDERS.bills)],
+      ["K.K", String(categoryReport["K.K"].quantity), String(Math.round(categoryReport["K.K"].revenue)), String(categoryReport["K.K"].bills)],
+      ["TOTAL", String(categoryTotals.quantity), String(Math.round(categoryTotals.revenue)), String(categoryTotals.bills)],
     ];
     const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -146,9 +156,10 @@ function ReportsPage() {
   };
   const exportCategoryExcel = () => {
     const rows = `
-      <tr><th>Category</th><th>Quantity Sold</th><th>Number of Bills</th></tr>
-      <tr><td>BOULDERS</td><td>${categoryReport.BOULDERS.quantity}</td><td>${categoryReport.BOULDERS.bills}</td></tr>
-      <tr><td>K.K</td><td>${categoryReport["K.K"].quantity}</td><td>${categoryReport["K.K"].bills}</td></tr>`;
+      <tr><th>Category</th><th>Quantity Sold</th><th>Revenue</th><th>Number of Bills</th></tr>
+      <tr><td>BOULDERS</td><td>${categoryReport.BOULDERS.quantity}</td><td>${Math.round(categoryReport.BOULDERS.revenue)}</td><td>${categoryReport.BOULDERS.bills}</td></tr>
+      <tr><td>K.K</td><td>${categoryReport["K.K"].quantity}</td><td>${Math.round(categoryReport["K.K"].revenue)}</td><td>${categoryReport["K.K"].bills}</td></tr>
+      <tr><td><b>TOTAL</b></td><td><b>${categoryTotals.quantity}</b></td><td><b>${Math.round(categoryTotals.revenue)}</b></td><td><b>${categoryTotals.bills}</b></td></tr>`;
     const html = `<html><head><meta charset="utf-8"></head><body><table border="1">${rows}</table></body></html>`;
     const blob = new Blob([html], { type: "application/vnd.ms-excel" });
     const url = URL.createObjectURL(blob);
@@ -158,13 +169,17 @@ function ReportsPage() {
   const exportCategoryPDF = () => {
     const w = window.open("", "_blank"); if (!w) return;
     w.document.write(`<html><head><title>Product Category Report</title>
-      <style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%;margin-top:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f3f3f3}</style>
+      <style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%;margin-top:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f3f3f3}tfoot td{font-weight:bold;background:#f9f9f9}</style>
       </head><body>
       <h2>Product Category Sales</h2>
       <p>${periodLabel}</p>
-      <table><tr><th>Category</th><th>Quantity Sold</th><th>Number of Bills</th></tr>
-      <tr><td>BOULDERS</td><td>${categoryReport.BOULDERS.quantity}</td><td>${categoryReport.BOULDERS.bills}</td></tr>
-      <tr><td>K.K</td><td>${categoryReport["K.K"].quantity}</td><td>${categoryReport["K.K"].bills}</td></tr>
+      <table>
+      <thead><tr><th>Category</th><th>Quantity Sold</th><th>Revenue</th><th>Number of Bills</th></tr></thead>
+      <tbody>
+      <tr><td>BOULDERS</td><td>${categoryReport.BOULDERS.quantity}</td><td>₹${Math.round(categoryReport.BOULDERS.revenue).toLocaleString()}</td><td>${categoryReport.BOULDERS.bills}</td></tr>
+      <tr><td>K.K</td><td>${categoryReport["K.K"].quantity}</td><td>₹${Math.round(categoryReport["K.K"].revenue).toLocaleString()}</td><td>${categoryReport["K.K"].bills}</td></tr>
+      </tbody>
+      <tfoot><tr><td>TOTAL</td><td>${categoryTotals.quantity}</td><td>₹${Math.round(categoryTotals.revenue).toLocaleString()}</td><td>${categoryTotals.bills}</td></tr></tfoot>
       </table>
       <script>setTimeout(()=>window.print(),300)</script>
       </body></html>`);
@@ -1198,24 +1213,48 @@ function ReportsPage() {
               <button onClick={exportCategoryExcel} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><FileSpreadsheet className="h-3.5 w-3.5" /> Excel</button>
               <button onClick={exportCategoryPDF} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><Printer className="h-3.5 w-3.5" /> PDF</button>
             </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Total Boulder Qty</p>
+                <p className="text-xl font-bold text-foreground">{fmtQty(categoryReport.BOULDERS.quantity)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase mt-2">Boulder Revenue</p>
+                <p className="text-xl font-bold text-primary">{fmtMoney(categoryReport.BOULDERS.revenue)}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Total K.K Qty</p>
+                <p className="text-xl font-bold text-foreground">{fmtQty(categoryReport["K.K"].quantity)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase mt-2">K.K Revenue</p>
+                <p className="text-xl font-bold text-primary">{fmtMoney(categoryReport["K.K"].revenue)}</p>
+              </div>
+              <div className="stat-card border-primary/30">
+                <p className="text-[10px] text-muted-foreground uppercase">Grand Total Qty</p>
+                <p className="text-xl font-bold text-foreground">{fmtQty(categoryTotals.quantity)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase mt-2">Grand Total Revenue</p>
+                <p className="text-xl font-bold text-primary">{fmtMoney(categoryTotals.revenue)}</p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {(["BOULDERS", "K.K"] as const).map((cat) => (
                 <div key={cat} className="stat-card">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-2"><Package className="h-4 w-4 text-primary" /> {cat}</div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase">Quantity Sold</p>
-                      <p className="text-2xl font-bold text-foreground">{categoryReport[cat].quantity.toLocaleString()}</p>
+                      <p className="text-xl font-bold text-foreground">{fmtQty(categoryReport[cat].quantity)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Number of Bills</p>
-                      <p className="text-2xl font-bold text-foreground">{categoryReport[cat].bills}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Revenue</p>
+                      <p className="text-xl font-bold text-primary">{fmtMoney(categoryReport[cat].revenue)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Bills</p>
+                      <p className="text-xl font-bold text-foreground">{categoryReport[cat].bills}</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground">Quantity is based only on billed quantities. Assigning a category to an existing product can include its linked historical bill quantities without changing bill rows.</p>
+            <p className="text-[11px] text-muted-foreground">Revenue is computed from billed quantity × unit price recorded on each invoice. Historical bill data is never modified.</p>
           </div>
         ) : (
 
