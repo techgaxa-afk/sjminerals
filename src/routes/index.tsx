@@ -166,6 +166,8 @@ function DashboardPage() {
 
   const recentActivity = useMemo(() => getRecentActivity(10), []);
 
+  const categorySales = useMemo(() => getProductCategorySales(start, end), [start, end]);
+
   const handleExportReport = () => { exportReportPDF(filter, stats); };
 
   const COLORS = ["oklch(0.75 0.16 70)", "oklch(0.65 0.18 145)", "oklch(0.6 0.2 25)", "oklch(0.6 0.15 250)", "oklch(0.65 0.18 50)"];
