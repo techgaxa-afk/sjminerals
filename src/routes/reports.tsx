@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import {
   getBills, getCompanies, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
-  getCompanyAging, getExpenses, getHitachiCostBreakdown,
+  getCompanyAging, getExpenses, getHitachiCostBreakdown, getProductCategorySales,
   type Expense, type ExpenseCategory, type ExpensePaymentMode, type HitachiCostRow,
 } from "../lib/store";
 import { EXPENSE_CATEGORIES } from "../lib/expense-categories";
