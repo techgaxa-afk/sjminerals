@@ -5,8 +5,10 @@ import {
   getBills, getCompanies, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
   getCompanyAging, getExpenses, getHitachiCostBreakdown, getProductCategorySales,
+  getHitachiMachines, getHitachiEntriesByMachine, getMachineRentalLedger,
   type Expense, type ExpenseCategory, type ExpensePaymentMode, type HitachiCostRow,
 } from "../lib/store";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { EXPENSE_CATEGORIES } from "../lib/expense-categories";
 
 import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon, Calendar as CalendarIcon, Receipt, FileSpreadsheet, Printer, Package } from "lucide-react";
@@ -506,6 +508,8 @@ function ReportsPage() {
   const [hSearch, setHSearch] = useState("");
   const [hSort, setHSort] = useState<"cost" | "costPerHour" | "hours" | "fuel" | "name">("cost");
   const [hTypeFilter, setHTypeFilter] = useState<"all" | "owned" | "rented">("all");
+  const [drilldownId, setDrilldownId] = useState<string | null>(null);
+  const [drilldownTab, setDrilldownTab] = useState<"hours" | "fuel" | "maint" | "operator" | "ledger">("hours");
 
   const hitachiFiltered = useMemo(() => {
     const q = hSearch.trim().toLowerCase();
@@ -524,7 +528,7 @@ function ReportsPage() {
   const hitachiSummary = useMemo(() => {
     const totals = hitachiCost.reduce(
       (acc, r) => {
-        acc.hours += r.hours; acc.operationalValue += r.operationalValue; acc.fuel += r.fuel;
+        acc.hours += r.hours; acc.fuel += r.fuel;
         acc.maintenance += r.maintenance; acc.repairs += r.repairs;
         acc.rental += r.rental; acc.salary += r.salary; acc.tips += r.tips;
         acc.rentalCharges += r.rentalCharges; acc.rentalPayments += r.rentalPayments;
@@ -538,7 +542,7 @@ function ReportsPage() {
         }
         return acc;
       },
-      { hours: 0, operationalValue: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, tips: 0,
+      { hours: 0, fuel: 0, maintenance: 0, repairs: 0, rental: 0, salary: 0, tips: 0,
         rentalCharges: 0, rentalPayments: 0, dieselPaid: 0, outstanding: 0,
         cost: 0, ownedCost: 0, rentedCost: 0, ownedHours: 0, rentedHours: 0, ownedCount: 0, rentedCount: 0 },
     );
@@ -549,11 +553,12 @@ function ReportsPage() {
     const rented = hitachiCost.filter((r) => r.type === "rented");
     const sortRented = (fn: (r: HitachiCostRow) => number) =>
       rented.slice().sort((a, b) => fn(b) - fn(a))[0] ?? null;
+    const maintRanked = hitachiCost.filter((r) => r.maintenance > 0);
+    const maintWithHours = maintRanked.filter((r) => r.hours > 0);
     return {
       ...totals,
       machines: hitachiCost.length,
       costPerHour: totals.hours > 0 ? totals.cost / totals.hours : 0,
-      operationalValuePerHour: totals.hours > 0 ? totals.operationalValue / totals.hours : 0,
       highestCost: sortBy((r) => r.total),
       highestFuel: sortBy((r) => r.fuel),
       highestMaint: sortBy((r) => r.maintenance),
@@ -566,6 +571,9 @@ function ReportsPage() {
       highestOutstanding: sortRented((r) => r.outstanding),
       mostExpensiveRental: sortRented((r) => r.rentalCharges),
       mostUsedRental: sortRented((r) => r.hours),
+      highestMaintCost: maintRanked.slice().sort((a, b) => b.maintenance - a.maintenance)[0] ?? null,
+      highestMaintPerHour: maintWithHours.slice().sort((a, b) => (b.maintenancePerHour ?? 0) - (a.maintenancePerHour ?? 0))[0] ?? null,
+      lowestMaintPerHour: maintWithHours.slice().sort((a, b) => (a.maintenancePerHour ?? 0) - (b.maintenancePerHour ?? 0))[0] ?? null,
     };
   }, [hitachiCost]);
 
@@ -602,6 +610,37 @@ function ReportsPage() {
     return list;
   }, [hitachiCost]);
 
+  // Machine drilldown data
+  const drilldown = useMemo(() => {
+    if (!drilldownId) return null;
+    const machine = getHitachiMachines().find((m) => m.id === drilldownId) ?? null;
+    const row = hitachiCost.find((r) => r.machineId === drilldownId) ?? null;
+    const entries = getHitachiEntriesByMachine(drilldownId)
+      .filter((e) => new Date(e.date + "T00:00:00") >= start && new Date(e.date + "T00:00:00") <= end)
+      .slice().sort((a, b) => b.date.localeCompare(a.date));
+    const mExpenses = getExpenses().filter((e) =>
+      e.allocateTo === "hitachi" && e.hitachiMachineId === drilldownId &&
+      new Date(e.date + "T00:00:00") >= start && new Date(e.date + "T00:00:00") <= end,
+    );
+    const fuelExp = mExpenses.filter((e) => e.category === "fuel").sort((a, b) => b.date.localeCompare(a.date));
+    const maintExp = mExpenses.filter((e) => e.category === "maintenance").sort((a, b) => b.date.localeCompare(a.date));
+    const ops = getOperators();
+    const opMap = new Map<string, { name: string; shifts: number; hours: number; salary: number; tips: number }>();
+    for (const e of entries) {
+      const op = ops.find((o) => o.id === e.operatorId);
+      const name = op?.name ?? "—";
+      const cur = opMap.get(e.operatorId) ?? { name, shifts: 0, hours: 0, salary: 0, tips: 0 };
+      cur.shifts += 1;
+      cur.hours += e.totalHours || 0;
+      cur.salary += e.operatorSalary || 0;
+      cur.tips += e.tips || 0;
+      opMap.set(e.operatorId, cur);
+    }
+    const operatorRows = Array.from(opMap.values());
+    const ledger = machine?.type === "rented" ? getMachineRentalLedger(drilldownId) : null;
+    return { machine, row, entries, fuelExp, maintExp, operatorRows, ledger };
+  }, [drilldownId, hitachiCost, start, end]);
+
   // Operator analytics for Hitachi tab
   const hitachiOperators = useMemo(() => {
     const ops = getOperators();
@@ -620,17 +659,18 @@ function ReportsPage() {
   }, [start, end, hitachiCost]);
 
   const hitachiCsvHeaders = [
-    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Repairs", "Salary", "Tips",
+    "Machine", "Type", "Hours", "Fuel", "Maintenance", "Maint Records", "Last Maint",
+    "Repairs", "Salary", "Tips",
     "Rental Charges", "Diesel Paid", "Rental Payments", "Outstanding",
-    "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr", "Operational Value",
+    "Total Cost", "Cost/Hr", "Fuel/Hr", "Maint/Hr",
   ];
   const hitachiCsvRows = () => hitachiFiltered.map((r) => [
-    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.repairs, r.salary, r.tips,
+    r.machineName, r.type, r.hours, r.fuel, r.maintenance, r.maintenanceRecords, r.lastMaintenanceDate ?? "",
+    r.repairs, r.salary, r.tips,
     r.rentalCharges, r.dieselPaid, r.rentalPayments, r.outstanding, r.total,
     r.costPerHour ? r.costPerHour.toFixed(2) : "",
     r.fuelPerHour ? r.fuelPerHour.toFixed(2) : "",
     r.maintenancePerHour ? r.maintenancePerHour.toFixed(2) : "",
-    r.operationalValue,
   ]);
 
   const exportHitachiCSV = () => {
@@ -1127,8 +1167,8 @@ function ReportsPage() {
 
             {/* Machine performance table */}
             <div className="overflow-x-auto">
-              <div className="min-w-[1500px] space-y-2">
-                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(12,1fr)" }}>
+              <div className="min-w-[1400px] space-y-2">
+                <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(11,1fr)" }}>
                   <span>Machine</span><span>Type</span>
                   <span className="text-right">Hours</span>
                   <span className="text-right">Fuel</span>
@@ -1141,11 +1181,16 @@ function ReportsPage() {
                   <span className="text-right">Outstanding</span>
                   <span className="text-right">Total Cost</span>
                   <span className="text-right">Cost/Hr</span>
-                  <span className="text-right">Op. Value</span>
                 </div>
                 {hitachiFiltered.map((r) => (
-                  <div key={r.machineId} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(12,1fr)" }}>
-                    <span className="font-medium text-foreground truncate">{r.machineName}</span>
+                  <button
+                    key={r.machineId}
+                    type="button"
+                    onClick={() => setDrilldownId(r.machineId)}
+                    className="stat-card grid gap-2 items-center text-xs text-left w-full hover:border-primary/50 transition-colors cursor-pointer"
+                    style={{ gridTemplateColumns: "1.5fr 0.6fr repeat(11,1fr)" }}
+                  >
+                    <span className="font-medium text-foreground truncate underline-offset-2 hover:underline">{r.machineName}</span>
                     <span className={`text-[10px] font-bold uppercase ${r.type === "owned" ? "text-primary" : "text-warning"}`}>{r.type}</span>
                     <span className="text-right text-foreground">{r.hours.toFixed(1)}</span>
                     <span className="text-right text-foreground">₹{r.fuel.toLocaleString()}</span>
@@ -1158,12 +1203,56 @@ function ReportsPage() {
                     <span className={`text-right ${r.outstanding > 0 ? "text-warning" : "text-foreground"}`}>{r.type === "rented" ? `₹${r.outstanding.toLocaleString()}` : "—"}</span>
                     <span className="text-right text-destructive font-medium">₹{r.total.toLocaleString()}</span>
                     <span className="text-right text-foreground">{r.costPerHour !== null ? `₹${r.costPerHour.toFixed(0)}` : "—"}</span>
-                    <span className="text-right text-muted-foreground">₹{r.operationalValue.toLocaleString()}</span>
-                  </div>
+                  </button>
                 ))}
                 {hitachiFiltered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No machines for this period.</p>}
               </div>
             </div>
+
+            {/* Maintenance Analytics */}
+            <div className="stat-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Maintenance Analytics</h3>
+              <div className="overflow-x-auto">
+                <div className="min-w-[700px] space-y-2">
+                  <div className="grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "2fr 0.6fr repeat(4,1fr)" }}>
+                    <span>Machine</span><span>Type</span>
+                    <span className="text-right">Maint Cost</span>
+                    <span className="text-right">Cost/Hr</span>
+                    <span className="text-right">Records</span>
+                    <span className="text-right">Last Date</span>
+                  </div>
+                  {hitachiFiltered.map((r) => (
+                    <div key={r.machineId} className="grid gap-2 items-center text-xs py-1 border-t border-border" style={{ gridTemplateColumns: "2fr 0.6fr repeat(4,1fr)" }}>
+                      <span className="font-medium text-foreground truncate">{r.machineName}</span>
+                      <span className={`text-[10px] font-bold uppercase ${r.type === "owned" ? "text-primary" : "text-warning"}`}>{r.type}</span>
+                      <span className="text-right text-foreground">₹{r.maintenance.toLocaleString()}</span>
+                      <span className="text-right text-foreground">{r.maintenancePerHour !== null ? `₹${r.maintenancePerHour.toFixed(0)}` : "—"}</span>
+                      <span className="text-right text-foreground">{r.maintenanceRecords}</span>
+                      <span className="text-right text-muted-foreground">{r.lastMaintenanceDate ?? "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs mt-4">
+                {[
+                  ["Highest Maint Cost", hitachiSummary.highestMaintCost, (r: HitachiCostRow) => `₹${r.maintenance.toLocaleString()}`],
+                  ["Highest Maint/Hr", hitachiSummary.highestMaintPerHour, (r: HitachiCostRow) => `₹${(r.maintenancePerHour ?? 0).toFixed(0)}/hr`],
+                  ["Lowest Maint/Hr", hitachiSummary.lowestMaintPerHour, (r: HitachiCostRow) => `₹${(r.maintenancePerHour ?? 0).toFixed(0)}/hr`],
+                ].map(([label, row, fmt]) => {
+                  const r = row as HitachiCostRow | null;
+                  const f = fmt as (r: HitachiCostRow) => string;
+                  return (
+                    <div key={label as string} className="rounded-md bg-secondary p-2">
+                      <p className="text-[10px] text-muted-foreground uppercase">{label as string}</p>
+                      <p className="font-bold text-foreground">{r ? r.machineName : "—"}</p>
+                      <p className="text-muted-foreground">{r ? f(r) : ""}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+
 
             {/* Rented Machine Analytics */}
             {hitachiSummary.rentedCount > 0 && (
@@ -1412,6 +1501,178 @@ function ReportsPage() {
             )}
           </div>
         )}
+
+        {/* Machine Detail Drilldown */}
+        <Dialog open={!!drilldownId} onOpenChange={(o) => { if (!o) setDrilldownId(null); }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            {drilldown && drilldown.row && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{drilldown.row.machineName} — Machine Details</DialogTitle>
+                </DialogHeader>
+
+                {/* Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Type</p>
+                    <p className={`font-bold uppercase ${drilldown.row.type === "owned" ? "text-primary" : "text-warning"}`}>{drilldown.row.type}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Total Hours</p>
+                    <p className="font-bold text-foreground">{drilldown.row.hours.toFixed(1)}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Fuel Cost</p>
+                    <p className="font-bold text-foreground">₹{drilldown.row.fuel.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Maintenance</p>
+                    <p className="font-bold text-foreground">₹{drilldown.row.maintenance.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Operator Salary</p>
+                    <p className="font-bold text-foreground">₹{drilldown.row.salary.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Operator Tips</p>
+                    <p className="font-bold text-foreground">₹{drilldown.row.tips.toLocaleString()}</p>
+                  </div>
+                  {drilldown.row.type === "rented" && (
+                    <>
+                      <div className="rounded-md bg-secondary p-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">Rental Charges</p>
+                        <p className="font-bold text-foreground">₹{drilldown.row.rentalCharges.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-md bg-secondary p-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">Rental Payments</p>
+                        <p className="font-bold text-success">₹{drilldown.row.rentalPayments.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-md bg-secondary p-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">Outstanding</p>
+                        <p className="font-bold text-warning">₹{drilldown.row.outstanding.toLocaleString()}</p>
+                      </div>
+                    </>
+                  )}
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Total Cost</p>
+                    <p className="font-bold text-destructive">₹{drilldown.row.total.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-secondary p-2">
+                    <p className="text-[10px] text-muted-foreground uppercase">Cost / Hr</p>
+                    <p className="font-bold text-foreground">{drilldown.row.costPerHour !== null ? `₹${drilldown.row.costPerHour.toFixed(0)}` : "—"}</p>
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-1 rounded-md bg-secondary p-1 mt-4 overflow-x-auto">
+                  {([
+                    ["hours", "Hours History"],
+                    ["fuel", "Fuel History"],
+                    ["maint", "Maintenance History"],
+                    ["operator", "Operator History"],
+                    ...(drilldown.row.type === "rented" ? [["ledger", "Rental Ledger"] as const] : []),
+                  ] as const).map(([id, label]) => (
+                    <button key={id} type="button" onClick={() => setDrilldownTab(id)}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${drilldownTab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3">
+                  {drilldownTab === "hours" && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "1fr 1fr 0.8fr 0.8fr 0.8fr 1.5fr" }}>
+                        <span>Date</span><span>Shift</span><span className="text-right">Hours</span><span className="text-right">Salary</span><span className="text-right">Tips</span><span>Notes</span>
+                      </div>
+                      {drilldown.entries.map((e) => (
+                        <div key={e.id} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "1fr 1fr 0.8fr 0.8fr 0.8fr 1.5fr" }}>
+                          <span>{e.date}</span>
+                          <span className="capitalize">{e.shiftType}</span>
+                          <span className="text-right">{(e.totalHours || 0).toFixed(1)}</span>
+                          <span className="text-right">₹{(e.operatorSalary || 0).toLocaleString()}</span>
+                          <span className="text-right">₹{(e.tips || 0).toLocaleString()}</span>
+                          <span className="truncate text-muted-foreground">{e.notes || ""}</span>
+                        </div>
+                      ))}
+                      {drilldown.entries.length === 0 && <p className="text-center text-muted-foreground py-4">No entries.</p>}
+                    </div>
+                  )}
+                  {drilldownTab === "fuel" && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "1fr 1fr 2fr" }}>
+                        <span>Date</span><span className="text-right">Amount</span><span>Notes</span>
+                      </div>
+                      {drilldown.fuelExp.map((e) => (
+                        <div key={e.id} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "1fr 1fr 2fr" }}>
+                          <span>{e.date}</span>
+                          <span className="text-right">₹{e.amount.toLocaleString()}</span>
+                          <span className="truncate text-muted-foreground">{e.notes || ""}</span>
+                        </div>
+                      ))}
+                      {drilldown.fuelExp.length === 0 && <p className="text-center text-muted-foreground py-4">No fuel records.</p>}
+                    </div>
+                  )}
+                  {drilldownTab === "maint" && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "1fr 1fr 2fr" }}>
+                        <span>Date</span><span className="text-right">Amount</span><span>Notes</span>
+                      </div>
+                      {drilldown.maintExp.map((e) => (
+                        <div key={e.id} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "1fr 1fr 2fr" }}>
+                          <span>{e.date}</span>
+                          <span className="text-right">₹{e.amount.toLocaleString()}</span>
+                          <span className="truncate text-muted-foreground">{e.notes || ""}</span>
+                        </div>
+                      ))}
+                      {drilldown.maintExp.length === 0 && <p className="text-center text-muted-foreground py-4">No maintenance records.</p>}
+                    </div>
+                  )}
+                  {drilldownTab === "operator" && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "2fr 0.8fr 0.8fr 0.8fr 0.8fr" }}>
+                        <span>Operator</span><span className="text-right">Shifts</span><span className="text-right">Hours</span><span className="text-right">Salary</span><span className="text-right">Tips</span>
+                      </div>
+                      {drilldown.operatorRows.map((o, i) => (
+                        <div key={i} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "2fr 0.8fr 0.8fr 0.8fr 0.8fr" }}>
+                          <span className="font-medium">{o.name}</span>
+                          <span className="text-right">{o.shifts}</span>
+                          <span className="text-right">{o.hours.toFixed(1)}</span>
+                          <span className="text-right">₹{o.salary.toLocaleString()}</span>
+                          <span className="text-right">₹{o.tips.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {drilldown.operatorRows.length === 0 && <p className="text-center text-muted-foreground py-4">No operator activity.</p>}
+                    </div>
+                  )}
+                  {drilldownTab === "ledger" && drilldown.ledger && (
+                    <div className="space-y-1 text-xs">
+                      <div className="grid gap-2 text-[10px] uppercase text-muted-foreground font-medium" style={{ gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr" }}>
+                        <span>Date</span><span>Description</span><span className="text-right">Debit</span><span className="text-right">Credit</span><span className="text-right">Balance</span>
+                      </div>
+                      {drilldown.ledger.rows.map((r, i) => (
+                        <div key={i} className="grid gap-2 py-1 border-t border-border" style={{ gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr" }}>
+                          <span>{r.date}</span>
+                          <span className="truncate">{r.description}</span>
+                          <span className="text-right text-destructive">{r.debit > 0 ? `₹${r.debit.toLocaleString()}` : "—"}</span>
+                          <span className="text-right text-success">{r.credit > 0 ? `₹${r.credit.toLocaleString()}` : "—"}</span>
+                          <span className={`text-right font-medium ${r.balance > 0 ? "text-warning" : "text-foreground"}`}>₹{r.balance.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {drilldown.ledger.rows.length === 0 && <p className="text-center text-muted-foreground py-4">No ledger activity.</p>}
+                      <div className="grid grid-cols-4 gap-2 mt-2 pt-2 border-t border-border text-[11px]">
+                        <div><span className="text-muted-foreground">Charges: </span><span className="font-bold">₹{drilldown.ledger.totalRentalCharges.toLocaleString()}</span></div>
+                        <div><span className="text-muted-foreground">Diesel: </span><span className="font-bold">₹{drilldown.ledger.totalDieselPaid.toLocaleString()}</span></div>
+                        <div><span className="text-muted-foreground">Payments: </span><span className="font-bold text-success">₹{drilldown.ledger.totalPayments.toLocaleString()}</span></div>
+                        <div><span className="text-muted-foreground">Outstanding: </span><span className="font-bold text-warning">₹{drilldown.ledger.outstanding.toLocaleString()}</span></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

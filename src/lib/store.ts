@@ -1362,8 +1362,6 @@ export interface HitachiCostRow {
   machineName: string;
   type: HitachiMachineType;
   hours: number;
-  /** Hours × Internal Hourly Rate — internal benchmark only, NOT customer revenue. */
-  operationalValue: number;
   fuel: number;
   maintenance: number;
   salary: number;
@@ -1383,7 +1381,10 @@ export interface HitachiCostRow {
   fuelPerHour: number | null;
   maintenancePerHour: number | null;
   repairsPerHour: number | null;
-  operationalValuePerHour: number | null;
+  /** Number of maintenance expense records in range for this machine. */
+  maintenanceRecords: number;
+  /** Most recent maintenance expense date in range, or null. */
+  lastMaintenanceDate: string | null;
 }
 function inRange(dateStr: string, start?: Date, end?: Date): boolean {
   if (!start && !end) return true;
@@ -1401,7 +1402,6 @@ export function getHitachiCostBreakdown(start?: Date, end?: Date): HitachiCostRo
     const mEntries = entries.filter((e) => e.machineId === m.id);
     const mExp = expenses.filter((e) => e.hitachiMachineId === m.id);
     const hours = mEntries.reduce((s, e) => s + (e.totalHours || 0), 0);
-    const operationalValue = mEntries.reduce((s, e) => s + (e.machineRevenue || 0), 0);
     const entrySalary = mEntries.reduce((s, e) => s + (e.operatorSalary || 0), 0);
     const tips = mEntries.reduce((s, e) => s + (e.tips || 0), 0);
     const rentalChargesFromEntries = mEntries.reduce((s, e) => s + (e.rentalCharge || 0), 0);
@@ -1414,6 +1414,11 @@ export function getHitachiCostBreakdown(start?: Date, end?: Date): HitachiCostRo
     const sumCat = (cat: ExpenseCategory) => mExp.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
     const fuel = sumCat("fuel");
     const maintenance = sumCat("maintenance");
+    const maintExp = mExp.filter((e) => e.category === "maintenance");
+    const maintenanceRecords = maintExp.length;
+    const lastMaintenanceDate = maintExp.length > 0
+      ? maintExp.map((e) => e.date).sort().slice(-1)[0]
+      : null;
     const salary = sumCat("salary") + entrySalary;
     const repairs = sumCat("repairs");
     const type: HitachiMachineType = m.type === "rented" ? "rented" : "owned";
@@ -1422,12 +1427,10 @@ export function getHitachiCostBreakdown(start?: Date, end?: Date): HitachiCostRo
       rentalCharges = (m.rentalRate ?? 0) * hours;
     }
     const rental = rentalCharges;
-    // Unified spec formula: Fuel + Maint + Salary + Tips + RentalCharges - RentalPayments (+ repairs)
     const total = type === "owned"
       ? fuel + maintenance + salary + tips + repairs
       : fuel + maintenance + salary + tips + repairs + rentalCharges - rentalPayments;
 
-    // Lifetime outstanding for rented machines
     let outstanding = 0;
     if (type === "rented") {
       const allEntries = cache.hitachi_entries.filter((e) => e.machineId === m.id);
@@ -1441,13 +1444,14 @@ export function getHitachiCostBreakdown(start?: Date, end?: Date): HitachiCostRo
 
     return {
       machineId: m.id, machineName: m.name, type,
-      hours, operationalValue, fuel, maintenance, salary, tips, repairs, rental,
+      hours, fuel, maintenance, salary, tips, repairs, rental,
       rentalCharges, dieselPaid, rentalPayments, outstanding, total,
       costPerHour: hours > 0 ? total / hours : null,
       fuelPerHour: hours > 0 ? fuel / hours : null,
       maintenancePerHour: hours > 0 ? maintenance / hours : null,
       repairsPerHour: hours > 0 ? repairs / hours : null,
-      operationalValuePerHour: hours > 0 ? operationalValue / hours : null,
+      maintenanceRecords,
+      lastMaintenanceDate,
     };
   });
 }
