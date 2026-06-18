@@ -46,8 +46,10 @@ const DEFAULT_PASS_AMOUNT = 1600;
 
 function BillsPage() {
   const products = getProducts();
-  const { isAdmin, isStaff } = useUserRoles();
-  const canBackdate = (isAdmin || isStaff) && getAllowBackdatedBills();
+  const { isAdmin, isStaff, isAccountant, isOperator } = useUserRoles();
+  const roleFlags = { isAdmin, isStaff, isAccountant, isOperator };
+  const maxBackdateDays = getMaxBackdateDays(roleFlags);
+  const canBackdate = maxBackdateDays > 0 && (isAdmin || getAllowBackdatedBills());
   const today = new Date().toISOString().slice(0, 10);
 
   type SortKey = "billDate" | "createdAt";
