@@ -269,7 +269,17 @@ function HitachiPage() {
               <div className="stat-card space-y-3">
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editMachineId ? "Edit" : "New"} Machine</h3><button onClick={resetMachineForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
                 <input value={machineName} onChange={(e) => setMachineName(e.target.value)} placeholder="Machine Name/ID *" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                <input type="number" value={machineRate} onChange={(e) => setMachineRate(e.target.value)} placeholder="Hourly Rate (₹)" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <div>
+                  <label className="field-label">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => setMachineType("owned")} className={`rounded-md border p-2 text-xs font-medium ${machineType === "owned" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Owned</button>
+                    <button onClick={() => setMachineType("rented")} className={`rounded-md border p-2 text-xs font-medium ${machineType === "rented" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Rented</button>
+                  </div>
+                </div>
+                <input type="number" value={machineRate} onChange={(e) => setMachineRate(e.target.value)} placeholder="Billing Rate (₹/hr)" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                {machineType === "rented" && (
+                  <input type="number" value={machineRentalRate} onChange={(e) => setMachineRentalRate(e.target.value)} placeholder="Rental Cost (₹/hr) — used if no rental expense logged" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                )}
                 <button onClick={handleSaveMachine} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
               </div>
             )}
