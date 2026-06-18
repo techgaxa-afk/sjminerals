@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UsersRouteImport } from './routes/users'
+import { Route as TrustRouteImport } from './routes/trust'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProfitabilityRouteImport } from './routes/profitability'
@@ -29,6 +30,11 @@ import { Route as CompaniesIdRouteImport } from './routes/companies.$id'
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrustRoute = TrustRouteImport.update({
+  id: '/trust',
+  path: '/trust',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/profitability': typeof ProfitabilityRoute
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
+  '/trust': typeof TrustRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
   '/companies/': typeof CompaniesIndexRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/profitability': typeof ProfitabilityRoute
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
+  '/trust': typeof TrustRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
   '/companies': typeof CompaniesIndexRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/profitability': typeof ProfitabilityRoute
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
+  '/trust': typeof TrustRoute
   '/users': typeof UsersRoute
   '/companies/$id': typeof CompaniesIdRoute
   '/companies/': typeof CompaniesIndexRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/profitability'
     | '/reports'
     | '/signup'
+    | '/trust'
     | '/users'
     | '/companies/$id'
     | '/companies/'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/profitability'
     | '/reports'
     | '/signup'
+    | '/trust'
     | '/users'
     | '/companies/$id'
     | '/companies'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/profitability'
     | '/reports'
     | '/signup'
+    | '/trust'
     | '/users'
     | '/companies/$id'
     | '/companies/'
@@ -231,6 +243,7 @@ export interface RootRouteChildren {
   ProfitabilityRoute: typeof ProfitabilityRoute
   ReportsRoute: typeof ReportsRoute
   SignupRoute: typeof SignupRoute
+  TrustRoute: typeof TrustRoute
   UsersRoute: typeof UsersRoute
 }
 
@@ -241,6 +254,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trust': {
+      id: '/trust'
+      path: '/trust'
+      fullPath: '/trust'
+      preLoaderRoute: typeof TrustRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -379,6 +399,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfitabilityRoute: ProfitabilityRoute,
   ReportsRoute: ReportsRoute,
   SignupRoute: SignupRoute,
+  TrustRoute: TrustRoute,
   UsersRoute: UsersRoute,
 }
 export const routeTree = rootRouteImport
