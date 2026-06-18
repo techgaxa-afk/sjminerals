@@ -1010,32 +1010,32 @@ function ReportsPage() {
                 <div className="stat-card grid gap-2 text-[10px] font-medium text-muted-foreground uppercase" style={{ gridTemplateColumns: "1.5fr 0.7fr repeat(11,1fr)" }}>
                   <span>Machine</span><span>Type</span>
                   <span className="text-right">Hours</span>
-                  <span className="text-right">Revenue</span>
                   <span className="text-right">Fuel</span>
                   <span className="text-right">Maint</span>
                   <span className="text-right">Repairs</span>
-                  <span className="text-right">Rental</span>
                   <span className="text-right">Salary</span>
+                  <span className="text-right">Rental</span>
                   <span className="text-right">Total Cost</span>
-                  <span className="text-right">Profit</span>
-                  <span className="text-right">Rev/Hr</span>
-                  <span className="text-right">Profit/Hr</span>
+                  <span className="text-right">Cost/Hr</span>
+                  <span className="text-right">Fuel/Hr</span>
+                  <span className="text-right">Maint/Hr</span>
+                  <span className="text-right">Op. Value</span>
                 </div>
                 {hitachiFiltered.map((r) => (
                   <div key={r.machineId} className="stat-card grid gap-2 items-center text-xs" style={{ gridTemplateColumns: "1.5fr 0.7fr repeat(11,1fr)" }}>
                     <span className="font-medium text-foreground truncate">{r.machineName}</span>
                     <span className={`text-[10px] font-bold uppercase ${r.type === "owned" ? "text-primary" : "text-warning"}`}>{r.type}</span>
                     <span className="text-right text-foreground">{r.hours.toFixed(1)}</span>
-                    <span className="text-right text-primary">₹{r.revenue.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{r.fuel.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{r.maintenance.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{r.repairs.toLocaleString()}</span>
-                    <span className="text-right text-foreground">₹{r.rental.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{r.salary.toLocaleString()}</span>
-                    <span className="text-right text-destructive">₹{r.total.toLocaleString()}</span>
-                    <span className={`text-right font-medium ${r.profit >= 0 ? "text-success" : "text-destructive"}`}>₹{r.profit.toLocaleString()}</span>
-                    <span className="text-right text-foreground">{r.revenuePerHour !== null ? `₹${r.revenuePerHour.toFixed(0)}` : "—"}</span>
-                    <span className={`text-right ${(r.profitPerHour ?? 0) >= 0 ? "text-success" : "text-destructive"}`}>{r.profitPerHour !== null ? `₹${r.profitPerHour.toFixed(0)}` : "—"}</span>
+                    <span className="text-right text-foreground">₹{r.rental.toLocaleString()}</span>
+                    <span className="text-right text-destructive font-medium">₹{r.total.toLocaleString()}</span>
+                    <span className="text-right text-foreground">{r.costPerHour !== null ? `₹${r.costPerHour.toFixed(0)}` : "—"}</span>
+                    <span className="text-right text-foreground">{r.fuelPerHour !== null ? `₹${r.fuelPerHour.toFixed(0)}` : "—"}</span>
+                    <span className="text-right text-foreground">{r.maintenancePerHour !== null ? `₹${r.maintenancePerHour.toFixed(0)}` : "—"}</span>
+                    <span className="text-right text-muted-foreground">₹{r.operationalValue.toLocaleString()}</span>
                   </div>
                 ))}
                 {hitachiFiltered.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No machines for this period.</p>}
@@ -1044,14 +1044,14 @@ function ReportsPage() {
 
             {/* Owned Maintenance Analytics */}
             <div className="stat-card">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Owned Machine Maintenance Analytics</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Efficiency Dashboard</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase">Lifetime Maintenance</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Lifetime Maintenance (Owned)</p>
                   <p className="text-sm font-bold text-foreground">₹{ownedLifetimeMaint.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase">This Month</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">This Month Maintenance</p>
                   <p className="text-sm font-bold text-foreground">₹{monthlyMaint.toLocaleString()}</p>
                 </div>
                 <div>
@@ -1063,12 +1063,22 @@ function ReportsPage() {
                   <p className="text-sm font-bold text-foreground">₹{hitachiSummary.hours > 0 ? (hitachiSummary.fuel / hitachiSummary.hours).toFixed(0) : "0"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase">Total Op. Cost/Hr</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Repairs/Hr</p>
+                  <p className="text-sm font-bold text-foreground">₹{hitachiSummary.hours > 0 ? (hitachiSummary.repairs / hitachiSummary.hours).toFixed(0) : "0"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Avg Cost/Hr</p>
                   <p className="text-sm font-bold text-foreground">₹{hitachiSummary.costPerHour.toFixed(0)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase">Profit/Hr</p>
-                  <p className={`text-sm font-bold ${hitachiSummary.profitPerHour >= 0 ? "text-success" : "text-destructive"}`}>₹{hitachiSummary.profitPerHour.toFixed(0)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Most Expensive/Hr</p>
+                  <p className="text-sm font-bold text-foreground">{hitachiSummary.highestCph ? hitachiSummary.highestCph.machineName : "—"}</p>
+                  <p className="text-[10px] text-muted-foreground">{hitachiSummary.highestCph ? `₹${(hitachiSummary.highestCph.costPerHour ?? 0).toFixed(0)}/hr` : ""}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Most Efficient</p>
+                  <p className="text-sm font-bold text-success">{hitachiSummary.lowestCph ? hitachiSummary.lowestCph.machineName : "—"}</p>
+                  <p className="text-[10px] text-muted-foreground">{hitachiSummary.lowestCph ? `₹${(hitachiSummary.lowestCph.costPerHour ?? 0).toFixed(0)}/hr` : ""}</p>
                 </div>
               </div>
             </div>
