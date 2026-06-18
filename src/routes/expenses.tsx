@@ -31,16 +31,20 @@ const CATEGORIES = EXPENSE_CATEGORIES.map((value) => ({ value, ...CATEGORY_META[
 function ExpensesPage() {
   useCloudData();
   const [expenses, setExpenses] = useState<Expense[]>(getExpenses);
+  const machines = getHitachiMachines();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<ExpenseCategory | "all">("all");
   const [filterMode, setFilterMode] = useState<ExpensePaymentMode | "all">("all");
+  const [filterMachine, setFilterMachine] = useState<string>("all"); // "all" | "general" | machineId
   const [category, setCategory] = useState<ExpenseCategory>("fuel");
   const [paymentMode, setPaymentMode] = useState<ExpensePaymentMode>("cash");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [notes, setNotes] = useState("");
+  const [allocateTo, setAllocateTo] = useState<ExpenseAllocateTo>("general");
+  const [hitachiMachineId, setHitachiMachineId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const sorted = [...expenses].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -48,13 +52,22 @@ function ExpensesPage() {
     const matchSearch = e.notes.toLowerCase().includes(search.toLowerCase()) || e.category.includes(search.toLowerCase());
     const matchCat = filterCat === "all" || e.category === filterCat;
     const matchMode = filterMode === "all" || e.paymentMode === filterMode;
-    return matchSearch && matchCat && matchMode;
+    const matchMachine = filterMachine === "all"
+      || (filterMachine === "general" && (e.allocateTo ?? "general") === "general")
+      || e.hitachiMachineId === filterMachine;
+    return matchSearch && matchCat && matchMode && matchMachine;
   });
 
   const resetForm = () => {
     setShowForm(false); setEditingId(null);
     setAmount(""); setNotes(""); setCategory("fuel"); setPaymentMode("cash"); setError(null);
+    setAllocateTo("general"); setHitachiMachineId("");
   };
+
+  // When allocating to a machine, restrict the category to allocatable ones.
+  const visibleCategories = allocateTo === "hitachi"
+    ? CATEGORIES.filter((c) => HITACHI_ALLOCATABLE_CATEGORIES.includes(c.value))
+    : CATEGORIES;
 
   const handleSave = () => {
     setError(null);
@@ -66,12 +79,28 @@ function ExpensesPage() {
       setError(`Invalid category. Allowed: ${EXPENSE_CATEGORIES.join(", ")}.`);
       return;
     }
+    if (allocateTo === "hitachi") {
+      if (!hitachiMachineId) { setError("Select a Hitachi machine."); return; }
+      if (!HITACHI_ALLOCATABLE_CATEGORIES.includes(category)) {
+        setError(`Category "${category}" cannot be allocated to a Hitachi machine.`); return;
+      }
+    }
 
-    if (editingId) updateExpense(editingId, { category, amount: amt, date, notes: notes.trim(), paymentMode });
-    else saveExpense({ category, amount: amt, date, notes: notes.trim(), paymentMode });
-    setExpenses(getExpenses());
-    resetForm();
+    const payload = {
+      category, amount: amt, date, notes: notes.trim(), paymentMode,
+      allocateTo,
+      hitachiMachineId: allocateTo === "hitachi" ? hitachiMachineId : undefined,
+    };
+    try {
+      if (editingId) updateExpense(editingId, payload);
+      else saveExpense(payload);
+      setExpenses(getExpenses());
+      resetForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    }
   };
+
 
 
   const startEdit = (e: Expense) => {
