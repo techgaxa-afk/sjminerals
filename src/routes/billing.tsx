@@ -26,6 +26,10 @@ const TIPS_OPTIONS = [
 
 function BillingPage() {
   const products = getProducts();
+  const { hasRole } = useUserRoles();
+  const canBackdate = (hasRole("admin") || hasRole("staff")) && getAllowBackdatedBills();
+  const today = new Date().toISOString().slice(0, 10);
+  const [billDate, setBillDate] = useState(today);
   const [items, setItems] = useState<BillItem[]>([]);
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
@@ -47,6 +51,7 @@ function BillingPage() {
   const [newVeh, setNewVeh] = useState({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
   type Suggestion = { company: Company; vehicle: Vehicle };
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+
 
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
