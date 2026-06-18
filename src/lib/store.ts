@@ -376,6 +376,17 @@ export async function loadAll(): Promise<void> {
         `UI expects: ${EXPENSE_CATEGORIES.join(", ")}.`,
       );
     }
+    const unknownProductCategories = new Set<string>();
+    for (const row of [...(products.data ?? []), ...(billItems.data ?? [])]) {
+      if (row?.product_category && !isProductCategory(row.product_category)) unknownProductCategories.add(row.product_category);
+    }
+    if (unknownProductCategories.size > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[product-categories] DB has categories not in UI: ${[...unknownProductCategories].join(", ")}. ` +
+        `UI expects: ${PRODUCT_CATEGORIES.join(", ")}.`,
+      );
+    }
     cache.credit_adjustments = (adjustments.data ?? []).map(mapCreditAdjustment);
     cache.vehicle_maintenance = (vehMaint.data ?? []).map(mapVehicleMaintenance);
     cache.vehicle_documents = (vehDocs.data ?? []).map(mapVehicleDocument);
