@@ -185,6 +185,8 @@ function HitachiPage() {
   const resetMachineForm = () => {
     setShowMachineForm(false); setEditMachineId(null);
     setMachineName(""); setMachineType("owned"); setMachineRentalRate("");
+    setMachinePurchaseDate(""); setMachineEngineNumber("");
+    setMachineOwnerName(""); setMachineOwnerPhone(""); setMachineRemarks("");
   };
 
   const handleSaveMachine = () => {
@@ -195,6 +197,11 @@ function HitachiPage() {
       hourlyRate: 0, // legacy column, unused under new rules
       type: machineType,
       rentalRate: machineType === "rented" ? Number(machineRentalRate || 0) : 0,
+      purchaseDate: machineType === "owned" ? (machinePurchaseDate || undefined) : undefined,
+      engineNumber: machineType === "owned" ? (machineEngineNumber.trim() || undefined) : undefined,
+      ownerName: machineType === "rented" ? (machineOwnerName.trim() || undefined) : undefined,
+      ownerPhone: machineType === "rented" ? (machineOwnerPhone.trim() || undefined) : undefined,
+      remarks: machineRemarks.trim() || undefined,
     };
     if (editMachineId) updateHitachiMachine(editMachineId, data);
     else saveHitachiMachine(data);
@@ -206,6 +213,11 @@ function HitachiPage() {
     setEditMachineId(m.id); setMachineName(m.name);
     setMachineType(m.type === "rented" ? "rented" : "owned");
     setMachineRentalRate(m.type === "rented" ? String(m.rentalRate ?? "") : "");
+    setMachinePurchaseDate(m.purchaseDate ?? "");
+    setMachineEngineNumber(m.engineNumber ?? "");
+    setMachineOwnerName(m.ownerName ?? "");
+    setMachineOwnerPhone(m.ownerPhone ?? "");
+    setMachineRemarks(m.remarks ?? "");
     setShowMachineForm(true);
   };
 
