@@ -119,7 +119,7 @@ function ReportsPage() {
   useMemo(() => { navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, tab: reportType }), replace: true }); }, [reportType]); // eslint-disable-line
 
 
-  const allBillsInRange = useMemo(() => getBills().filter((b) => (new Date(b.createdAt) >= start && new Date(b.createdAt) <= end)), [start, end]);
+  const allBillsInRange = useMemo(() => getBills().filter((b) => (getBillRefMs(b) >= start.getTime() && getBillRefMs(b) <= end.getTime())), [start, end]);
   const passStats = useMemo(() => {
     const passBills = allBillsInRange.filter((b) => b.passEnabled);
     return {
@@ -334,7 +334,7 @@ function ReportsPage() {
     getAllCompanyPayments().filter((p) => p.status !== "reversed").forEach((p) => {
       const i = idx(new Date(p.paymentDate)); if (i >= 0) months[i].collected += p.amount;
     });
-    getBills().forEach((b) => { const i = idx(new Date(b.createdAt)); if (i >= 0) months[i].invoiced += b.totalAmount || 0; });
+    getBills().forEach((b) => { const i = idx(new Date(getBillRefDate(b) + "T00:00:00")); if (i >= 0) months[i].invoiced += b.totalAmount || 0; });
     let running = 0;
     months.forEach((m) => { running += m.invoiced - m.collected; m.outstanding = Math.max(0, running); m.rate = m.invoiced > 0 ? Math.round((m.collected / m.invoiced) * 100) : 0; });
     return { monthly: months };
