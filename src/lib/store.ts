@@ -468,6 +468,27 @@ export function deleteProduct(id: string): void {
   bg(supabase.from("products").delete().eq("id", id));
 }
 
+// Product category sales (quantity-only). Uses the bill_item category snapshot when
+// present; otherwise falls back to the current product's category. Historical bill data
+// is never mutated — uncategorized items simply don't contribute to category totals.
+export function getProductCategorySales(start: Date, end: Date): Record<ProductCategory, { quantity: number; billIds: Set<string> }> {
+  const out: Record<ProductCategory, { quantity: number; billIds: Set<string> }> = {
+    BOULDERS: { quantity: 0, billIds: new Set() },
+    "K.K": { quantity: 0, billIds: new Set() },
+  };
+  const productCat = new Map(cache.products.map((p) => [p.id, p.productCategory ?? null] as const));
+  const billDate = new Map(cache.bills.map((b) => [b.id, new Date(b.createdAt)] as const));
+  for (const item of cache.billItems) {
+    const when = billDate.get(item.billId);
+    if (!when || when < start || when > end) continue;
+    const cat = (item as any).productCategory ?? productCat.get(item.productId) ?? null;
+    if (cat !== "BOULDERS" && cat !== "K.K") continue;
+    out[cat as ProductCategory].quantity += Number(item.quantity) || 0;
+    out[cat as ProductCategory].billIds.add(item.billId);
+  }
+  return out;
+}
+
 // ============ Companies ============
 export function getCompanies(): Company[] { return cache.companies.slice(); }
 export async function saveCompany(c: Omit<Company, "id" | "createdAt">): Promise<Company> {
