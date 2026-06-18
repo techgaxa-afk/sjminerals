@@ -4,10 +4,12 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   getProducts, getCompanies, saveBill, saveExpense,
-  getVehicles, saveVehicle,
+  getVehicles, saveVehicle, getAllowBackdatedBills,
   type BillItem, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { useUserRoles } from "@/hooks/use-roles";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, ChevronDown, ChevronRight, Calendar } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/billing")({
