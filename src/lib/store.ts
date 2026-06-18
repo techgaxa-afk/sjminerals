@@ -51,7 +51,8 @@ export interface CompanyPayment {
   reversedAt?: string;
   createdAt: string;
 }
-export interface HitachiMachine { id: string; name: string; hourlyRate: number; createdAt: string; }
+export type HitachiMachineType = "owned" | "rented";
+export interface HitachiMachine { id: string; name: string; hourlyRate: number; type: HitachiMachineType; rentalRate: number; createdAt: string; }
 export interface Operator { id: string; name: string; phone: string; hourlySalaryRate: number; createdAt: string; }
 export interface HitachiEntry {
   id: string; machineId: string; machineName: string; date: string;
