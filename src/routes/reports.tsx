@@ -230,7 +230,7 @@ function ReportsPage() {
       const totalHrs = oEntries.reduce((s, e) => s + e.totalHours, 0);
       const totalSalary = oEntries.reduce((s, e) => s + e.operatorSalary, 0);
       return {
-        id: o.id, name: o.name, sub: `₹${o.hourlySalaryRate}/hr`,
+        id: o.id, name: o.name, sub: `N:₹${o.normalShiftSalary || o.hourlySalaryRate} / S:₹${o.singleShiftSalary}`,
         trips: oEntries.length, revenue: totalHrs, outstanding: totalSalary, isOperator: true,
       };
     }).filter((r) => r.trips > 0 || r.name.toLowerCase().includes(searchText.toLowerCase()));
