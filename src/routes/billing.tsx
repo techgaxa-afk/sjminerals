@@ -7,7 +7,7 @@ import {
   getVehicles, saveVehicle,
   type BillItem, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search } from "lucide-react";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, ChevronDown, ChevronRight } from "lucide-react";
 
 
 export const Route = createFileRoute("/billing")({
@@ -48,6 +48,11 @@ function BillingPage() {
 
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+  const sortByName = (a: typeof products[number], b: typeof products[number]) => a.name.localeCompare(b.name);
+  const bouldersProducts = useMemo(() => filtered.filter((p) => p.productCategory === "BOULDERS").sort(sortByName), [filtered]);
+  const kkProducts = useMemo(() => filtered.filter((p) => p.productCategory === "K.K").sort(sortByName), [filtered]);
+  const otherProducts = useMemo(() => filtered.filter((p) => p.productCategory !== "BOULDERS" && p.productCategory !== "K.K").sort(sortByName), [filtered]);
+  const [othersOpen, setOthersOpen] = useState(false);
   const total = items.reduce((s, i) => s + i.total, 0);
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
   const tipsBase = useMemo(() => vehicleCapacity > 0 ? vehicleCapacity : totalQty, [vehicleCapacity, totalQty]);
@@ -266,27 +271,25 @@ function BillingPage() {
         <div>
           <label className="field-label">Add Products</label>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring mb-2" />
-          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4">
-            {filtered.map((p) => {
-              const selected = items.some((i) => i.productId === p.id);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => addItem(p.id)}
-                  className={`stat-card text-left transition-all min-h-[88px] flex flex-col justify-center p-4 active:scale-[0.98] ${
-                    selected
-                      ? "border-2 border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
-                      : "border-2 border-transparent hover:border-primary/50"
-                  }`}
-                >
-                  <p className="font-semibold text-base text-foreground leading-tight">{p.name}</p>
-                  <p className="text-sm font-medium text-primary mt-1">₹{p.price}<span className="text-xs text-muted-foreground font-normal">/{p.unit}</span></p>
-                </button>
-              );
-            })}
-            {filtered.length === 0 && <p className="col-span-full text-sm text-muted-foreground text-center py-4">No products found.</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ProductGrid title="BOULDERS" products={bouldersProducts} items={items} onAdd={addItem} />
+            <ProductGrid title="K.K" products={kkProducts} items={items} onAdd={addItem} />
           </div>
-
+          {otherProducts.length > 0 && (
+            <div className="mt-3 border border-border rounded-md overflow-hidden">
+              <button type="button" onClick={() => setOthersOpen((o) => !o)} className="w-full flex items-center gap-2 px-3 py-2 bg-secondary/60 hover:bg-secondary text-sm font-semibold text-foreground">
+                {othersOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <span>Others</span>
+                <span className="ml-auto text-xs text-muted-foreground">{otherProducts.length}</span>
+              </button>
+              {othersOpen && (
+                <div className="p-3">
+                  <ProductGrid products={otherProducts} items={items} onAdd={addItem} />
+                </div>
+              )}
+            </div>
+          )}
+          {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No products found.</p>}
         </div>
 
         {items.length > 0 && (
@@ -417,3 +420,35 @@ function BillingPage() {
     </AppLayout>
   );
 }
+
+type ProductLite = ReturnType<typeof getProducts>[number];
+function ProductGrid({ title, products, items, onAdd }: { title?: string; products: ProductLite[]; items: BillItem[]; onAdd: (id: string) => void }) {
+  return (
+    <div className="space-y-2">
+      {title && (
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">{title}</div>
+      )}
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
+        {products.map((p) => {
+          const selected = items.some((i) => i.productId === p.id);
+          return (
+            <button
+              key={p.id}
+              onClick={() => onAdd(p.id)}
+              className={`stat-card text-left transition-all min-h-[88px] flex flex-col justify-center p-4 active:scale-[0.98] ${
+                selected
+                  ? "border-2 border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                  : "border-2 border-transparent hover:border-primary/50"
+              }`}
+            >
+              <p className="font-semibold text-base text-foreground leading-tight">{p.name}</p>
+              <p className="text-sm font-medium text-primary mt-1">₹{p.price}<span className="text-xs text-muted-foreground font-normal">/{p.unit}</span></p>
+            </button>
+          );
+        })}
+        {products.length === 0 && <p className="col-span-full text-xs text-muted-foreground text-center py-2">None</p>}
+      </div>
+    </div>
+  );
+}
+
