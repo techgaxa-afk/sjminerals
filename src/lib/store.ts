@@ -1211,11 +1211,20 @@ export function getAvailableCash(): number {
 export function getAvailableUpi(): number {
   return getUpiSales() + getUpiCollections() - getUpiExpenses();
 }
+function validateHitachiAllocation(e: { category: ExpenseCategory; allocateTo?: ExpenseAllocateTo; hitachiMachineId?: string }) {
+  if (e.allocateTo === "hitachi") {
+    if (!e.hitachiMachineId) throw new Error("Select a Hitachi machine to allocate this expense to.");
+    if (!_isHitachiAllocatable(e.category)) {
+      throw new Error(`Category "${e.category}" cannot be allocated to a Hitachi machine.`);
+    }
+  }
+}
 export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
   if (!_isExpenseCategory(e.category)) {
     throw new Error(`Invalid expense category "${String(e.category)}".`);
   }
-  const expense: Expense = { ...e, id: uid(), createdAt: new Date().toISOString() };
+  validateHitachiAllocation(e);
+  const expense: Expense = { ...e, allocateTo: e.allocateTo ?? "general", id: uid(), createdAt: new Date().toISOString() };
   cache.expenses.push(expense); bump();
   bg(supabase.from("expenses").insert(expenseToDb(expense)));
   return expense;
@@ -1223,6 +1232,11 @@ export function saveExpense(e: Omit<Expense, "id" | "createdAt">): Expense {
 export function updateExpense(id: string, updates: Partial<Expense>): void {
   if (updates.category !== undefined && !_isExpenseCategory(updates.category)) {
     throw new Error(`Invalid expense category "${String(updates.category)}".`);
+  }
+  const existing = cache.expenses.find((e) => e.id === id);
+  if (existing) {
+    const merged = { ...existing, ...updates };
+    validateHitachiAllocation(merged);
   }
   cache.expenses = cache.expenses.map((e) => (e.id === id ? { ...e, ...updates } : e));
   bump();
