@@ -559,3 +559,28 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+function AdminSettings() {
+  const [allow, setAllow] = useState<boolean>(() => {
+    try {
+      const v = typeof window !== "undefined" ? window.localStorage.getItem("settings.allowBackdated") : null;
+      return v === null ? true : v === "1";
+    } catch { return true; }
+  });
+  const toggle = (v: boolean) => {
+    setAllow(v);
+    try { window.localStorage.setItem("settings.allowBackdated", v ? "1" : "0"); } catch { /* noop */ }
+  };
+  return (
+    <div className="rounded-md border border-border bg-card p-3 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <p className="text-sm font-medium">Allow Backdated Bills</p>
+        <p className="text-xs text-muted-foreground">When disabled, all users (including admin/staff) can only enter bills for today's date.</p>
+      </div>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={allow} onChange={(e) => toggle(e.target.checked)} className="h-4 w-4 accent-primary" />
+        <span className="text-sm">{allow ? "Enabled" : "Disabled"}</span>
+      </label>
+    </div>
+  );
+}
