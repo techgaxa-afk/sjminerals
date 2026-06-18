@@ -37,7 +37,9 @@ interface EditForm {
   upiAmount: number;
   passEnabled: boolean;
   passAmount: number;
+  billDate: string;
 }
+
 
 const DEFAULT_PASS_AMOUNT = 1600;
 
