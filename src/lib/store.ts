@@ -42,7 +42,12 @@ export interface Bill {
   splitPayment?: boolean; cashAmount?: number; upiAmount?: number;
   passEnabled?: boolean; passAmount?: number;
   createdAt: string;
+  billDate: string;          // YYYY-MM-DD — business date for reporting
+  createdBy?: string | null; // auth user uuid
+  updatedBy?: string | null;
+  updatedAt?: string | null;
 }
+
 export interface Payment {
   id: string; billId: string; companyId: string; amount: number;
   date: string; notes: string; createdAt: string;
