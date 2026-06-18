@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.bills_enforce_backdate_and_audit() FROM PUBLIC, anon, authenticated;
