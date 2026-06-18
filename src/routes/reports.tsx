@@ -20,7 +20,8 @@ type Preset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMo
 
 const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   fuel: "Fuel", salary: "Salary", tips: "Tips", food: "Food",
-  maintenance: "Maintenance", repairs: "Repairs", rental: "Rental", miscellaneous: "Other",
+  maintenance: "Maintenance", repairs: "Repairs", rental: "Rental",
+  pass_purchase: "Pass Purchase", miscellaneous: "Other",
 };
 
 type ReportSearch = { tab?: ReportType; from?: string; to?: string; preset?: Preset };
