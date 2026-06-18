@@ -106,6 +106,8 @@ function ExpensesPage() {
   const startEdit = (e: Expense) => {
     setEditingId(e.id); setCategory(e.category); setAmount(String(e.amount));
     setDate(e.date); setNotes(e.notes); setPaymentMode(e.paymentMode || "cash");
+    setAllocateTo(e.allocateTo ?? "general");
+    setHitachiMachineId(e.hitachiMachineId ?? "");
     setError(null); setShowForm(true);
   };
 
