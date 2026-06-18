@@ -280,6 +280,8 @@ const mapExpense = (r: any): Expense => ({
   paymentMode: (r.payment_mode === "upi" ? "upi" : "cash"),
   linkedBillId: r.linked_bill_id ?? undefined, linkedCompanyId: r.linked_company_id ?? undefined,
   linkedOperatorId: r.linked_operator_id ?? undefined, linkedMachineId: r.linked_machine_id ?? undefined,
+  allocateTo: r.allocate_to === "hitachi" ? "hitachi" : "general",
+  hitachiMachineId: r.hitachi_machine_id ?? undefined,
   createdAt: r.created_at,
 });
 const expenseToDb = (e: Expense) => ({
@@ -287,6 +289,8 @@ const expenseToDb = (e: Expense) => ({
   payment_mode: e.paymentMode || "cash",
   linked_bill_id: e.linkedBillId || null, linked_company_id: e.linkedCompanyId || null,
   linked_operator_id: e.linkedOperatorId || null, linked_machine_id: e.linkedMachineId || null,
+  allocate_to: e.allocateTo ?? "general",
+  hitachi_machine_id: e.hitachiMachineId || null,
 });
 const mapVehicleMaintenance = (r: any): VehicleMaintenance => ({
   id: r.id, vehicleId: r.vehicle_id,
