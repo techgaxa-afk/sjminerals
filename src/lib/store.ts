@@ -1131,17 +1131,19 @@ export interface HitachiCostRow {
   machineName: string;
   type: HitachiMachineType;
   hours: number;
-  revenue: number;
+  /** Hours × Internal Hourly Rate — internal benchmark only, NOT customer revenue. */
+  operationalValue: number;
   fuel: number;
   maintenance: number;
   salary: number;
   repairs: number;
   rental: number;
   total: number;
-  profit: number;
   costPerHour: number | null;
-  revenuePerHour: number | null;
-  profitPerHour: number | null;
+  fuelPerHour: number | null;
+  maintenancePerHour: number | null;
+  repairsPerHour: number | null;
+  operationalValuePerHour: number | null;
 }
 function inRange(dateStr: string, start?: Date, end?: Date): boolean {
   if (!start && !end) return true;
@@ -1158,7 +1160,7 @@ export function getHitachiCostBreakdown(start?: Date, end?: Date): HitachiCostRo
     const mEntries = entries.filter((e) => e.machineId === m.id);
     const mExp = expenses.filter((e) => e.hitachiMachineId === m.id);
     const hours = mEntries.reduce((s, e) => s + (e.totalHours || 0), 0);
-    const revenue = mEntries.reduce((s, e) => s + (e.machineRevenue || 0), 0);
+    const operationalValue = mEntries.reduce((s, e) => s + (e.machineRevenue || 0), 0);
     const entrySalary = mEntries.reduce((s, e) => s + (e.operatorSalary || 0), 0);
     const sumCat = (cat: ExpenseCategory) => mExp.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
     const fuel = sumCat("fuel");
@@ -1173,13 +1175,14 @@ export function getHitachiCostBreakdown(start?: Date, end?: Date): HitachiCostRo
     const total = type === "owned"
       ? fuel + maintenance + salary + repairs
       : rental + fuel + salary + repairs;
-    const profit = revenue - total;
     return {
       machineId: m.id, machineName: m.name, type,
-      hours, revenue, fuel, maintenance, salary, repairs, rental, total, profit,
+      hours, operationalValue, fuel, maintenance, salary, repairs, rental, total,
       costPerHour: hours > 0 ? total / hours : null,
-      revenuePerHour: hours > 0 ? revenue / hours : null,
-      profitPerHour: hours > 0 ? profit / hours : null,
+      fuelPerHour: hours > 0 ? fuel / hours : null,
+      maintenancePerHour: hours > 0 ? maintenance / hours : null,
+      repairsPerHour: hours > 0 ? repairs / hours : null,
+      operationalValuePerHour: hours > 0 ? operationalValue / hours : null,
     };
   });
 }
