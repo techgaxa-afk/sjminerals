@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses, getCashCollections, getUpiCollections, getAvailableCash, getAvailableUpi, getRecentActivity, getProductCategorySales, type ActivityKind } from "../lib/store";
+import { getBills, getExpenses, getBillRefDate, getBillRefMs, getBackdatedBillStats, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses, getCashCollections, getUpiCollections, getAvailableCash, getAvailableUpi, getRecentActivity, getProductCategorySales, type ActivityKind } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock, Activity, RotateCcw, Package } from "lucide-react";
@@ -34,7 +34,7 @@ function DashboardPage() {
   };
 
   const stats = useMemo(() => {
-    const bills = getBills().filter((b) => new Date(b.createdAt) >= start);
+    const bills = getBills().filter((b) => getBillRefMs(b) >= start.getTime());
     const expenses = getExpenses().filter((e) => new Date(e.date) >= start);
     const hitachiEntries = getHitachiEntries().filter((e) => new Date(e.createdAt) >= start);
     const payments = getPayments().filter((p) => new Date(p.createdAt) >= start);
@@ -72,7 +72,7 @@ function DashboardPage() {
 
     const revenueByDay: Record<string, number> = {};
     bills.forEach((b) => {
-      const day = format(parseISO(b.createdAt), "MMM dd");
+      const day = format(parseISO(getBillRefDate(b) + "T00:00:00"), "MMM dd");
       revenueByDay[day] = (revenueByDay[day] || 0) + b.totalAmount;
     });
 
@@ -112,7 +112,7 @@ function DashboardPage() {
     const creditExceeded = companies.filter((c) => (c.creditLimit || 0) > 0 && getCompanyOutstanding(c.id) > (c.creditLimit || 0));
     const allBills = getBills();
     const breakdown = (since: Date) => {
-      const list = allBills.filter((b) => new Date(b.createdAt).getTime() >= since.getTime());
+      const list = allBills.filter((b) => getBillRefMs(b) >= since.getTime());
       let cash = 0, upi = 0, credit = 0;
       list.forEach((b) => {
         if (b.paymentMode === "credit" || (b.outstandingAmount || 0) > 0) credit++;
