@@ -4,10 +4,12 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   getProducts, getCompanies, saveBill, saveExpense,
-  getVehicles, saveVehicle,
+  getVehicles, saveVehicle, getAllowBackdatedBills,
   type BillItem, type Company, type Vehicle,
 } from "../lib/store";
-import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { useUserRoles } from "@/hooks/use-roles";
+import { Plus, Minus, ShoppingCart, CreditCard, Banknote, Check, X, Truck, Coins, Search, ChevronDown, ChevronRight, Calendar } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/billing")({
@@ -24,6 +26,11 @@ const TIPS_OPTIONS = [
 
 function BillingPage() {
   const products = getProducts();
+  const { isAdmin, isStaff } = useUserRoles();
+  const canBackdate = (isAdmin || isStaff) && getAllowBackdatedBills();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const [billDate, setBillDate] = useState(today);
   const [items, setItems] = useState<BillItem[]>([]);
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
@@ -45,6 +52,7 @@ function BillingPage() {
   const [newVeh, setNewVeh] = useState({ companyId: "", vehicleNumber: "", driverName: "", vehicleCapacity: "" });
   type Suggestion = { company: Company; vehicle: Vehicle };
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+
 
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -170,6 +178,8 @@ function BillingPage() {
 
   const handleSave = async () => {
     if (items.length === 0) return;
+    if (billDate > today) { toast.error("Bill Date cannot be in the future"); return; }
+    if (!canBackdate && billDate !== today) { toast.error("You are not allowed to backdate bills"); return; }
     const effectiveMode: "cash" | "upi" | "credit" | "split" = splitEnabled ? "split" : paymentMode;
     const cashAmt = splitEnabled ? splitCashNum : (paymentMode === "cash" ? paid : 0);
     const upiAmt = splitEnabled ? splitUpiNum : (paymentMode === "upi" ? paid : 0);
@@ -183,11 +193,12 @@ function BillingPage() {
         tipsRate, tipsAmount: totalTips,
         splitPayment: splitEnabled, cashAmount: cashAmt, upiAmount: upiAmt,
         passEnabled, passAmount: passCharge,
+        billDate,
       });
       if (totalTips > 0) {
         saveExpense({
           category: "tips", amount: totalTips,
-          date: new Date().toISOString().split("T")[0],
+          date: billDate,
           notes: `Tips ₹${tipsRate}/unit × ${tipsBase} — ${companyName.trim() || vehicleNumber.trim() || "Walk-in"} — Bill #${bill.id}`,
           paymentMode: "cash",
           linkedBillId: bill.id, linkedCompanyId: selectedCompany?.id,
@@ -200,11 +211,13 @@ function BillingPage() {
         setVehicleSearch(""); setSuggestions([]); setTipsRate(0);
         setSplitEnabled(false); setSplitCash(""); setSplitUpi("");
         setPassEnabled(false); setPassAmount(DEFAULT_PASS_AMOUNT);
+        setBillDate(today);
       }, 2000);
     } catch (error) {
       console.error("BILLING SAVE UI FAILED", error);
     }
   };
+
 
   return (
     <AppLayout>
@@ -266,7 +279,30 @@ function BillingPage() {
               </div>
             </div>
           )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 items-end">
+            <div>
+              <label className="field-label flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-primary" /> Bill Date *</label>
+              <input
+                type="date"
+                value={billDate}
+                max={today}
+                disabled={!canBackdate}
+                onChange={(e) => setBillDate(e.target.value)}
+                className="w-full sm:w-48 rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                required
+              />
+            </div>
+            {billDate !== today && (
+              <p className="text-xs text-warning">Backdated entry — recorded as {billDate}</p>
+            )}
+            {!canBackdate && (
+              <p className="text-[11px] text-muted-foreground">Only admin/staff can change Bill Date (locked to today).</p>
+            )}
+          </div>
         </div>
+
+
 
         <div>
           <label className="field-label">Add Products</label>

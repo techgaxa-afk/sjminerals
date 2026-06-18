@@ -1,95 +1,81 @@
-# Hitachi Cost Analytics & Cost-Per-Hour System
+## Bill Date & Audit Trail — Implementation Plan
 
-Owned Hitachis are cost centers (not revenue). Material sales remain the only revenue source. This plan adds a machine type, expense allocation to a machine, and a new analytics tab with cost-per-hour math, alerts, filters, and exports.
+### 1. Database migration
+Add columns to `public.bills`:
+- `bill_date date NOT NULL DEFAULT CURRENT_DATE`
+- `created_by uuid NULL` (references auth.users)
+- `updated_by uuid NULL`
+- `updated_at timestamptz NULL`
 
-## 1. Database changes (one migration)
+Backfill: `UPDATE bills SET bill_date = DATE(created_at) WHERE bill_date IS NULL;` (run as part of migration before NOT NULL).
 
-`hitachi_machines`
-- add `type text not null default 'owned' check (type in ('owned','rented'))`
-- add `rental_rate numeric` (per-hour rental, used for rented machines when no explicit rental expense is logged)
+Index: `CREATE INDEX bills_bill_date_idx ON public.bills(bill_date);`
 
-`expenses`
-- add `allocate_to text not null default 'general' check (allocate_to in ('general','hitachi'))`
-- add `hitachi_machine_id uuid references public.hitachi_machines(id) on delete set null`
-- add `subcategory text` (free-form: fuel/maintenance/salary/repairs/rental/other — already covered by `category` but kept for clarity if needed; otherwise reuse existing `category`)
+Add trigger `bills_set_audit_fields` BEFORE INSERT/UPDATE:
+- On INSERT: set `created_by = auth.uid()` if null
+- On UPDATE: set `updated_by = auth.uid()`, `updated_at = now()` (never touches created_*).
 
-Index: `create index on public.expenses (hitachi_machine_id) where hitachi_machine_id is not null;`
+Audit log entries written via existing `log_audit_event` from the app on create/update/delete (entity_type='bill').
 
-RLS unchanged (existing expenses policies still apply). No new tables, so no new GRANTs needed.
+No changes to invoice numbers, totals, payments, ledgers.
 
-## 2. Shared constants
+### 2. Types
+Regenerate `src/integrations/supabase/types.ts` after migration approval (auto).
 
-Extend `src/lib/expense-categories.ts`:
-- add `repairs` and `rental` to `EXPENSE_CATEGORIES`.
-- export `HITACHI_ALLOCATABLE_CATEGORIES = ["fuel","maintenance","salary","repairs","rental"]`.
+### 3. Store layer (`src/lib/store.ts`)
+- Extend `Bill` type with `billDate: string`, `createdBy?: string`, `updatedBy?: string`, `updatedAt?: string`.
+- `saveBill()`: include `bill_date`, `created_by` on insert; `updated_by`, `updated_at` on update.
+- All aggregations that currently group by `createdAt` switch to `billDate ?? DATE(createdAt)`:
+  - Dashboard daily/weekly/monthly
+  - Reports (daily/weekly/monthly/custom/category/vehicle/company/aging/ledger/profitability/pass collection)
+  - Profitability page
+  - Cashbook (keep payment date logic untouched; only bill-derived rows use billDate)
+- Add helper `getBackdatedBillStats()` returning today & this-month counts where `billDate < DATE(createdAt)`.
 
-Add runtime warning at startup if DB has unknown categories (already implemented for current set).
+### 4. UI — New Bill (`src/routes/billing.tsx`)
+- Add mandatory `<input type="date">` Bill Date, default today, `max={today}`.
+- Validate: not future. Block submit otherwise.
+- Role gating: if user lacks `admin`/`staff` AND date < today → disable date input (operators must use today).
 
-## 3. Hitachi master UI (`src/routes/hitachi.tsx`)
+### 5. UI — Bills list (`src/routes/bills.tsx`)
+- Columns: Bill No, Bill Date, Customer, Vehicle, Amount, Created On, Created By.
+- Sort toggles for Bill Date & Created On.
+- Filter radio "Date Type: Bill Date / Created Date" (default Bill Date) applied to existing date-range filter.
+- Resolve `created_by` UUID → display name via `profiles` lookup (already loaded for users page; add lightweight cache in store).
 
-In the machine create/edit dialog:
-- Type radio: Owned / Rented.
-- Rental rate input (₹/hr), shown only for Rented.
+### 6. UI — Bill detail / receipt modal (`src/components/ReceiptModal.tsx`)
+- Show Bill Date, Created On, Created By, Last Updated On, Last Updated By.
 
-## 4. Expense form (`src/routes/expenses.tsx`)
+### 7. UI — Edit bill
+- Allow Bill Date edit (same role rules as create).
+- On save, emit audit log entry capturing old → new bill_date when changed.
 
-Add to create/edit dialog:
-- "Allocate To" select: `General Expense` or one machine from the active hitachi list.
-- When a machine is selected, restrict category options to `HITACHI_ALLOCATABLE_CATEGORIES`.
-- Save `allocate_to` + `hitachi_machine_id` via store.
+### 8. PDF (`src/lib/pdf.ts`)
+- Render `Bill Date: <billDate>` and `Printed On: <today>` in header.
 
-Filters: add "Machine" filter on the expenses list.
+### 9. Audit log
+- On create: `log_audit_event('bill.create', 'bill', billId, { invoiceNo, billDate })`
+- On update: include `{ changes: { billDate: [old,new], ... } }`
+- On delete: `log_audit_event('bill.delete', 'bill', billId, { invoiceNo })`
 
-## 5. New Analytics tab in Reports
+### 10. Dashboard card
+- Add "Backdated Bills" card on `src/routes/index.tsx`:
+  - Today: N bills with `billDate < today_of_creation`
+  - Month: N
+  - Click → `/bills?backdated=1` (filter pre-applied)
 
-Add `"hitachi"` to `ReportType` in `src/routes/reports.tsx`. Tab label: "Hitachi Analytics". Reuses existing date filter (Daily/Weekly/Monthly/Custom) and export plumbing.
+### 11. Admin setting "Allow Backdated Bills"
+- Lightweight: store in `localStorage` (`settings.allowBackdated`, default true), surfaced on `/users` admin page as a toggle (admin only). When disabled, Bill Date input is locked to today for everyone.
+- Operators/viewers always locked to today regardless of setting.
 
-### Summary cards
-- Total Hitachi Hours (sum of `hitachi_entries.hours` in range)
-- Total Fuel Cost
-- Total Maintenance Cost
-- Total Salary Cost
-- Average Cost Per Hour (total cost across all machines ÷ total hours)
+### 12. Safety
+- Migration backfills before adding NOT NULL.
+- All grouping uses `billDate ?? DATE(createdAt)` fallback.
+- Invoice numbering, totals, payments, ledger SQL untouched.
+- TypeScript clean.
 
-### Machine performance table
-Columns: Machine, Type, Hours Worked, Fuel, Maintenance, Salary, Rental, Total Cost, Cost/Hour.
-
-Formulas:
-- Owned: `total = fuel + maintenance + salary + repairs`
-- Rented: `total = rental + fuel + salary + repairs` where `rental` = sum of category=rental expenses allocated to that machine, plus `rental_rate * hours` if no rental expenses exist
-- `cost_per_hour = total / hours` (guard divide-by-zero → display "—")
-
-### Sub-sections
-- **Maintenance analytics**: lifetime maintenance, current month maintenance, maintenance/hr.
-- **Fuel analytics**: fuel cost, fuel/hr.
-
-### Alerts
-- High maintenance: machine maintenance/hr > 1.5× fleet median.
-- High fuel: machine fuel/hr > 1.5× fleet median.
-- Zero hours: machines with no entries in range.
-
-### Exports
-- PDF (print window, reuse pattern from expenses report)
-- Excel (.xls HTML blob)
-- CSV
-
-## 6. Store layer (`src/lib/store.ts`)
-
-- Extend `Hitachi` type with `type`, `rental_rate`.
-- Extend `Expense` type with `allocate_to`, `hitachi_machine_id`.
-- Add `getHitachiCostBreakdown(range, machineId?)` helper that returns per-machine aggregates used by the analytics tab.
-- Validation: block save if `allocate_to='hitachi'` but `hitachi_machine_id` missing, or if category not in `HITACHI_ALLOCATABLE_CATEGORIES` when allocated to a machine.
-
-## 7. Verification
-
-- `bunx tsc --noEmit` clean
-- Add a hitachi machine (owned + rented), log fuel/maintenance/salary/repairs/rental expenses against it, log hitachi hours, then confirm analytics totals and cost/hour match hand calculation
-- Exports open in PDF/Excel/CSV
-
-## Files touched
-- `supabase/migrations/<new>.sql` (created)
-- `src/lib/expense-categories.ts`
-- `src/lib/store.ts`
-- `src/routes/hitachi.tsx`
-- `src/routes/expenses.tsx`
-- `src/routes/reports.tsx`
+### Execution order
+1. Create migration (await approval).
+2. Update `store.ts` (Bill type, save logic, aggregations, helpers).
+3. Update billing.tsx, bills.tsx, ReceiptModal, pdf.ts, index.tsx (dashboard card), users.tsx (admin toggle).
+4. Verify build.

@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   getBills, updateBill, deleteBill, savePayment, getPaymentsByBill,
   getProducts, getExpensesByBill, saveExpense, deleteExpense,
+  getBillRefDate, getUserNameCached, prefetchUserNames, getAllowBackdatedBills,
   type Bill, type BillItem,
 } from "../lib/store";
-import { Search, Banknote, CreditCard, FileDown, Truck, AlertTriangle, X, Pencil, Check, Trash2, Eye, Plus, Minus, Coins, CheckSquare } from "lucide-react";
+import { useUserRoles } from "@/hooks/use-roles";
+import { Search, Banknote, CreditCard, FileDown, Truck, AlertTriangle, X, Pencil, Check, Trash2, Eye, Plus, Minus, Coins, CheckSquare, Calendar } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { exportInvoicePDF } from "../lib/pdf";
+
 
 export const Route = createFileRoute("/bills")({
   component: BillsPage,
@@ -34,15 +37,34 @@ interface EditForm {
   upiAmount: number;
   passEnabled: boolean;
   passAmount: number;
+  billDate: string;
 }
+
 
 const DEFAULT_PASS_AMOUNT = 1600;
 
 function BillsPage() {
   const products = getProducts();
-  const [bills, setBills] = useState(() => getBills().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+  const { isAdmin, isStaff } = useUserRoles();
+  const canBackdate = (isAdmin || isStaff) && getAllowBackdatedBills();
+  const today = new Date().toISOString().slice(0, 10);
+
+  type SortKey = "billDate" | "createdAt";
+  type DateType = "billDate" | "createdAt";
+  const [sortKey, setSortKey] = useState<SortKey>("billDate");
+  const [dateType, setDateType] = useState<DateType>("billDate");
+
+  const sortBills = (rows: Bill[]) =>
+    [...rows].sort((a, b) => {
+      const av = sortKey === "billDate" ? new Date(getBillRefDate(a)).getTime() : new Date(a.createdAt).getTime();
+      const bv = sortKey === "billDate" ? new Date(getBillRefDate(b)).getTime() : new Date(b.createdAt).getTime();
+      return bv - av;
+    });
+
+  const [bills, setBills] = useState<Bill[]>(() => sortBills(getBills()));
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [backdatedOnly, setBackdatedOnly] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
   const [editBill, setEditBill] = useState<Bill | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
@@ -52,7 +74,21 @@ function BillsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
 
-  const refresh = () => setBills(getBills().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+  const refresh = () => setBills(sortBills(getBills()));
+
+  useEffect(() => { setBills((rows) => sortBills(rows)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [sortKey]);
+
+  useEffect(() => {
+    const ids = Array.from(new Set(bills.map((b) => b.createdBy).filter(Boolean) as string[]));
+    if (ids.length > 0) prefetchUserNames(ids);
+  }, [bills]);
+
+  // Pre-applied filter from dashboard link (?backdated=1)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("backdated") === "1") setBackdatedOnly(true);
+  }, []);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -71,8 +107,12 @@ function BillsPage() {
       b.id.includes(search) ||
       (b.vehicleNumber || "").toLowerCase().includes(q) ||
       (b.driverName || "").toLowerCase().includes(q);
-    const matchDate = !dateFilter || b.createdAt.startsWith(dateFilter);
-    return matchSearch && matchDate;
+    const matchDate = !dateFilter || (dateType === "billDate"
+      ? getBillRefDate(b).startsWith(dateFilter)
+      : b.createdAt.startsWith(dateFilter));
+    const matchBack = !backdatedOnly || (b.billDate && b.createdAt && b.billDate < b.createdAt.slice(0, 10));
+    return matchSearch && matchDate && matchBack;
+
   }), [bills, search, dateFilter]);
 
   const handlePayment = (billId: string, companyId?: string) => {
@@ -94,8 +134,10 @@ function BillsPage() {
       upiAmount: b.upiAmount ?? 0,
       passEnabled: !!b.passEnabled,
       passAmount: b.passAmount ?? DEFAULT_PASS_AMOUNT,
+      billDate: getBillRefDate(b),
     });
   };
+
 
   const editSubtotal = editForm ? editForm.items.reduce((s, i) => s + i.total, 0) : 0;
   const editTotalQty = editForm ? editForm.items.reduce((s, i) => s + i.quantity, 0) : 0;
@@ -139,6 +181,10 @@ function BillsPage() {
 
   const saveEdit = () => {
     if (!editBill || !editForm) return;
+    if (editForm.billDate > today) { alert("Bill Date cannot be in the future"); return; }
+    if (!canBackdate && editForm.billDate !== getBillRefDate(editBill)) {
+      alert("You are not allowed to change Bill Date"); return;
+    }
     const mode: "cash" | "upi" | "credit" | "split" = editForm.splitEnabled ? "split" : editForm.paymentMode;
     const paid = editPaid;
     const outstanding = Math.max(0, editGrandTotal - paid);
@@ -162,6 +208,7 @@ function BillsPage() {
       upiAmount: upiAmt,
       passEnabled: editForm.passEnabled,
       passAmount: editPassAmount,
+      billDate: editForm.billDate,
     });
 
     // Replace tips expense
@@ -169,7 +216,7 @@ function BillsPage() {
     if (editTipsAmount > 0) {
       saveExpense({
         category: "tips", amount: editTipsAmount,
-        date: new Date().toISOString().split("T")[0],
+        date: editForm.billDate,
         notes: `Tips ₹${editForm.tipsRate}/unit × ${editTipsBase} — ${editForm.companyName || editForm.vehicleNumber || "Walk-in"} — Bill #${editBill.id}`,
         paymentMode: "cash",
         linkedBillId: editBill.id, linkedCompanyId: editBill.companyId,
@@ -178,6 +225,7 @@ function BillsPage() {
 
     setEditBill(null); setEditForm(null); refresh();
   };
+
 
   const confirmDelete = () => {
     if (!deleteId) return;
@@ -238,6 +286,26 @@ function BillsPage() {
           <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
         </div>
 
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs">
+          <span className="font-medium text-muted-foreground">Date Type:</span>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="radio" checked={dateType === "billDate"} onChange={() => setDateType("billDate")} /> Bill Date
+          </label>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="radio" checked={dateType === "createdAt"} onChange={() => setDateType("createdAt")} /> Created Date
+          </label>
+          <span className="ml-3 font-medium text-muted-foreground">Sort:</span>
+          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="rounded border border-input bg-secondary px-2 py-1 text-xs">
+            <option value="billDate">Bill Date</option>
+            <option value="createdAt">Created On</option>
+          </select>
+          <label className="ml-auto flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" checked={backdatedOnly} onChange={(e) => setBackdatedOnly(e.target.checked)} />
+            Backdated only
+          </label>
+        </div>
+
+
         {filtered.length > 0 && (
           <div className="flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2">
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
@@ -262,7 +330,10 @@ function BillsPage() {
                   <p className="font-medium text-foreground truncate">{bill.companyName || "Walk-in"}</p>
                   {bill.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {bill.vehicleNumber} {bill.vehicleCapacity > 0 && `(${bill.vehicleCapacity}t)`}</p>}
                   {bill.driverName && <p className="text-xs text-muted-foreground">Driver: {bill.driverName}</p>}
-                  <p className="text-xs text-muted-foreground">{format(parseISO(bill.createdAt), "dd MMM yyyy, hh:mm a")}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> Bill: {format(parseISO(getBillRefDate(bill) + "T00:00:00"), "dd MMM yyyy")}{bill.billDate && bill.createdAt && bill.billDate < bill.createdAt.slice(0,10) && <span className="ml-1 rounded bg-warning/15 text-warning px-1 py-0.5 text-[10px] font-semibold">BACKDATED</span>}</p>
+                  <p className="text-[10px] text-muted-foreground/80">Created {format(parseISO(bill.createdAt), "dd MMM yyyy, hh:mm a")}{bill.createdBy ? ` · ${getUserNameCached(bill.createdBy)}` : ""}</p>
+                  {bill.updatedAt && <p className="text-[10px] text-muted-foreground/80">Updated {format(parseISO(bill.updatedAt), "dd MMM yyyy, hh:mm a")}{bill.updatedBy ? ` · ${getUserNameCached(bill.updatedBy)}` : ""}</p>}
+
                   </div>
                 </div>
                 <div className="text-right">
@@ -410,8 +481,26 @@ function BillsPage() {
               <button onClick={() => { setEditBill(null); setEditForm(null); }} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-4 space-y-4">
+              {/* Bill Date */}
+              <div>
+                <label className="field-label flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-primary" /> Bill Date *</label>
+                <input
+                  type="date"
+                  value={editForm.billDate}
+                  max={today}
+                  disabled={!canBackdate}
+                  onChange={(e) => setEditForm({ ...editForm, billDate: e.target.value })}
+                  className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                />
+                {editForm.billDate !== getBillRefDate(editBill) && (
+                  <p className="mt-1 text-[11px] text-warning">Audit: changing {getBillRefDate(editBill)} → {editForm.billDate}</p>
+                )}
+                {!canBackdate && <p className="mt-1 text-[11px] text-muted-foreground">Only admin/staff can change Bill Date.</p>}
+              </div>
+
               {/* Company details */}
               <div className="space-y-2">
+
                 <label className="field-label">Company Details</label>
                 <div className="grid grid-cols-2 gap-2">
                   <input value={editForm.companyName} onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })} placeholder="Company" className="rounded border border-input bg-secondary px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />

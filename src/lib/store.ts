@@ -42,7 +42,12 @@ export interface Bill {
   splitPayment?: boolean; cashAmount?: number; upiAmount?: number;
   passEnabled?: boolean; passAmount?: number;
   createdAt: string;
+  billDate: string;          // YYYY-MM-DD — business date for reporting
+  createdBy?: string | null; // auth user uuid
+  updatedBy?: string | null;
+  updatedAt?: string | null;
 }
+
 export interface Payment {
   id: string; billId: string; companyId: string; amount: number;
   date: string; notes: string; createdAt: string;
@@ -231,6 +236,10 @@ const mapBill = (r: any): Omit<Bill, "items"> => ({
   splitPayment: !!r.split_payment, cashAmount: Number(r.cash_amount) || 0, upiAmount: Number(r.upi_amount) || 0,
   passEnabled: !!r.pass_enabled, passAmount: Number(r.pass_amount) || 0,
   createdAt: r.created_at,
+  billDate: r.bill_date ?? (r.created_at ? String(r.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10)),
+  createdBy: r.created_by ?? null,
+  updatedBy: r.updated_by ?? null,
+  updatedAt: r.updated_at ?? null,
 });
 const billToDb = (b: Omit<Bill, "items">) => ({
   id: b.id, invoice_number: b.invoiceNumber || null,
@@ -241,7 +250,9 @@ const billToDb = (b: Omit<Bill, "items">) => ({
   tips_rate: b.tipsRate, tips_amount: b.tipsAmount,
   split_payment: !!b.splitPayment, cash_amount: b.cashAmount ?? 0, upi_amount: b.upiAmount ?? 0,
   pass_enabled: !!b.passEnabled, pass_amount: b.passAmount ?? 0,
+  bill_date: b.billDate || new Date().toISOString().slice(0, 10),
 });
+
 const mapBillItem = (r: any) => ({
   id: r.id, billId: r.bill_id, productId: r.product_id ?? "", productName: r.product_name,
   price: Number(r.price) || 0, quantity: Number(r.quantity) || 0, total: Number(r.total) || 0,
@@ -784,11 +795,13 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
     id: uid(),
     createdAt: now.toISOString(),
     invoiceNumber: nextInvoiceNumber(now),
+    billDate: rest.billDate || now.toISOString().slice(0, 10),
   };
   const stampedItems = items.map((item) => {
     const cat = item.productCategory ?? cache.products.find((p) => p.id === item.productId)?.productCategory ?? null;
     return { ...item, productCategory: cat, id: uid(), billId: billRow.id };
   });
+
   const paymentDate = now.toISOString().split("T")[0];
   const paymentRows: Payment[] = [];
 
@@ -1882,3 +1895,88 @@ export function getVehicleStats(vehicleNumber: string): {
 }
 
 
+
+// ============ Bill date helpers (audit + reporting) ============
+
+/** Returns YYYY-MM-DD business date for a bill (billDate or fallback to createdAt). */
+export function getBillRefDate(b: Pick<Bill, "billDate" | "createdAt">): string {
+  return b.billDate || (b.createdAt ? b.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+}
+
+/** Returns ms timestamp at local-midnight for a bill's business date. */
+export function getBillRefMs(b: Pick<Bill, "billDate" | "createdAt">): number {
+  return new Date(getBillRefDate(b) + "T00:00:00").getTime();
+}
+
+/** Stats on backdated bills (billDate < creation day). */
+export function getBackdatedBillStats(): { today: number; month: number } {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const monthKey = today.slice(0, 7);
+  let t = 0, m = 0;
+  for (const b of cache.bills) {
+    if (!b.createdAt || !b.billDate) continue;
+    const createdDay = b.createdAt.slice(0, 10);
+    if (b.billDate < createdDay) {
+      if (createdDay === today) t++;
+      if (createdDay.startsWith(monthKey)) m++;
+    }
+  }
+  return { today: t, month: m };
+}
+
+// ===== Profiles cache (created_by / updated_by display) =====
+const profileNameCache = new Map<string, string>();
+const profileFetchInflight = new Map<string, Promise<string>>();
+
+export function getUserNameCached(userId?: string | null): string {
+  if (!userId) return "—";
+  return profileNameCache.get(userId) || userId.slice(0, 8);
+}
+
+export async function fetchUserName(userId: string): Promise<string> {
+  if (!userId) return "—";
+  if (profileNameCache.has(userId)) return profileNameCache.get(userId)!;
+  if (profileFetchInflight.has(userId)) return profileFetchInflight.get(userId)!;
+  const p = (async () => {
+    try {
+      const { data } = await supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+      const name = (data?.full_name as string | undefined)?.trim() || userId.slice(0, 8);
+      profileNameCache.set(userId, name);
+      return name;
+    } catch {
+      const fallback = userId.slice(0, 8);
+      profileNameCache.set(userId, fallback);
+      return fallback;
+    } finally {
+      profileFetchInflight.delete(userId);
+    }
+  })();
+  profileFetchInflight.set(userId, p);
+  return p;
+}
+
+export async function prefetchUserNames(ids: Array<string | null | undefined>): Promise<void> {
+  const unique = Array.from(new Set(ids.filter((x): x is string => !!x && !profileNameCache.has(x))));
+  if (unique.length === 0) return;
+  try {
+    const { data } = await supabase.from("profiles").select("id,full_name").in("id", unique);
+    for (const row of data ?? []) {
+      profileNameCache.set(row.id, (row.full_name as string | undefined)?.trim() || row.id.slice(0, 8));
+    }
+  } catch { /* noop */ }
+  bump();
+}
+
+// ===== Settings: Allow Backdated Bills (admin toggle) =====
+const ALLOW_BACKDATED_KEY = "settings.allowBackdated";
+export function getAllowBackdatedBills(): boolean {
+  if (typeof window === "undefined") return true;
+  const v = window.localStorage.getItem(ALLOW_BACKDATED_KEY);
+  return v === null ? true : v === "1";
+}
+export function setAllowBackdatedBills(v: boolean): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ALLOW_BACKDATED_KEY, v ? "1" : "0");
+  bump();
+}

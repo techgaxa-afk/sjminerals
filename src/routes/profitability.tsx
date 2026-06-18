@@ -3,7 +3,7 @@ import AppLayout from "../components/AppLayout";
 import { useMemo, useState } from "react";
 import {
   getBills, getExpenses, getCompanies, getCompanyOutstanding,
-  useCloudData, type Bill, type Expense,
+  useCloudData, getBillRefMs, getBillRefDate, type Bill, type Expense,
 } from "../lib/store";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { TrendingUp, TrendingDown, AlertTriangle, Download, FileText, FileSpreadsheet, Truck, Building2, Fuel } from "lucide-react";
@@ -65,7 +65,7 @@ function ProfitabilityPage() {
     });
     return bills
       .filter((b: Bill) => {
-        const t = new Date(b.createdAt).getTime();
+        const t = getBillRefMs(b);
         return t >= startTs && t <= endTs;
       })
       .map((b: Bill) => {
@@ -81,7 +81,7 @@ function ProfitabilityPage() {
         const profit = b.totalAmount - totalCost;
         return {
           id: b.id,
-          date: b.createdAt,
+          date: getBillRefDate(b) + "T00:00:00",
           invoice: b.invoiceNumber || b.id.slice(-6).toUpperCase(),
           company: b.companyName,
           vehicle: b.vehicleNumber,
