@@ -286,6 +286,26 @@ function BillsPage() {
           <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
         </div>
 
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs">
+          <span className="font-medium text-muted-foreground">Date Type:</span>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="radio" checked={dateType === "billDate"} onChange={() => setDateType("billDate")} /> Bill Date
+          </label>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="radio" checked={dateType === "createdAt"} onChange={() => setDateType("createdAt")} /> Created Date
+          </label>
+          <span className="ml-3 font-medium text-muted-foreground">Sort:</span>
+          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="rounded border border-input bg-secondary px-2 py-1 text-xs">
+            <option value="billDate">Bill Date</option>
+            <option value="createdAt">Created On</option>
+          </select>
+          <label className="ml-auto flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" checked={backdatedOnly} onChange={(e) => setBackdatedOnly(e.target.checked)} />
+            Backdated only
+          </label>
+        </div>
+
+
         {filtered.length > 0 && (
           <div className="flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2">
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
