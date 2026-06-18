@@ -1134,9 +1134,10 @@ function ReportsPage() {
           <div className="space-y-2">
             <div className="stat-card grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground">
               <span>Name</span>
-              <span className="text-center">{reportType === "hitachi" ? "Entries" : reportType === "operator" ? "Shifts" : "Trips"}</span>
-              <span className="text-right">{reportType === "hitachi" ? "Revenue" : reportType === "operator" ? "Total HRs" : "Revenue"}</span>
-              <span className="text-right">{reportType === "hitachi" ? "Fuel (L)" : reportType === "operator" ? "Total Salary" : "Outstanding"}</span>
+              <span className="text-center">{reportType === "operator" ? "Shifts" : "Trips"}</span>
+              <span className="text-right">{reportType === "operator" ? "Total HRs" : "Revenue"}</span>
+              <span className="text-right">{reportType === "operator" ? "Total Salary" : "Outstanding"}</span>
+
             </div>
 
             {(data as any[]).map((r: any) => (
