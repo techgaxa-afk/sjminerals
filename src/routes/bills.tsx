@@ -76,6 +76,13 @@ function BillsPage() {
   const [payAmount, setPayAmount] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [auditRows, setAuditRows] = useState<BillDateAuditEntry[]>([]);
+  useEffect(() => {
+    if (!editBill) { setAuditRows([]); return; }
+    let cancelled = false;
+    fetchBillDateAudit(editBill.id).then((rows) => { if (!cancelled) setAuditRows(rows); });
+    return () => { cancelled = true; };
+  }, [editBill]);
 
   const refresh = () => setBills(sortBills(getBills()));
 
