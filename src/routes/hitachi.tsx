@@ -34,6 +34,7 @@ function HitachiPage() {
   const [startHrs, setStartHrs] = useState("");
   const [endHrs, setEndHrs] = useState("");
   const [entryOperatorId, setEntryOperatorId] = useState("");
+  const [entryShiftType, setEntryShiftType] = useState<"normal" | "single">("normal");
   const [entryShift, setEntryShift] = useState<"A" | "B">("A");
   const [entryNotes, setEntryNotes] = useState("");
 
@@ -57,7 +58,8 @@ function HitachiPage() {
   const [editOpId, setEditOpId] = useState<string | null>(null);
   const [opName, setOpName] = useState("");
   const [opPhone, setOpPhone] = useState("");
-  const [opSalaryRate, setOpSalaryRate] = useState("");
+  const [opNormalSalary, setOpNormalSalary] = useState("");
+  const [opSingleSalary, setOpSingleSalary] = useState("");
 
   const [expandedMachine, setExpandedMachine] = useState<string | null>(null);
 
@@ -65,7 +67,9 @@ function HitachiPage() {
   const selectedMachine = machines.find((m) => m.id === entryMachineId);
   const selectedOperator = operators.find((o) => o.id === entryOperatorId);
   const machineRevenue = totalHours * (selectedMachine?.hourlyRate || 0);
-  const operatorSalary = totalHours * (selectedOperator?.hourlySalaryRate || 0);
+  const operatorSalary = selectedOperator
+    ? (entryShiftType === "single" ? selectedOperator.singleShiftSalary : selectedOperator.normalShiftSalary) || 0
+    : 0;
 
   const resetEntryForm = () => { setShowEntryForm(false); setEditEntryId(null); setStartHrs(""); setEndHrs(""); setEntryNotes(""); setEntryMachineId(""); setEntryOperatorId(""); };
 
