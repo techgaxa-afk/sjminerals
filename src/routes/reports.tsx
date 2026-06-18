@@ -1044,15 +1044,21 @@ function ReportsPage() {
             {/* Summary cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Machines</p>
+                <p className="text-lg font-bold text-foreground">{hitachiSummary.machines}</p>
+                <p className="text-[10px] text-muted-foreground">Owned {hitachiSummary.ownedCount} · Rented {hitachiSummary.rentedCount}</p>
+              </div>
+              <div className="stat-card">
                 <p className="text-[10px] text-muted-foreground uppercase">Total Hours</p>
                 <p className="text-lg font-bold text-foreground">{hitachiSummary.hours.toFixed(1)}</p>
+                <p className="text-[10px] text-muted-foreground">Owned {hitachiSummary.ownedHours.toFixed(1)} · Rented {hitachiSummary.rentedHours.toFixed(1)}</p>
               </div>
               <div className="stat-card">
                 <p className="text-[10px] text-muted-foreground uppercase">Total Operating Cost</p>
                 <p className="text-lg font-bold text-destructive">₹{hitachiSummary.cost.toLocaleString()}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Cost Per Hour</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Avg Cost/Hr</p>
                 <p className="text-lg font-bold text-foreground">₹{hitachiSummary.costPerHour.toFixed(0)}</p>
               </div>
               <div className="stat-card">
@@ -1064,21 +1070,34 @@ function ReportsPage() {
                 <p className="text-sm font-bold text-foreground">₹{hitachiSummary.maintenance.toLocaleString()}</p>
               </div>
               <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Repairs Cost</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Operator Salary</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.salary.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Operator Tips</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.tips.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Rental Charges</p>
+                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.rentalCharges.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Rental Payments</p>
+                <p className="text-sm font-bold text-success">₹{hitachiSummary.rentalPayments.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Outstanding Rental</p>
+                <p className="text-sm font-bold text-warning">₹{hitachiSummary.outstanding.toLocaleString()}</p>
+              </div>
+              <div className="stat-card">
+                <p className="text-[10px] text-muted-foreground uppercase">Repairs</p>
                 <p className="text-sm font-bold text-foreground">₹{hitachiSummary.repairs.toLocaleString()}</p>
-              </div>
-              <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Rental Cost</p>
-                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.rental.toLocaleString()}</p>
-              </div>
-              <div className="stat-card">
-                <p className="text-[10px] text-muted-foreground uppercase">Owned vs Rented Cost</p>
-                <p className="text-sm font-bold text-foreground">₹{hitachiSummary.ownedCost.toLocaleString()} <span className="text-muted-foreground">/</span> ₹{hitachiSummary.rentedCost.toLocaleString()}</p>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground italic">
-              Operational Value (Hours × Internal Hourly Rate) is an internal benchmark only — not customer revenue. Quarry revenue comes from material sales, tracked under Bills.
+              Hitachi is a production cost center — figures shown are cost and efficiency only. Quarry revenue comes from material sales (Bills).
             </p>
+
 
             {/* Controls */}
             <div className="flex flex-wrap gap-2 items-center">
