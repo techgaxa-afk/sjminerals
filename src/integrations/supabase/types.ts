@@ -50,6 +50,7 @@ export type Database = {
           created_at: string
           id: string
           price: number
+          product_category: string | null
           product_id: string | null
           product_name: string
           quantity: number
@@ -62,6 +63,7 @@ export type Database = {
           created_at?: string
           id?: string
           price?: number
+          product_category?: string | null
           product_id?: string | null
           product_name: string
           quantity?: number
@@ -74,6 +76,7 @@ export type Database = {
           created_at?: string
           id?: string
           price?: number
+          product_category?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number
@@ -593,6 +596,7 @@ export type Database = {
           id: string
           name: string
           price: number
+          product_category: string | null
           tips_enabled: boolean
           tips_rate: number
           unit: string
@@ -603,6 +607,7 @@ export type Database = {
           id?: string
           name: string
           price?: number
+          product_category?: string | null
           tips_enabled?: boolean
           tips_rate?: number
           unit?: string
@@ -613,6 +618,7 @@ export type Database = {
           id?: string
           name?: string
           price?: number
+          product_category?: string | null
           tips_enabled?: boolean
           tips_rate?: number
           unit?: string

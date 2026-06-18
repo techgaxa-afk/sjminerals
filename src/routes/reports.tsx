@@ -4,17 +4,17 @@ import { useState, useMemo } from "react";
 import {
   getBills, getCompanies, getCompanyOutstanding,
   getHitachiEntries, getHitachiFuel, getOperators, getAllCompanyPayments,
-  getCompanyAging, getExpenses, getHitachiCostBreakdown,
+  getCompanyAging, getExpenses, getHitachiCostBreakdown, getProductCategorySales,
   type Expense, type ExpenseCategory, type ExpensePaymentMode, type HitachiCostRow,
 } from "../lib/store";
 import { EXPENSE_CATEGORIES } from "../lib/expense-categories";
 
-import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon, Calendar as CalendarIcon, Receipt, FileSpreadsheet, Printer } from "lucide-react";
+import { Building2, Users, Settings, Search, Wallet, FileDown, AlertTriangle, LineChart as LineChartIcon, Calendar as CalendarIcon, Receipt, FileSpreadsheet, Printer, Package } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval } from "date-fns";
 
 
-type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics" | "expenses";
+type ReportType = "company" | "vehicle" | "hitachi" | "operator" | "ledger" | "aging" | "analytics" | "expenses" | "category";
 type FilterType = "daily" | "weekly" | "monthly" | "custom";
 type Preset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth";
 
@@ -123,6 +123,53 @@ function ReportsPage() {
       total: passBills.reduce((s, b) => s + (b.passAmount || 0), 0),
     };
   }, [allBillsInRange]);
+
+  const categoryReport = useMemo(() => {
+    const sales = getProductCategorySales(start, end);
+    return {
+      BOULDERS: { quantity: sales.BOULDERS.quantity, bills: sales.BOULDERS.billIds.size },
+      "K.K": { quantity: sales["K.K"].quantity, bills: sales["K.K"].billIds.size },
+    };
+  }, [start, end]);
+
+  const exportCategoryCSV = () => {
+    const rows = [
+      ["Category", "Quantity Sold", "Number of Bills"],
+      ["BOULDERS", String(categoryReport.BOULDERS.quantity), String(categoryReport.BOULDERS.bills)],
+      ["K.K", String(categoryReport["K.K"].quantity), String(categoryReport["K.K"].bills)],
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `category-${isoDate(start)}_${isoDate(end)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportCategoryExcel = () => {
+    const rows = `
+      <tr><th>Category</th><th>Quantity Sold</th><th>Number of Bills</th></tr>
+      <tr><td>BOULDERS</td><td>${categoryReport.BOULDERS.quantity}</td><td>${categoryReport.BOULDERS.bills}</td></tr>
+      <tr><td>K.K</td><td>${categoryReport["K.K"].quantity}</td><td>${categoryReport["K.K"].bills}</td></tr>`;
+    const html = `<html><head><meta charset="utf-8"></head><body><table border="1">${rows}</table></body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `category-${isoDate(start)}_${isoDate(end)}.xls`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportCategoryPDF = () => {
+    const w = window.open("", "_blank"); if (!w) return;
+    w.document.write(`<html><head><title>Product Category Report</title>
+      <style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%;margin-top:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f3f3f3}</style>
+      </head><body>
+      <h2>Product Category Sales</h2>
+      <p>${periodLabel}</p>
+      <table><tr><th>Category</th><th>Quantity Sold</th><th>Number of Bills</th></tr>
+      <tr><td>BOULDERS</td><td>${categoryReport.BOULDERS.quantity}</td><td>${categoryReport.BOULDERS.bills}</td></tr>
+      <tr><td>K.K</td><td>${categoryReport["K.K"].quantity}</td><td>${categoryReport["K.K"].bills}</td></tr>
+      </table>
+      <script>setTimeout(()=>window.print(),300)</script>
+      </body></html>`);
+    w.document.close();
+  };
 
   const data = useMemo(() => {
     const bills = allBillsInRange;
@@ -603,6 +650,7 @@ function ReportsPage() {
     { id: "aging", label: "Aging", icon: AlertTriangle },
     { id: "analytics", label: "Analytics", icon: LineChartIcon },
     { id: "expenses", label: "Expenses", icon: Receipt },
+    { id: "category", label: "Product Category", icon: Package },
   ];
 
   return (
@@ -1142,6 +1190,32 @@ function ReportsPage() {
                 </div>
               </div>
             )}
+          </div>
+        ) : reportType === "category" ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-end gap-2">
+              <button onClick={exportCategoryCSV} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><FileDown className="h-3.5 w-3.5" /> CSV</button>
+              <button onClick={exportCategoryExcel} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><FileSpreadsheet className="h-3.5 w-3.5" /> Excel</button>
+              <button onClick={exportCategoryPDF} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"><Printer className="h-3.5 w-3.5" /> PDF</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(["BOULDERS", "K.K"] as const).map((cat) => (
+                <div key={cat} className="stat-card">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-2"><Package className="h-4 w-4 text-primary" /> {cat}</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Quantity Sold</p>
+                      <p className="text-2xl font-bold text-foreground">{categoryReport[cat].quantity.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Number of Bills</p>
+                      <p className="text-2xl font-bold text-foreground">{categoryReport[cat].bills}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">Quantity is based on billed bill_items. Uncategorized products are not included in category totals; assign categories on the Products page to back-fill historical bills.</p>
           </div>
         ) : (
 

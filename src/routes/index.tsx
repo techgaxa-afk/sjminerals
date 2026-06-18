@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
 import { useState, useMemo } from "react";
-import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses, getCashCollections, getUpiCollections, getAvailableCash, getAvailableUpi, getRecentActivity, type ActivityKind } from "../lib/store";
+import { getBills, getExpenses, getHitachiEntries, getDateRange, getCompanies, getCompanyOutstanding, getPayments, getAllCompanyPayments, getRecentPayments, getCompanyAging, useCloudData, hasLocalDataToImport, hasImportedLocal, importFromLocalStorage, getCashSales, getUpiSales, getCashExpenses, getUpiExpenses, getCashCollections, getUpiCollections, getAvailableCash, getAvailableUpi, getRecentActivity, getProductCategorySales, type ActivityKind } from "../lib/store";
 import { exportReportPDF } from "../lib/pdf";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock, Activity, RotateCcw } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, FileDown, AlertTriangle, Banknote, CreditCard, FileText, Wallet, CloudUpload, Receipt, Clock, Activity, RotateCcw, Package } from "lucide-react";
 import { format, parseISO, formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/")({
@@ -19,7 +19,7 @@ function DashboardPage() {
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const showImport = hasLocalDataToImport() && !hasImportedLocal();
-  const { start } = getDateRange(filter);
+  const { start, end } = getDateRange(filter);
 
   const handleImport = async () => {
     if (!confirm("Push existing data from this device to the cloud? This runs only once.")) return;
@@ -166,6 +166,8 @@ function DashboardPage() {
 
   const recentActivity = useMemo(() => getRecentActivity(10), []);
 
+  const categorySales = useMemo(() => getProductCategorySales(start, end), [start, end]);
+
   const handleExportReport = () => { exportReportPDF(filter, stats); };
 
   const COLORS = ["oklch(0.75 0.16 70)", "oklch(0.65 0.18 145)", "oklch(0.6 0.2 25)", "oklch(0.6 0.15 250)", "oklch(0.65 0.18 50)"];
@@ -216,6 +218,22 @@ function DashboardPage() {
           <div className="flex gap-1 rounded-md bg-secondary p-1">
             {(["daily", "weekly", "monthly"] as FilterType[]).map((f) => (
               <button key={f} onClick={() => setFilter(f)} className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{f}</button>
+            ))}
+          </div>
+        </div>
+
+
+
+        {/* Product Category Sales (quantity only) */}
+        <div className="stat-card">
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Product Category Sales · {filter === "daily" ? "Today" : filter === "weekly" ? "This Week" : "This Month"}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {(["BOULDERS", "K.K"] as const).map((cat) => (
+              <div key={cat} className="rounded-md border border-border bg-secondary/30 p-3">
+                <p className="text-xs text-muted-foreground">{cat}</p>
+                <p className="text-2xl font-bold text-foreground">{categorySales[cat].quantity.toLocaleString()} <span className="text-xs font-medium text-muted-foreground">Units</span></p>
+                <p className="text-[10px] text-muted-foreground">{categorySales[cat].billIds.size} bill{categorySales[cat].billIds.size === 1 ? "" : "s"}</p>
+              </div>
             ))}
           </div>
         </div>

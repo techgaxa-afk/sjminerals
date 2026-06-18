@@ -2,9 +2,12 @@ import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 // ============ Types (unchanged shape) ============
+export type ProductCategory = "BOULDERS" | "K.K";
+export const PRODUCT_CATEGORIES: ProductCategory[] = ["BOULDERS", "K.K"];
 export interface Product {
   id: string; name: string; price: number; unit: string;
   tipsEnabled: boolean; tipsRate: number; createdAt: string;
+  productCategory?: ProductCategory | null;
 }
 export interface Company {
   id: string; name: string; contactNumber: string;
@@ -21,6 +24,7 @@ export interface CreditAdjustment {
 export interface BillItem {
   productId: string; productName: string; price: number; quantity: number;
   total: number; tipsRate: number; tipsAmount: number;
+  productCategory?: ProductCategory | null;
 }
 export interface Bill {
   id: string; invoiceNumber: string; items: BillItem[]; totalAmount: number;
@@ -144,10 +148,12 @@ function uid(): string {
 const mapProduct = (r: any): Product => ({
   id: r.id, name: r.name, price: Number(r.price), unit: r.unit,
   tipsEnabled: !!r.tips_enabled, tipsRate: Number(r.tips_rate) || 0, createdAt: r.created_at,
+  productCategory: (r.product_category as ProductCategory) ?? null,
 });
 const productToDb = (p: Product) => ({
   id: p.id, name: p.name, price: p.price, unit: p.unit,
   tips_enabled: p.tipsEnabled, tips_rate: p.tipsRate,
+  product_category: p.productCategory ?? null,
 });
 const mapCompany = (r: any): Company => ({
   id: r.id, name: r.name, contactNumber: r.contact_number ?? "",
@@ -206,10 +212,12 @@ const mapBillItem = (r: any) => ({
   id: r.id, billId: r.bill_id, productId: r.product_id ?? "", productName: r.product_name,
   price: Number(r.price) || 0, quantity: Number(r.quantity) || 0, total: Number(r.total) || 0,
   tipsRate: Number(r.tips_rate) || 0, tipsAmount: Number(r.tips_amount) || 0,
+  productCategory: (r.product_category as ProductCategory) ?? null,
 });
 const billItemToDb = (i: BillItem & { id: string; billId: string }) => ({
   id: i.id, bill_id: i.billId, product_id: i.productId || null, product_name: i.productName,
   price: i.price, quantity: i.quantity, total: i.total, tips_rate: i.tipsRate, tips_amount: i.tipsAmount,
+  product_category: i.productCategory ?? null,
 });
 const mapPayment = (r: any): Payment => ({
   id: r.id, billId: r.bill_id, companyId: r.company_id, amount: Number(r.amount) || 0,
@@ -460,6 +468,27 @@ export function deleteProduct(id: string): void {
   bg(supabase.from("products").delete().eq("id", id));
 }
 
+// Product category sales (quantity-only). Uses the bill_item category snapshot when
+// present; otherwise falls back to the current product's category. Historical bill data
+// is never mutated — uncategorized items simply don't contribute to category totals.
+export function getProductCategorySales(start: Date, end: Date): Record<ProductCategory, { quantity: number; billIds: Set<string> }> {
+  const out: Record<ProductCategory, { quantity: number; billIds: Set<string> }> = {
+    BOULDERS: { quantity: 0, billIds: new Set() },
+    "K.K": { quantity: 0, billIds: new Set() },
+  };
+  const productCat = new Map(cache.products.map((p) => [p.id, p.productCategory ?? null] as const));
+  const billDate = new Map(cache.bills.map((b) => [b.id, new Date(b.createdAt)] as const));
+  for (const item of cache.billItems) {
+    const when = billDate.get(item.billId);
+    if (!when || when < start || when > end) continue;
+    const cat = (item as any).productCategory ?? productCat.get(item.productId) ?? null;
+    if (cat !== "BOULDERS" && cat !== "K.K") continue;
+    out[cat as ProductCategory].quantity += Number(item.quantity) || 0;
+    out[cat as ProductCategory].billIds.add(item.billId);
+  }
+  return out;
+}
+
 // ============ Companies ============
 export function getCompanies(): Company[] { return cache.companies.slice(); }
 export async function saveCompany(c: Omit<Company, "id" | "createdAt">): Promise<Company> {
@@ -655,7 +684,10 @@ export async function saveBill(b: Omit<Bill, "id" | "createdAt" | "invoiceNumber
     createdAt: now.toISOString(),
     invoiceNumber: nextInvoiceNumber(now),
   };
-  const stampedItems = items.map((item) => ({ ...item, id: uid(), billId: billRow.id }));
+  const stampedItems = items.map((item) => {
+    const cat = item.productCategory ?? cache.products.find((p) => p.id === item.productId)?.productCategory ?? null;
+    return { ...item, productCategory: cat, id: uid(), billId: billRow.id };
+  });
   const paymentDate = now.toISOString().split("T")[0];
   const paymentRows: Payment[] = [];
 
@@ -831,7 +863,10 @@ export function updateBill(id: string, updates: Partial<Bill>): void {
   cache.bills = cache.bills.map((b) => (b.id === id ? { ...b, ...rest } : b));
   if (items) {
     cache.billItems = cache.billItems.filter((i) => i.billId !== id);
-    const stamped = items.map((i) => ({ ...i, id: uid(), billId: id }));
+    const stamped = items.map((i) => {
+      const cat = i.productCategory ?? cache.products.find((p) => p.id === i.productId)?.productCategory ?? null;
+      return { ...i, productCategory: cat, id: uid(), billId: id };
+    });
     cache.billItems.push(...stamped);
     bg((async () => {
       const del = await supabase.from("bill_items").delete().eq("bill_id", id);
