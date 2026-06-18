@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppLayout from "../components/AppLayout";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   getBills, updateBill, deleteBill, savePayment, getPaymentsByBill,
   getProducts, getExpensesByBill, saveExpense, deleteExpense,
+  getBillRefDate, getUserNameCached, prefetchUserNames, getAllowBackdatedBills,
   type Bill, type BillItem,
 } from "../lib/store";
-import { Search, Banknote, CreditCard, FileDown, Truck, AlertTriangle, X, Pencil, Check, Trash2, Eye, Plus, Minus, Coins, CheckSquare } from "lucide-react";
+import { useUserRoles } from "@/hooks/use-roles";
+import { Search, Banknote, CreditCard, FileDown, Truck, AlertTriangle, X, Pencil, Check, Trash2, Eye, Plus, Minus, Coins, CheckSquare, Calendar } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { exportInvoicePDF } from "../lib/pdf";
+
 
 export const Route = createFileRoute("/bills")({
   component: BillsPage,
