@@ -68,10 +68,13 @@ export { EXPENSE_CATEGORIES, isExpenseCategory } from "./expense-categories";
 export type { ExpenseCategory } from "./expense-categories";
 import { isExpenseCategory as _isExpenseCategory, EXPENSE_CATEGORIES, type ExpenseCategory } from "./expense-categories";
 export type ExpensePaymentMode = "cash" | "upi";
+export type ExpenseAllocateTo = "general" | "hitachi";
 export interface Expense {
   id: string; category: ExpenseCategory; amount: number; date: string; notes: string;
   paymentMode: ExpensePaymentMode;
   linkedBillId?: string; linkedCompanyId?: string; linkedOperatorId?: string; linkedMachineId?: string;
+  allocateTo: ExpenseAllocateTo;
+  hitachiMachineId?: string;
   createdAt: string;
 }
 export interface JCBLog {
