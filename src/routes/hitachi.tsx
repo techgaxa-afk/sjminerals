@@ -108,7 +108,9 @@ function HitachiPage() {
   const startEditEntry = (e: HitachiEntry) => {
     setEditEntryId(e.id); setEntryMachineId(e.machineId); setEntryDate(e.date);
     setStartHrs(String(e.startingHours)); setEndHrs(String(e.endingHours));
-    setEntryOperatorId(e.operatorId); setEntryShift(e.shift); setEntryNotes(e.notes);
+    setEntryOperatorId(e.operatorId);
+    setEntryShiftType(e.shiftType || "normal");
+    setEntryShift(e.shift); setEntryNotes(e.notes);
     setShowEntryForm(true);
   };
 
