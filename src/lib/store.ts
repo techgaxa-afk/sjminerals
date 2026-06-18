@@ -24,6 +24,7 @@ export interface CreditAdjustment {
 export interface BillItem {
   productId: string; productName: string; price: number; quantity: number;
   total: number; tipsRate: number; tipsAmount: number;
+  productCategory?: ProductCategory | null;
 }
 export interface Bill {
   id: string; invoiceNumber: string; items: BillItem[]; totalAmount: number;
