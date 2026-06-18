@@ -124,6 +124,53 @@ function ReportsPage() {
     };
   }, [allBillsInRange]);
 
+  const categoryReport = useMemo(() => {
+    const sales = getProductCategorySales(start, end);
+    return {
+      BOULDERS: { quantity: sales.BOULDERS.quantity, bills: sales.BOULDERS.billIds.size },
+      "K.K": { quantity: sales["K.K"].quantity, bills: sales["K.K"].billIds.size },
+    };
+  }, [start, end]);
+
+  const exportCategoryCSV = () => {
+    const rows = [
+      ["Category", "Quantity Sold", "Number of Bills"],
+      ["BOULDERS", String(categoryReport.BOULDERS.quantity), String(categoryReport.BOULDERS.bills)],
+      ["K.K", String(categoryReport["K.K"].quantity), String(categoryReport["K.K"].bills)],
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `category-${isoDate(start)}_${isoDate(end)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportCategoryExcel = () => {
+    const rows = `
+      <tr><th>Category</th><th>Quantity Sold</th><th>Number of Bills</th></tr>
+      <tr><td>BOULDERS</td><td>${categoryReport.BOULDERS.quantity}</td><td>${categoryReport.BOULDERS.bills}</td></tr>
+      <tr><td>K.K</td><td>${categoryReport["K.K"].quantity}</td><td>${categoryReport["K.K"].bills}</td></tr>`;
+    const html = `<html><head><meta charset="utf-8"></head><body><table border="1">${rows}</table></body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `category-${isoDate(start)}_${isoDate(end)}.xls`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportCategoryPDF = () => {
+    const w = window.open("", "_blank"); if (!w) return;
+    w.document.write(`<html><head><title>Product Category Report</title>
+      <style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%;margin-top:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f3f3f3}</style>
+      </head><body>
+      <h2>Product Category Sales</h2>
+      <p>${periodLabel}</p>
+      <table><tr><th>Category</th><th>Quantity Sold</th><th>Number of Bills</th></tr>
+      <tr><td>BOULDERS</td><td>${categoryReport.BOULDERS.quantity}</td><td>${categoryReport.BOULDERS.bills}</td></tr>
+      <tr><td>K.K</td><td>${categoryReport["K.K"].quantity}</td><td>${categoryReport["K.K"].bills}</td></tr>
+      </table>
+      <script>setTimeout(()=>window.print(),300)</script>
+      </body></html>`);
+    w.document.close();
+  };
+
   const data = useMemo(() => {
     const bills = allBillsInRange;
     const companies = getCompanies();
