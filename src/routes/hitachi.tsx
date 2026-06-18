@@ -34,6 +34,7 @@ function HitachiPage() {
   const [startHrs, setStartHrs] = useState("");
   const [endHrs, setEndHrs] = useState("");
   const [entryOperatorId, setEntryOperatorId] = useState("");
+  const [entryShiftType, setEntryShiftType] = useState<"normal" | "single">("normal");
   const [entryShift, setEntryShift] = useState<"A" | "B">("A");
   const [entryNotes, setEntryNotes] = useState("");
 
@@ -57,7 +58,8 @@ function HitachiPage() {
   const [editOpId, setEditOpId] = useState<string | null>(null);
   const [opName, setOpName] = useState("");
   const [opPhone, setOpPhone] = useState("");
-  const [opSalaryRate, setOpSalaryRate] = useState("");
+  const [opNormalSalary, setOpNormalSalary] = useState("");
+  const [opSingleSalary, setOpSingleSalary] = useState("");
 
   const [expandedMachine, setExpandedMachine] = useState<string | null>(null);
 
@@ -65,7 +67,9 @@ function HitachiPage() {
   const selectedMachine = machines.find((m) => m.id === entryMachineId);
   const selectedOperator = operators.find((o) => o.id === entryOperatorId);
   const machineRevenue = totalHours * (selectedMachine?.hourlyRate || 0);
-  const operatorSalary = totalHours * (selectedOperator?.hourlySalaryRate || 0);
+  const operatorSalary = selectedOperator
+    ? (entryShiftType === "single" ? selectedOperator.singleShiftSalary : selectedOperator.normalShiftSalary) || 0
+    : 0;
 
   const resetEntryForm = () => { setShowEntryForm(false); setEditEntryId(null); setStartHrs(""); setEndHrs(""); setEntryNotes(""); setEntryMachineId(""); setEntryOperatorId(""); };
 
@@ -77,7 +81,8 @@ function HitachiPage() {
       machineId: entryMachineId, machineName: machine?.name || "", date: entryDate,
       startingHours: Number(startHrs), endingHours: Number(endHrs), totalHours,
       operatorId: entryOperatorId, operatorName: operator?.name || "",
-      shift: entryShift, machineRevenue, operatorSalary, notes: entryNotes.trim(),
+      shiftType: entryShiftType, shift: entryShiftType === "normal" ? entryShift : "A",
+      machineRevenue, operatorSalary, notes: entryNotes.trim(),
     };
     if (editEntryId) {
       updateHitachiEntry(editEntryId, data);
@@ -103,7 +108,9 @@ function HitachiPage() {
   const startEditEntry = (e: HitachiEntry) => {
     setEditEntryId(e.id); setEntryMachineId(e.machineId); setEntryDate(e.date);
     setStartHrs(String(e.startingHours)); setEndHrs(String(e.endingHours));
-    setEntryOperatorId(e.operatorId); setEntryShift(e.shift); setEntryNotes(e.notes);
+    setEntryOperatorId(e.operatorId);
+    setEntryShiftType(e.shiftType || "normal");
+    setEntryShift(e.shift); setEntryNotes(e.notes);
     setShowEntryForm(true);
   };
 
@@ -138,18 +145,30 @@ function HitachiPage() {
     setShowFuelForm(false); setFuelLiters(""); setFuelHrs("");
   };
 
-  const resetOpForm = () => { setShowOperatorForm(false); setEditOpId(null); setOpName(""); setOpPhone(""); setOpSalaryRate(""); };
+  const resetOpForm = () => { setShowOperatorForm(false); setEditOpId(null); setOpName(""); setOpPhone(""); setOpNormalSalary(""); setOpSingleSalary(""); };
 
   const handleSaveOperator = () => {
     if (!opName.trim()) return;
-    if (editOpId) updateOperator(editOpId, { name: opName.trim(), phone: opPhone.trim(), hourlySalaryRate: Number(opSalaryRate || 0) });
-    else saveOperator({ name: opName.trim(), phone: opPhone.trim(), hourlySalaryRate: Number(opSalaryRate || 0) });
+    const normalSalary = Number(opNormalSalary || 0);
+    const singleSalary = Number(opSingleSalary || 0);
+    const payload = {
+      name: opName.trim(),
+      phone: opPhone.trim(),
+      hourlySalaryRate: normalSalary, // keep legacy column in sync
+      normalShiftSalary: normalSalary,
+      singleShiftSalary: singleSalary,
+    };
+    if (editOpId) updateOperator(editOpId, payload);
+    else saveOperator(payload);
     setOperators(getOperators());
     resetOpForm();
   };
 
   const startEditOp = (o: Operator) => {
-    setEditOpId(o.id); setOpName(o.name); setOpPhone(o.phone); setOpSalaryRate(String(o.hourlySalaryRate || "")); setShowOperatorForm(true);
+    setEditOpId(o.id); setOpName(o.name); setOpPhone(o.phone);
+    setOpNormalSalary(String(o.normalShiftSalary || o.hourlySalaryRate || ""));
+    setOpSingleSalary(String(o.singleShiftSalary || ""));
+    setShowOperatorForm(true);
   };
 
   const sortedEntries = [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -211,7 +230,7 @@ function HitachiPage() {
                       <p className="font-bold text-sm text-success">₹{machineRevenue.toLocaleString()}</p>
                     </div>
                     <div className="rounded-md bg-warning/10 border border-warning/20 p-2 text-center">
-                      <p className="text-xs text-muted-foreground">Operator Salary</p>
+                      <p className="text-xs text-muted-foreground">Operator Cost ({entryShiftType === "single" ? "Single Shift" : "Normal Shift"})</p>
                       <p className="font-bold text-sm text-warning">₹{operatorSalary.toLocaleString()}</p>
                     </div>
                   </div>
@@ -220,16 +239,24 @@ function HitachiPage() {
                   <div><label className="field-label">Operator</label>
                     <select value={entryOperatorId} onChange={(e) => setEntryOperatorId(e.target.value)} className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                       <option value="">Select...</option>
-                      {operators.map((o) => <option key={o.id} value={o.id}>{o.name} (₹{o.hourlySalaryRate}/hr)</option>)}
+                      {operators.map((o) => <option key={o.id} value={o.id}>{o.name} (N:₹{o.normalShiftSalary || o.hourlySalaryRate} / S:₹{o.singleShiftSalary})</option>)}
                     </select>
                   </div>
-                  <div><label className="field-label">Shift</label>
+                  <div><label className="field-label">Shift Type</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setEntryShiftType("normal")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShiftType === "normal" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Normal Shift</button>
+                      <button onClick={() => setEntryShiftType("single")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShiftType === "single" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Single Shift</button>
+                    </div>
+                  </div>
+                </div>
+                {entryShiftType === "normal" && (
+                  <div><label className="field-label">Shift *</label>
                     <div className="flex gap-2">
                       <button onClick={() => setEntryShift("A")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShift === "A" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Shift A</button>
                       <button onClick={() => setEntryShift("B")} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${entryShift === "B" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>Shift B</button>
                     </div>
                   </div>
-                </div>
+                )}
                 <div><label className="field-label">Notes</label><input value={entryNotes} onChange={(e) => setEntryNotes(e.target.value)} placeholder="Optional" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 <div className="flex gap-2">
                   <button onClick={handleSaveEntry} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
@@ -243,7 +270,7 @@ function HitachiPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground">{e.machineName}</p>
-                    <p className="text-xs text-muted-foreground">{format(parseISO(e.date + "T00:00:00"), "dd MMM yyyy")} · Shift {e.shift} · {e.operatorName || "—"}</p>
+                    <p className="text-xs text-muted-foreground">{format(parseISO(e.date + "T00:00:00"), "dd MMM yyyy")} · {e.operatorName || "—"} · {e.shiftType === "single" ? "Single Shift" : `Normal Shift - Shift ${e.shift}`}</p>
                     <p className="text-xs text-muted-foreground">{e.startingHours} → {e.endingHours} HRs</p>
                     {e.machineRevenue > 0 && <p className="text-xs text-success">Revenue: ₹{e.machineRevenue.toLocaleString()}</p>}
                     {e.operatorSalary > 0 && <p className="text-xs text-warning">Salary: ₹{e.operatorSalary.toLocaleString()}</p>}
@@ -362,7 +389,10 @@ function HitachiPage() {
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editOpId ? "Edit" : "New"} Operator</h3><button onClick={resetOpForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
                 <input value={opName} onChange={(e) => setOpName(e.target.value)} placeholder="Operator Name *" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 <input value={opPhone} onChange={(e) => setOpPhone(e.target.value)} placeholder="Phone" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                <input type="number" value={opSalaryRate} onChange={(e) => setOpSalaryRate(e.target.value)} placeholder="Hourly Salary Rate (₹)" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="field-label">Normal Shift Salary (₹)</label><input type="number" value={opNormalSalary} onChange={(e) => setOpNormalSalary(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  <div><label className="field-label">Single Shift Salary (₹)</label><input type="number" value={opSingleSalary} onChange={(e) => setOpSingleSalary(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                </div>
                 <button onClick={handleSaveOperator} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
               </div>
             )}
@@ -374,7 +404,7 @@ function HitachiPage() {
                 <div key={o.id} className="stat-card flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground">{o.name}</p>
-                    <p className="text-xs text-muted-foreground">{o.phone || "No phone"} · ₹{o.hourlySalaryRate}/hr · {shifts.length} shifts</p>
+                    <p className="text-xs text-muted-foreground">{o.phone || "No phone"} · Normal ₹{o.normalShiftSalary || o.hourlySalaryRate} / Single ₹{o.singleShiftSalary} · {shifts.length} shifts</p>
                     {totalSalary > 0 && <p className="text-xs text-warning">Total Salary: ₹{totalSalary.toLocaleString()}</p>}
                   </div>
                   <div className="flex gap-1">

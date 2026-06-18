@@ -398,6 +398,7 @@ export type Database = {
           operator_name: string
           operator_salary: number
           shift: string
+          shift_type: string
           starting_hours: number
           total_hours: number
         }
@@ -414,6 +415,7 @@ export type Database = {
           operator_name?: string
           operator_salary?: number
           shift?: string
+          shift_type?: string
           starting_hours?: number
           total_hours?: number
         }
@@ -430,6 +432,7 @@ export type Database = {
           operator_name?: string
           operator_salary?: number
           shift?: string
+          shift_type?: string
           starting_hours?: number
           total_hours?: number
         }
@@ -524,7 +527,9 @@ export type Database = {
           hourly_salary_rate: number
           id: string
           name: string
+          normal_shift_salary: number
           phone: string
+          single_shift_salary: number
           updated_at: string
         }
         Insert: {
@@ -532,7 +537,9 @@ export type Database = {
           hourly_salary_rate?: number
           id?: string
           name: string
+          normal_shift_salary?: number
           phone?: string
+          single_shift_salary?: number
           updated_at?: string
         }
         Update: {
@@ -540,7 +547,9 @@ export type Database = {
           hourly_salary_rate?: number
           id?: string
           name?: string
+          normal_shift_salary?: number
           phone?: string
+          single_shift_salary?: number
           updated_at?: string
         }
         Relationships: []
