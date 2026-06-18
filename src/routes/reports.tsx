@@ -1103,17 +1103,19 @@ function ReportsPage() {
               </div>
             </div>
 
-            {/* Profitability Ranking */}
+            {/* Rankings */}
             <div className="stat-card">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Profitability Ranking</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Machine Rankings</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
                 {[
-                  ["Highest Profit", hitachiSummary.highestProfit, (r: HitachiCostRow) => `₹${r.profit.toLocaleString()}`],
-                  ["Lowest Profit", hitachiSummary.lowestProfit, (r: HitachiCostRow) => `₹${r.profit.toLocaleString()}`],
-                  ["Highest Revenue", hitachiSummary.highestRevenue, (r: HitachiCostRow) => `₹${r.revenue.toLocaleString()}`],
-                  ["Highest Cost", hitachiSummary.highestCost, (r: HitachiCostRow) => `₹${r.total.toLocaleString()}`],
-                  ["Best Profit/Hr", hitachiSummary.bestPph, (r: HitachiCostRow) => `₹${(r.profitPerHour ?? 0).toFixed(0)}/hr`],
-                  ["Worst Profit/Hr", hitachiSummary.worstPph, (r: HitachiCostRow) => `₹${(r.profitPerHour ?? 0).toFixed(0)}/hr`],
+                  ["Highest Fuel Cost", hitachiSummary.highestFuel, (r: HitachiCostRow) => `₹${r.fuel.toLocaleString()}`],
+                  ["Highest Maintenance", hitachiSummary.highestMaint, (r: HitachiCostRow) => `₹${r.maintenance.toLocaleString()}`],
+                  ["Highest Repairs", hitachiSummary.highestRepairs, (r: HitachiCostRow) => `₹${r.repairs.toLocaleString()}`],
+                  ["Highest Cost/Hr", hitachiSummary.highestCph, (r: HitachiCostRow) => `₹${(r.costPerHour ?? 0).toFixed(0)}/hr`],
+                  ["Lowest Cost/Hr", hitachiSummary.lowestCph, (r: HitachiCostRow) => `₹${(r.costPerHour ?? 0).toFixed(0)}/hr`],
+                  ["Most Used", hitachiSummary.mostUsed, (r: HitachiCostRow) => `${r.hours.toFixed(1)} hrs`],
+                  ["Least Used", hitachiSummary.leastUsed, (r: HitachiCostRow) => `${r.hours.toFixed(1)} hrs`],
+                  ["Highest Total Cost", hitachiSummary.highestCost, (r: HitachiCostRow) => `₹${r.total.toLocaleString()}`],
                 ].map(([label, row, fmt]) => {
                   const r = row as HitachiCostRow | null;
                   const f = fmt as (r: HitachiCostRow) => string;
