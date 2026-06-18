@@ -270,7 +270,7 @@ function HitachiPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground">{e.machineName}</p>
-                    <p className="text-xs text-muted-foreground">{format(parseISO(e.date + "T00:00:00"), "dd MMM yyyy")} · Shift {e.shift} · {e.operatorName || "—"}</p>
+                    <p className="text-xs text-muted-foreground">{format(parseISO(e.date + "T00:00:00"), "dd MMM yyyy")} · {e.operatorName || "—"} · {e.shiftType === "single" ? "Single Shift" : `Normal Shift - Shift ${e.shift}`}</p>
                     <p className="text-xs text-muted-foreground">{e.startingHours} → {e.endingHours} HRs</p>
                     {e.machineRevenue > 0 && <p className="text-xs text-success">Revenue: ₹{e.machineRevenue.toLocaleString()}</p>}
                     {e.operatorSalary > 0 && <p className="text-xs text-warning">Salary: ₹{e.operatorSalary.toLocaleString()}</p>}
