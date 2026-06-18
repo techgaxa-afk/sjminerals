@@ -45,9 +45,26 @@ const DEFAULT_PASS_AMOUNT = 1600;
 
 function BillsPage() {
   const products = getProducts();
-  const [bills, setBills] = useState(() => getBills().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+  const { isAdmin, isStaff } = useUserRoles();
+  const canBackdate = (isAdmin || isStaff) && getAllowBackdatedBills();
+  const today = new Date().toISOString().slice(0, 10);
+
+  type SortKey = "billDate" | "createdAt";
+  type DateType = "billDate" | "createdAt";
+  const [sortKey, setSortKey] = useState<SortKey>("billDate");
+  const [dateType, setDateType] = useState<DateType>("billDate");
+
+  const sortBills = (rows: Bill[]) =>
+    [...rows].sort((a, b) => {
+      const av = sortKey === "billDate" ? new Date(getBillRefDate(a)).getTime() : new Date(a.createdAt).getTime();
+      const bv = sortKey === "billDate" ? new Date(getBillRefDate(b)).getTime() : new Date(b.createdAt).getTime();
+      return bv - av;
+    });
+
+  const [bills, setBills] = useState<Bill[]>(() => sortBills(getBills()));
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [backdatedOnly, setBackdatedOnly] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
   const [editBill, setEditBill] = useState<Bill | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
@@ -57,7 +74,21 @@ function BillsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
 
-  const refresh = () => setBills(getBills().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+  const refresh = () => setBills(sortBills(getBills()));
+
+  useEffect(() => { setBills((rows) => sortBills(rows)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [sortKey]);
+
+  useEffect(() => {
+    const ids = Array.from(new Set(bills.map((b) => b.createdBy).filter(Boolean) as string[]));
+    if (ids.length > 0) prefetchUserNames(ids);
+  }, [bills]);
+
+  // Pre-applied filter from dashboard link (?backdated=1)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("backdated") === "1") setBackdatedOnly(true);
+  }, []);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -76,8 +107,12 @@ function BillsPage() {
       b.id.includes(search) ||
       (b.vehicleNumber || "").toLowerCase().includes(q) ||
       (b.driverName || "").toLowerCase().includes(q);
-    const matchDate = !dateFilter || b.createdAt.startsWith(dateFilter);
-    return matchSearch && matchDate;
+    const matchDate = !dateFilter || (dateType === "billDate"
+      ? getBillRefDate(b).startsWith(dateFilter)
+      : b.createdAt.startsWith(dateFilter));
+    const matchBack = !backdatedOnly || (b.billDate && b.createdAt && b.billDate < b.createdAt.slice(0, 10));
+    return matchSearch && matchDate && matchBack;
+
   }), [bills, search, dateFilter]);
 
   const handlePayment = (billId: string, companyId?: string) => {
