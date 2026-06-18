@@ -212,10 +212,12 @@ const mapBillItem = (r: any) => ({
   id: r.id, billId: r.bill_id, productId: r.product_id ?? "", productName: r.product_name,
   price: Number(r.price) || 0, quantity: Number(r.quantity) || 0, total: Number(r.total) || 0,
   tipsRate: Number(r.tips_rate) || 0, tipsAmount: Number(r.tips_amount) || 0,
+  productCategory: (r.product_category as ProductCategory) ?? null,
 });
 const billItemToDb = (i: BillItem & { id: string; billId: string }) => ({
   id: i.id, bill_id: i.billId, product_id: i.productId || null, product_name: i.productName,
   price: i.price, quantity: i.quantity, total: i.total, tips_rate: i.tipsRate, tips_amount: i.tipsAmount,
+  product_category: i.productCategory ?? null,
 });
 const mapPayment = (r: any): Payment => ({
   id: r.id, billId: r.bill_id, companyId: r.company_id, amount: Number(r.amount) || 0,
