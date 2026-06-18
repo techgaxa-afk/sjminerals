@@ -181,6 +181,10 @@ function BillsPage() {
 
   const saveEdit = () => {
     if (!editBill || !editForm) return;
+    if (editForm.billDate > today) { alert("Bill Date cannot be in the future"); return; }
+    if (!canBackdate && editForm.billDate !== getBillRefDate(editBill)) {
+      alert("You are not allowed to change Bill Date"); return;
+    }
     const mode: "cash" | "upi" | "credit" | "split" = editForm.splitEnabled ? "split" : editForm.paymentMode;
     const paid = editPaid;
     const outstanding = Math.max(0, editGrandTotal - paid);
@@ -204,6 +208,7 @@ function BillsPage() {
       upiAmount: upiAmt,
       passEnabled: editForm.passEnabled,
       passAmount: editPassAmount,
+      billDate: editForm.billDate,
     });
 
     // Replace tips expense
@@ -211,7 +216,7 @@ function BillsPage() {
     if (editTipsAmount > 0) {
       saveExpense({
         category: "tips", amount: editTipsAmount,
-        date: new Date().toISOString().split("T")[0],
+        date: editForm.billDate,
         notes: `Tips ₹${editForm.tipsRate}/unit × ${editTipsBase} — ${editForm.companyName || editForm.vehicleNumber || "Walk-in"} — Bill #${editBill.id}`,
         paymentMode: "cash",
         linkedBillId: editBill.id, linkedCompanyId: editBill.companyId,
@@ -220,6 +225,7 @@ function BillsPage() {
 
     setEditBill(null); setEditForm(null); refresh();
   };
+
 
   const confirmDelete = () => {
     if (!deleteId) return;
