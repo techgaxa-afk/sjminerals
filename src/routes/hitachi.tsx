@@ -389,7 +389,10 @@ function HitachiPage() {
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">{editOpId ? "Edit" : "New"} Operator</h3><button onClick={resetOpForm} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button></div>
                 <input value={opName} onChange={(e) => setOpName(e.target.value)} placeholder="Operator Name *" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 <input value={opPhone} onChange={(e) => setOpPhone(e.target.value)} placeholder="Phone" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                <input type="number" value={opSalaryRate} onChange={(e) => setOpSalaryRate(e.target.value)} placeholder="Hourly Salary Rate (₹)" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="field-label">Normal Shift Salary (₹)</label><input type="number" value={opNormalSalary} onChange={(e) => setOpNormalSalary(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  <div><label className="field-label">Single Shift Salary (₹)</label><input type="number" value={opSingleSalary} onChange={(e) => setOpSingleSalary(e.target.value)} placeholder="0" className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                </div>
                 <button onClick={handleSaveOperator} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Save</button>
               </div>
             )}
