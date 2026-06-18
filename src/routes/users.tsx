@@ -208,6 +208,10 @@ function UsersInner() {
         <Stat label="Today's Logins" value={stats.todayLogins} tone="blue" />
       </div>
 
+      <AdminSettings />
+
+
+
       <div className="flex items-center gap-1 border-b border-border">
         {(["all", "active", "pending", "disabled"] as const).map((t) => (
           <button
