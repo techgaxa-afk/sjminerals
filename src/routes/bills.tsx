@@ -330,7 +330,10 @@ function BillsPage() {
                   <p className="font-medium text-foreground truncate">{bill.companyName || "Walk-in"}</p>
                   {bill.vehicleNumber && <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> {bill.vehicleNumber} {bill.vehicleCapacity > 0 && `(${bill.vehicleCapacity}t)`}</p>}
                   {bill.driverName && <p className="text-xs text-muted-foreground">Driver: {bill.driverName}</p>}
-                  <p className="text-xs text-muted-foreground">{format(parseISO(bill.createdAt), "dd MMM yyyy, hh:mm a")}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> Bill: {format(parseISO(getBillRefDate(bill) + "T00:00:00"), "dd MMM yyyy")}{bill.billDate && bill.createdAt && bill.billDate < bill.createdAt.slice(0,10) && <span className="ml-1 rounded bg-warning/15 text-warning px-1 py-0.5 text-[10px] font-semibold">BACKDATED</span>}</p>
+                  <p className="text-[10px] text-muted-foreground/80">Created {format(parseISO(bill.createdAt), "dd MMM yyyy, hh:mm a")}{bill.createdBy ? ` · ${getUserNameCached(bill.createdBy)}` : ""}</p>
+                  {bill.updatedAt && <p className="text-[10px] text-muted-foreground/80">Updated {format(parseISO(bill.updatedAt), "dd MMM yyyy, hh:mm a")}{bill.updatedBy ? ` · ${getUserNameCached(bill.updatedBy)}` : ""}</p>}
+
                   </div>
                 </div>
                 <div className="text-right">
