@@ -479,6 +479,7 @@ function setupRealtime() {
     { table: "credit_adjustments", map: mapCreditAdjustment, key: "credit_adjustments" },
     { table: "vehicle_maintenance", map: mapVehicleMaintenance, key: "vehicle_maintenance" },
     { table: "vehicle_documents", map: mapVehicleDocument, key: "vehicle_documents" },
+    { table: "hitachi_rental_payments", map: mapRentalPayment, key: "hitachi_rental_payments" },
   ];
   for (const t of tables) {
     supabase.channel(`rt-${t.table}`).on(
